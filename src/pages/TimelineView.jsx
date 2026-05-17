@@ -1,0 +1,1178 @@
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { addDays, differenceInCalendarDays, format, getISOWeek, isSameDay, isWeekend, nextMonday, parseISO } from 'date-fns';
+import {
+  CalendarClock,
+  ChevronDown,
+  ChevronRight,
+  Clock3,
+  Columns3,
+  Copy,
+  FileText,
+  Filter,
+  GripVertical,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import LabelSelect from '../components/LabelSelect.jsx';
+import Pill from '../components/Pill.jsx';
+import { usePlanner } from '../context/PlannerContext.jsx';
+import { buildTimelineDays, daysBetween, isToday, iso, monthSegments } from '../lib/dates.js';
+import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
+
+const DAY_WIDTH = { day: 128, week: 72, month: 52 };
+const ROW_HEIGHT = 52;
+const COLUMN_STORAGE_KEY = 'post-production-planner:timeline-columns';
+const COLUMN_VISIBILITY_KEY = 'post-production-planner:timeline-column-visibility';
+const DEFAULT_COLUMNS = {
+  select: 34,
+  duplicate: 34,
+  handle: 34,
+  who: 170,
+  asset: 250,
+  what: 150,
+  todo: 160,
+  focus: 34,
+  actions: 44,
+};
+const OPTIONAL_COLUMNS = ['who', 'asset', 'what', 'todo'];
+const COLUMN_LABELS = { who: 'Who', asset: 'Asset', what: 'What', todo: 'Todo' };
+const HEADER_HEIGHT = 82;
+const CELL_CLIPBOARD_TYPE = 'application/x-postplanner-cell';
+
+function readJson(key, fallback) {
+  try {
+    return { ...fallback, ...JSON.parse(localStorage.getItem(key) ?? '{}') };
+  } catch {
+    return fallback;
+  }
+}
+
+function visibleColumnKeys(visibility, optionsVisible = true) {
+  const utilityColumns = optionsVisible ? ['focus', 'actions', 'select'] : [];
+  return ['duplicate', 'handle', ...OPTIONAL_COLUMNS.filter((key) => visibility[key]), ...utilityColumns];
+}
+
+function sumColumns(columns, visibility, optionsVisible) {
+  return visibleColumnKeys(visibility, optionsVisible).reduce((total, key) => total + columns[key], 0);
+}
+
+function tableTemplate(columns, visibility, optionsVisible) {
+  return visibleColumnKeys(visibility, optionsVisible).map((key) => `${columns[key]}px`).join(' ');
+}
+
+function timelineGridTemplate(tableVisible, leftWidth, timelineWidth) {
+  return tableVisible ? `${leftWidth}px ${timelineWidth}px` : `${timelineWidth}px`;
+}
+
+function timelineColumnStyle(tableVisible) {
+  return { gridColumn: tableVisible ? 2 : 1 };
+}
+
+function nextWorkingDay(date) {
+  if (!isWeekend(date)) return date;
+  return nextMonday(date);
+}
+
+function shiftIsoDate(value, days) {
+  if (!value) return value;
+  return iso(nextWorkingDay(addDays(parseISO(value), days)));
+}
+
+function weekSegments(days) {
+  const segments = [];
+  days.forEach((day) => {
+    const key = `${format(day, 'RRRR')}-${getISOWeek(day)}`;
+    const last = segments.at(-1);
+    if (last?.key === key) {
+      last.span += 1;
+      return;
+    }
+    segments.push({ key, label: `W${getISOWeek(day)}`, span: 1 });
+  });
+  return segments;
+}
+
+function monthAtScroll(days, scrollLeft, dayWidth) {
+  const dayIndex = Math.max(0, Math.floor(Math.max(0, scrollLeft) / dayWidth));
+  return format(days[Math.min(dayIndex, days.length - 1)] ?? new Date(), 'MMMM yyyy');
+}
+
+function hasBlock(item) {
+  return Boolean(item.start_date && item.end_date);
+}
+
+function TimelinePill({ label, subtle = false }) {
+  if (!label) return null;
+  return (
+    <span className="timeline-pill" style={{ backgroundColor: subtle ? `${label.color}cc` : label.color }} title={label.value}>
+      {label.value}
+    </span>
+  );
+}
+
+function HeaderCell({ children, columnKey, onResizeStart }) {
+  return (
+    <span className="group relative flex items-center px-3 py-3">
+      {children}
+      <button type="button" onPointerDown={(event) => onResizeStart(event, columnKey)} className="column-resizer" aria-label={`Resize ${children} column`} />
+    </span>
+  );
+}
+
+function ToolbarMenu({ icon, label, children }) {
+  const [open, setOpen] = useState(false);
+  const MenuIcon = icon;
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((next) => !next)} className="secondary-button">
+        <MenuIcon size={16} /> {label}
+      </button>
+      {open && (
+        <div className="absolute right-0 z-[500] mt-2 w-64 rounded-lg border border-white/10 bg-ink-850 p-2 text-sm text-ink-100 shadow-glow">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function labelText(labelsById, value) {
+  return labelsById[value]?.value ?? '';
+}
+
+function whoText(labelsById, value = []) {
+  return value.map((id) => labelsById[id]?.value).filter(Boolean).join(', ');
+}
+
+function cellText(item, column, labelsById) {
+  if (column === 'asset') return item.asset ?? '';
+  if (column === 'who') return whoText(labelsById, item.who);
+  return labelText(labelsById, item[column]);
+}
+
+function findLabelId(labels, value) {
+  const normalized = value.trim().toLowerCase();
+  return labels.find((label) => label.value.toLowerCase() === normalized)?.id;
+}
+
+function normalizeTimeInput(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+  if (!digits) return '';
+  const hours = digits.slice(0, 2);
+  const minutes = digits.slice(2, 4);
+  const normalizedHours = hours.length === 2 ? String(Math.min(23, Number(hours))).padStart(2, '0') : hours;
+  const normalizedMinutes = minutes.length === 2 ? String(Math.min(59, Number(minutes))).padStart(2, '0') : minutes;
+  return minutes ? `${normalizedHours}:${normalizedMinutes}` : normalizedHours;
+}
+
+function SortableLine({
+  item,
+  labelsById,
+  labelsByType,
+  projectId,
+  dayWidth,
+  timelineStart,
+  timelineWidth,
+  leftWidth,
+  tableVisible,
+  columns,
+  columnVisibility,
+  optionsVisible,
+  onResizeStart,
+  selected,
+  selectedIds,
+  onSelect,
+  duplicated,
+  onDuplicate,
+  onFocusBlock,
+  onInteract,
+  dragPreview,
+  dropTarget,
+  onOpenDetails,
+  selectedCells,
+  onCellSelect,
+  fillCells,
+  onFillStart,
+  onSpreadsheetUpdate,
+}) {
+  const { updateLineItem, deleteLineItem, addLabel } = usePlanner();
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
+  const block = hasBlock(item);
+  const startOffset = block ? Math.max(0, differenceInCalendarDays(parseISO(item.start_date), timelineStart)) : 0;
+  const duration = block ? Math.max(1, daysBetween(item.start_date, item.end_date) + 1) : 1;
+  const whoLabels = item.who?.map((id) => labelsById[id]).filter(Boolean) ?? [];
+  const dragOffset = dragPreview?.ids.includes(item.id) ? dragPreview.offsetPx : 0;
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    height: tableVisible ? ROW_HEIGHT : 64,
+    gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth),
+  };
+
+  const scheduleOnClick = (event) => {
+    if (block) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const dayIndex = Math.max(0, Math.floor((event.clientX - rect.left) / dayWidth));
+    const date = iso(addDays(timelineStart, dayIndex));
+    updateLineItem(item.id, { start_date: date, end_date: date });
+  };
+
+  const copyCell = (event, column) => {
+    const text = cellText(item, column, labelsById);
+    event.preventDefault();
+    event.clipboardData.setData(CELL_CLIPBOARD_TYPE, JSON.stringify({ column, value: item[column], text }));
+    event.clipboardData.setData('text/plain', text);
+  };
+
+  const pasteCell = (event, column) => {
+    const rawPayload = event.clipboardData.getData(CELL_CLIPBOARD_TYPE);
+    const text = event.clipboardData.getData('text/plain');
+    let payload = null;
+    try {
+      payload = rawPayload ? JSON.parse(rawPayload) : null;
+    } catch {
+      payload = null;
+    }
+
+    let nextValue;
+    if (payload?.column === column) {
+      nextValue = payload.value;
+    } else if (column === 'asset') {
+      nextValue = payload?.text ?? text;
+    } else if (column === 'who') {
+      nextValue = (payload?.text ?? text)
+        .split(',')
+        .map((part) => findLabelId(labelsByType.who, part))
+        .filter(Boolean);
+    } else {
+      nextValue = findLabelId(labelsByType[column], payload?.text ?? text);
+    }
+
+    if ((column === 'who' && Array.isArray(nextValue)) || (column !== 'who' && nextValue !== undefined)) {
+      event.preventDefault();
+      const selectedColumnCells = selectedCells.filter((cell) => cell.column === column);
+      const targetIds = selectedColumnCells.length
+        ? selectedColumnCells.map((cell) => cell.itemId)
+        : selectedIds.includes(item.id) && selectedIds.length > 1 ? selectedIds : [item.id];
+      onSpreadsheetUpdate(targetIds, column, nextValue);
+    }
+  };
+
+  const cellProps = (column) => ({
+    className: `cell copy-cell ${(selectedCells.some((cell) => cell.itemId === item.id && cell.column === column) || fillCells.some((cell) => cell.itemId === item.id && cell.column === column)) ? 'copy-cell-selected' : ''}`,
+    tabIndex: 0,
+    'data-fill-cell': 'true',
+    'data-cell-id': item.id,
+    'data-cell-column': column,
+    onClick: (event) => {
+      event.stopPropagation();
+      onCellSelect(item.id, column, event);
+    },
+    onCopy: (event) => copyCell(event, column),
+    onPaste: (event) => pasteCell(event, column),
+    title: `${COLUMN_LABELS[column]} cell. Use standard copy and paste shortcuts.`,
+  });
+
+  const fillHandle = (column) => (
+    <button
+      type="button"
+      className="fill-handle"
+      onPointerDown={(event) => onFillStart(event, item.id, column)}
+      aria-label={`Fill ${COLUMN_LABELS[column]} down`}
+      title={`Drag to fill ${COLUMN_LABELS[column]} down`}
+    >
+      +
+    </button>
+  );
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-line-id={item.id}
+      style={style}
+      className={`timeline-line ${duplicated ? 'timeline-line-new' : ''} ${dropTarget?.id === item.id ? `timeline-line-drop-${dropTarget.placement}` : ''}`}
+    >
+      {tableVisible && (
+        <div className={`timeline-table-panel sticky left-0 z-20 grid h-full items-center border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-950 ${duplicated ? 'timeline-table-row-new' : ''}`} style={{ width: leftWidth, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
+          <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
+          <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
+          {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); updateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} />{fillHandle('who')}</div>}
+          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); updateLineItem(item.id, { asset: event.target.value }); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
+          {columnVisibility.what && <div {...cellProps('what')}><LabelSelect labels={labelsByType.what} value={item.what} placeholder="What" onChange={(what) => { onInteract(item.id); updateLineItem(item.id, { what }); }} onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)} />{fillHandle('what')}</div>}
+          {columnVisibility.todo && <div {...cellProps('todo')}><LabelSelect labels={labelsByType.todo} value={item.todo} placeholder="Todo" onChange={(todo) => { onInteract(item.id); updateLineItem(item.id, { todo }); }} onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)} />{fillHandle('todo')}</div>}
+          {optionsVisible && (
+            <>
+              <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button mx-auto" aria-label="Focus booking on timeline">F</button>
+              <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
+              <label className="grid place-items-center"><input type="checkbox" checked={selected} onChange={(event) => onSelect(item.id, event.target.checked)} aria-label="Select row" /></label>
+            </>
+          )}
+        </div>
+      )}
+      <div className="relative h-full" style={timelineColumnStyle(tableVisible)} onClick={scheduleOnClick}>
+        {block ? (
+          <div
+            className="timeline-bar"
+            style={{ left: startOffset * dayWidth + 4, width: Math.max(34, duration * dayWidth - 8), transform: dragOffset ? `translateX(${dragOffset}px)` : undefined }}
+            onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
+            onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}
+          >
+            {(whoLabels.length > 0 || item.notes || item.time) && (
+              <div className="timeline-who-badges" aria-hidden="true">
+                {whoLabels.map((label) => (
+                  <span key={label.id} className="timeline-who-badge" style={{ backgroundColor: label.color }} />
+                ))}
+                {item.notes && <span className="timeline-meta-badge"><FileText size={8} /></span>}
+                {item.time && <span className="timeline-meta-badge"><Clock3 size={8} /></span>}
+              </div>
+            )}
+            <button className="resize-grip left-0" onPointerDown={(event) => onResizeStart(event, item, 'start')} aria-label="Resize start" />
+            <div className="timeline-labels">
+              <TimelinePill label={labelsById[item.what]} />
+              <TimelinePill label={labelsById[item.todo]} subtle />
+            </div>
+            {!tableVisible && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
+            <button className="resize-grip right-0" onPointerDown={(event) => onResizeStart(event, item, 'end')} aria-label="Resize end" />
+          </div>
+        ) : (
+          <div className="timeline-empty-hint">Click a date to add block</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CategoryBlock({
+  category,
+  rows,
+  projectId,
+  labelsById,
+  labelsByType,
+  timelineWidth,
+  dayWidth,
+  timelineStart,
+  leftWidth,
+  tableVisible,
+  columns,
+  columnVisibility,
+  optionsVisible,
+  onResizeStart,
+  onAddLineItem,
+  selectedIds,
+  onSelect,
+  duplicatedIds,
+  onDuplicate,
+  onFocusBlock,
+  onInteract,
+  dragPreview,
+  dropTarget,
+  onOpenDetails,
+  selectedCells,
+  onCellSelect,
+  fillCells,
+  onFillStart,
+  onSpreadsheetUpdate,
+  onRenameUncategorized,
+}) {
+  const { updateCategory, deleteCategory } = usePlanner();
+  const sortableId = `category:${category.id}`;
+  const sortableEnabled = category.id !== 'uncategorized';
+  const { attributes: categoryAttributes, listeners: categoryListeners, setNodeRef: setCategoryNodeRef, transform: categoryTransform, transition: categoryTransition } = useSortable({
+    id: sortableId,
+    disabled: !sortableEnabled,
+  });
+  const [confirming, setConfirming] = useState(false);
+  const [draftName, setDraftName] = useState(category.name);
+  const isUncategorized = category.id === 'uncategorized';
+  const editable = Boolean(category.id);
+
+  useEffect(() => {
+    setDraftName(category.name);
+  }, [category.name]);
+
+  const commitName = () => {
+    const nextName = draftName.trim() || category.name;
+    setDraftName(nextName);
+    if (!editable || nextName === category.name) return;
+    if (isUncategorized) {
+      onRenameUncategorized?.(nextName);
+    } else {
+      updateCategory(category.id, { name: nextName });
+    }
+  };
+
+  const categoryNameInput = (className = '') => (
+    <input
+      value={draftName}
+      onChange={(event) => editable && setDraftName(event.target.value)}
+      onBlur={commitName}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Escape') {
+          setDraftName(category.name);
+          event.currentTarget.blur();
+        }
+      }}
+      className={`category-input timeline-category-name ${className}`}
+      readOnly={!editable}
+      aria-label="Category name"
+      title={editable ? 'Edit category name' : category.name}
+    />
+  );
+
+  return (
+    <section
+      ref={setCategoryNodeRef}
+      style={{
+        transform: CSS.Transform.toString(categoryTransform),
+        transition: categoryTransition,
+      }}
+    >
+      <div className="timeline-category" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
+        {tableVisible && (
+          <div className="timeline-table-panel sticky left-0 z-30 grid grid-cols-[34px_28px_1fr_44px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
+            <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button mx-auto" disabled={isUncategorized}>
+              {category.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+            </button>
+            <button type="button" className="category-drag-handle" disabled={!sortableEnabled} aria-label="Drag category" {...categoryAttributes} {...categoryListeners}>
+              <GripVertical size={15} />
+            </button>
+            {categoryNameInput()}
+            {!isUncategorized && (confirming ? (
+              <button type="button" onClick={() => deleteCategory(category.id)} className="text-xs font-semibold text-red-300">Confirm</button>
+            ) : (
+              <button type="button" onClick={() => setConfirming(true)} className="icon-button mx-auto" aria-label="Delete category"><Trash2 size={15} /></button>
+            ))}
+          </div>
+        )}
+        <div className="timeline-category-band" style={timelineColumnStyle(tableVisible)}>
+          {!tableVisible && (
+            <div className="flex h-full items-center gap-2 px-3">
+              <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button" disabled={isUncategorized}>
+                {category.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+              </button>
+              <button type="button" className="category-drag-handle" disabled={!sortableEnabled} aria-label="Drag category" {...categoryAttributes} {...categoryListeners}>
+                <GripVertical size={15} />
+              </button>
+              {categoryNameInput('max-w-sm')}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!category.collapsed && (
+        <>
+          <SortableContext items={rows.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+            {rows.map((item) => (
+              <SortableLine
+                key={item.id}
+                item={item}
+                labelsById={labelsById}
+                labelsByType={labelsByType}
+                projectId={projectId}
+                dayWidth={dayWidth}
+                timelineStart={timelineStart}
+                timelineWidth={timelineWidth}
+                leftWidth={leftWidth}
+                tableVisible={tableVisible}
+                columns={columns}
+                columnVisibility={columnVisibility}
+                optionsVisible={optionsVisible}
+                onResizeStart={onResizeStart}
+                selected={selectedIds.includes(item.id)}
+                selectedIds={selectedIds}
+                onSelect={onSelect}
+                duplicated={duplicatedIds.includes(item.id)}
+                onDuplicate={onDuplicate}
+                onFocusBlock={onFocusBlock}
+                onInteract={onInteract}
+                dragPreview={dragPreview}
+                dropTarget={dropTarget}
+                onOpenDetails={onOpenDetails}
+                selectedCells={selectedCells}
+                onCellSelect={onCellSelect}
+                fillCells={fillCells}
+                onFillStart={onFillStart}
+                onSpreadsheetUpdate={onSpreadsheetUpdate}
+              />
+            ))}
+          </SortableContext>
+          {!isUncategorized && tableVisible && (
+            <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="timeline-table-panel sticky left-0 z-20 flex h-10 items-center gap-2 border-r border-t border-black/10 bg-white px-4 text-sm text-ink-500 hover:text-accent-400 dark:border-white/10 dark:bg-ink-950" style={{ width: leftWidth }}>
+              <Plus size={15} /> Add item
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+export default function TimelineView({ project }) {
+  const { categories, lineItems, labels, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, deleteLineItem, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem } = usePlanner();
+  const [zoom, setZoom] = useState('month');
+  const [tableVisible, setTableVisible] = useState(true);
+  const [columns, setColumns] = useState(() => readJson(COLUMN_STORAGE_KEY, DEFAULT_COLUMNS));
+  const [columnVisibility, setColumnVisibility] = useState(() => readJson(COLUMN_VISIBILITY_KEY, { who: true, asset: true, what: true, todo: true }));
+  const [uncategorizedNames, setUncategorizedNames] = useState(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}));
+  const [hiddenWhoIds, setHiddenWhoIds] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [duplicatedIds, setDuplicatedIds] = useState([]);
+  const [visibleMonth, setVisibleMonth] = useState('');
+  const [optionsVisible, setOptionsVisible] = useState(false);
+  const [dragPreview, setDragPreview] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+  const [selectedCells, setSelectedCells] = useState([]);
+  const [fillCells, setFillCells] = useState([]);
+  const [detailsItemId, setDetailsItemId] = useState(null);
+  const [reviewMenuOpen, setReviewMenuOpen] = useState(false);
+  const scrollRef = useRef(null);
+  const didInitialFocus = useRef(false);
+  const suppressDetailsOpen = useRef(false);
+  const scrollAnchorRef = useRef(null);
+  const spreadsheetUndoRef = useRef([]);
+
+  const allRows = useMemo(() => lineItems.filter((item) => item.project_id === project.id).sort((a, b) => a.sort_order - b.sort_order), [lineItems, project.id]);
+  const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id).sort((a, b) => a.sort_order - b.sort_order), [categories, project.id]);
+  const projectLabels = useMemo(() => labels.filter((label) => !label.project_id || label.project_id === project.id), [labels, project.id]);
+  const labelsById = useMemo(() => Object.fromEntries(projectLabels.map((label) => [label.id, label])), [projectLabels]);
+  const labelsByType = useMemo(() => ({
+    who: projectLabels.filter((label) => label.column_type === 'who'),
+    what: projectLabels.filter((label) => label.column_type === 'what'),
+    todo: projectLabels.filter((label) => label.column_type === 'todo'),
+  }), [projectLabels]);
+  const reviewLabels = useMemo(() => ({
+    wenneker: labelsByType.who.find((label) => label.value.toLowerCase() === 'wenneker')?.id,
+    client: labelsByType.who.find((label) => label.value.toLowerCase() === 'client')?.id,
+    share: labelsByType.todo.find((label) => label.value.toLowerCase() === 'share')?.id,
+    shareFeedback: labelsByType.todo.find((label) => label.value.toLowerCase() === 'share feedback')?.id,
+  }), [labelsByType]);
+  const rows = useMemo(
+    () => allRows.filter((item) => !item.who?.some((whoId) => hiddenWhoIds.includes(whoId))),
+    [allRows, hiddenWhoIds],
+  );
+  const timelineDays = useMemo(() => buildTimelineDays(allRows, zoom), [allRows, zoom]);
+  const timelineStart = timelineDays[0];
+  const dayWidth = DAY_WIDTH[zoom];
+  const timelineWidth = timelineDays.length * dayWidth;
+  const leftWidth = tableVisible ? sumColumns(columns, columnVisibility, optionsVisible) : 0;
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const uncategorized = rows.filter((item) => !item.category_id);
+  const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
+  const months = monthSegments(timelineDays);
+  const weeks = weekSegments(timelineDays);
+
+  useEffect(() => {
+    if (scrollAnchorRef.current && scrollRef.current) {
+      const { date, offset } = scrollAnchorRef.current;
+      const nextIndex = Math.max(0, differenceInCalendarDays(parseISO(date), timelineStart));
+      scrollRef.current.scrollLeft = nextIndex * dayWidth + offset;
+      scrollAnchorRef.current = null;
+    }
+    setVisibleMonth(monthAtScroll(timelineDays, scrollRef.current?.scrollLeft ?? 0, dayWidth));
+  }, [dayWidth, timelineDays, timelineStart]);
+
+  useEffect(() => {
+    localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(columns));
+  }, [columns]);
+
+  useEffect(() => {
+    localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(columnVisibility));
+  }, [columnVisibility]);
+
+  useEffect(() => {
+    localStorage.setItem(UNCATEGORIZED_NAME_STORAGE_KEY, JSON.stringify(uncategorizedNames));
+  }, [uncategorizedNames]);
+
+  const renameUncategorized = (name) => {
+    setUncategorizedNames((current) => ({ ...current, [project.id]: name }));
+  };
+
+  const focusToday = (behavior = 'smooth') => {
+    const todayIndex = timelineDays.findIndex((day) => isSameDay(day, new Date()));
+    if (todayIndex < 0 || !scrollRef.current) return;
+    scrollRef.current.scrollTo({
+      left: Math.max(0, todayIndex * dayWidth - 24),
+      behavior,
+    });
+  };
+
+  useEffect(() => {
+    if (didInitialFocus.current || !timelineDays.length) return;
+    didInitialFocus.current = true;
+    requestAnimationFrame(() => {
+      const todayIndex = timelineDays.findIndex((day) => isSameDay(day, new Date()));
+      if (todayIndex < 0 || !scrollRef.current) return;
+      scrollRef.current.scrollTo({ left: Math.max(0, todayIndex * dayWidth - 24), behavior: 'auto' });
+    });
+  }, [dayWidth, timelineDays]);
+
+  const focusBlock = (item) => {
+    if (!item.start_date || !scrollRef.current) return;
+    const startIndex = Math.max(0, differenceInCalendarDays(parseISO(item.start_date), timelineStart));
+    scrollRef.current.scrollTo({
+      left: Math.max(0, startIndex * dayWidth - 24),
+      behavior: 'smooth',
+    });
+  };
+
+  const addItemToday = (projectId, categoryId) => {
+    addLineItem(projectId, categoryId, iso(new Date()));
+  };
+
+  const shiftPlanning = (days) => {
+    allRows.forEach((item) => {
+      if (!item.start_date || !item.end_date) return;
+      updateLineItem(item.id, {
+        start_date: shiftIsoDate(item.start_date, days),
+        end_date: shiftIsoDate(item.end_date, days),
+      });
+    });
+  };
+
+  const onColumnResizeStart = (event, columnKey) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startWidth = columns[columnKey];
+    const move = (moveEvent) => {
+      const nextWidth = Math.max(columnKey === 'asset' ? 150 : 72, startWidth + moveEvent.clientX - startX);
+      setColumns((current) => ({ ...current, [columnKey]: nextWidth }));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  const onResizeStart = (event, item, mode) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startScrollLeft = scrollRef.current?.scrollLeft ?? 0;
+    let currentX = startX;
+    let currentY = event.clientY;
+    let autoScrollFrame = null;
+    let lastDelta = null;
+    let latestDelta = 0;
+    const originalStart = parseISO(item.start_date);
+    const originalEnd = parseISO(item.end_date);
+    const linkedRows = mode === 'move' && selectedIds.includes(item.id)
+      ? allRows.filter((row) => selectedIds.includes(row.id) && row.start_date && row.end_date)
+      : [];
+    const linkedOriginals = linkedRows.map((row) => ({
+      id: row.id,
+      start: parseISO(row.start_date),
+      end: parseISO(row.end_date),
+    }));
+    const previewIds = linkedOriginals.length ? linkedOriginals.map((row) => row.id) : [item.id];
+
+    const commitMove = (delta) => {
+      const scroller = scrollRef.current;
+      if (scroller) {
+        scrollAnchorRef.current = {
+          date: iso(addDays(timelineStart, Math.floor(scroller.scrollLeft / dayWidth))),
+          offset: scroller.scrollLeft % dayWidth,
+        };
+      }
+      if (linkedOriginals.length) {
+        linkedOriginals.forEach((row) => updateLineItem(row.id, { start_date: iso(addDays(row.start, delta)), end_date: iso(addDays(row.end, delta)) }));
+        return;
+      }
+      updateLineItem(item.id, { start_date: iso(addDays(originalStart, delta)), end_date: iso(addDays(originalEnd, delta)) });
+    };
+
+    const updateDrag = () => {
+      const scrollDelta = (scrollRef.current?.scrollLeft ?? startScrollLeft) - startScrollLeft;
+      const rawDeltaPx = currentX - startX + scrollDelta;
+      const delta = Math.round(rawDeltaPx / dayWidth);
+      latestDelta = delta;
+      if (mode === 'move') {
+        setDragPreview({ ids: previewIds, offsetPx: rawDeltaPx });
+        return;
+      }
+      if (delta === lastDelta) return;
+      lastDelta = delta;
+      if (mode === 'start') {
+        const next = addDays(originalStart, delta);
+        if (next <= originalEnd) updateLineItem(item.id, { start_date: iso(next) });
+      }
+      if (mode === 'end') {
+        const next = addDays(originalEnd, delta);
+        if (next >= originalStart) updateLineItem(item.id, { end_date: iso(next) });
+      }
+    };
+
+    const autoScroll = () => {
+      const scroller = scrollRef.current;
+      if (!scroller) {
+        autoScrollFrame = null;
+        return;
+      }
+      const rect = scroller.getBoundingClientRect();
+      const edge = 96;
+      const timelineLeft = rect.left + leftWidth;
+      const leftPressure = Math.max(0, edge - (currentX - timelineLeft));
+      const rightPressure = Math.max(0, edge - (rect.right - currentX));
+      const velocity = rightPressure ? Math.ceil((rightPressure / edge) * 18) : -Math.ceil((leftPressure / edge) * 18);
+
+      if (velocity) {
+        scroller.scrollLeft = Math.max(0, scroller.scrollLeft + velocity);
+        setVisibleMonth(monthAtScroll(timelineDays, scroller.scrollLeft, dayWidth));
+        updateDrag();
+        autoScrollFrame = requestAnimationFrame(autoScroll);
+        return;
+      }
+      autoScrollFrame = null;
+    };
+
+    const move = (moveEvent) => {
+      currentX = moveEvent.clientX;
+      currentY = moveEvent.clientY;
+      if (Math.abs(currentX - startX) > 4) suppressDetailsOpen.current = true;
+      if (mode === 'move') {
+        const targetLine = document
+          .elementsFromPoint(currentX, currentY)
+          .map((element) => element.closest?.('.timeline-line[data-line-id]'))
+          .find((line) => line?.dataset.lineId && line.dataset.lineId !== item.id);
+        if (targetLine) {
+          const rect = targetLine.getBoundingClientRect();
+          setDropTarget({ id: targetLine.dataset.lineId, placement: currentY > rect.top + rect.height / 2 ? 'after' : 'before' });
+        } else {
+          setDropTarget(null);
+        }
+      }
+      updateDrag();
+      if (!autoScrollFrame) autoScrollFrame = requestAnimationFrame(autoScroll);
+    };
+
+    const up = () => {
+      if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame);
+      if (mode === 'move') {
+        commitMove(latestDelta);
+        const targetLine = document
+          .elementsFromPoint(currentX, currentY)
+          .map((element) => element.closest?.('.timeline-line[data-line-id]'))
+          .find(Boolean);
+        const targetId = targetLine?.dataset.lineId;
+        if (targetId && targetId !== item.id && !selectedIds.includes(targetId)) {
+          const rect = targetLine.getBoundingClientRect();
+          const placement = currentY > rect.top + rect.height / 2 ? 'after' : 'before';
+          moveLineItemRelative(project.id, item.id, targetId, placement);
+        }
+      }
+      setDragPreview(null);
+      setDropTarget(null);
+      window.setTimeout(() => {
+        suppressDetailsOpen.current = false;
+      }, 0);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    if (mode === 'move') updateDrag();
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  const toggleWhoFilter = (labelId) => {
+    setHiddenWhoIds((current) => (current.includes(labelId) ? current.filter((id) => id !== labelId) : [...current, labelId]));
+  };
+
+  const toggleSelect = (itemId, checked) => {
+    setSelectedIds((current) => (checked ? [...new Set([...current, itemId])] : current.filter((id) => id !== itemId)));
+  };
+
+  const toggleSelectAll = (checked) => {
+    setSelectedIds(checked ? rows.map((item) => item.id) : []);
+  };
+
+  const deleteSelectedRows = () => {
+    selectedIds.forEach((id) => deleteLineItem(id));
+    setSelectedIds([]);
+  };
+
+  const duplicateRow = (itemId) => {
+    const duplicatedId = duplicateLineItem(itemId);
+    if (!duplicatedId) return;
+    setDuplicatedIds((current) => [...current, duplicatedId]);
+    window.setTimeout(() => setDuplicatedIds((current) => current.filter((id) => id !== duplicatedId)), 5000);
+  };
+
+  const addClientReviewRows = (offsetDays) => {
+    const shareFeedbackId = reviewLabels.shareFeedback
+      ?? addLabel(project.id, 'todo', 'Share Feedback', '#6d5dfc')?.id;
+    const reviewTodoIds = [shareFeedbackId, reviewLabels.share].filter(Boolean);
+    const createdIds = addClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, shareFeedbackId, offsetDays, reviewTodoIds) ?? [];
+    setReviewMenuOpen(false);
+    if (!createdIds.length) return;
+    setDuplicatedIds((current) => [...current, ...createdIds]);
+    window.setTimeout(() => {
+      setDuplicatedIds((current) => current.filter((id) => !createdIds.includes(id)));
+    }, 5000);
+  };
+
+  const removeClientReviewRows = () => {
+    const removedIds = removeClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, [reviewLabels.shareFeedback, reviewLabels.share]) ?? [];
+    setReviewMenuOpen(false);
+    if (removedIds.length) setSelectedIds((current) => current.filter((id) => !removedIds.includes(id)));
+  };
+
+  const clearDuplicateState = (itemId) => {
+    setDuplicatedIds((current) => current.filter((id) => id !== itemId));
+  };
+
+  const selectCell = (itemId, column, event) => {
+    setSelectedCells((current) => {
+      const cell = { itemId, column };
+      const exists = current.some((item) => item.itemId === itemId && item.column === column);
+      if (event.metaKey || event.ctrlKey) {
+        return exists ? current.filter((item) => !(item.itemId === itemId && item.column === column)) : [...current, cell];
+      }
+      if (event.shiftKey && current.length) {
+        const anchor = current.at(-1);
+        if (anchor.column !== column) return [cell];
+        const start = rows.findIndex((item) => item.id === anchor.itemId);
+        const end = rows.findIndex((item) => item.id === itemId);
+        if (start < 0 || end < 0) return [cell];
+        const [from, to] = [Math.min(start, end), Math.max(start, end)];
+        return rows.slice(from, to + 1).map((row) => ({ itemId: row.id, column }));
+      }
+      return [cell];
+    });
+  };
+
+  const applySpreadsheetUpdate = (targetIds, column, value) => {
+    const ids = [...new Set(targetIds)].filter(Boolean);
+    const changes = ids
+      .map((itemId) => {
+        const item = allRows.find((row) => row.id === itemId);
+        if (!item) return null;
+        return {
+          itemId,
+          previous: { [column]: Array.isArray(item[column]) ? [...item[column]] : item[column] },
+          next: { [column]: Array.isArray(value) ? [...value] : value },
+        };
+      })
+      .filter(Boolean);
+    if (!changes.length) return;
+    spreadsheetUndoRef.current.push(changes);
+    changes.forEach((change) => {
+      clearDuplicateState(change.itemId);
+      updateLineItem(change.itemId, change.next);
+    });
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z' || event.shiftKey) return;
+      const changes = spreadsheetUndoRef.current.pop();
+      if (!changes?.length) return;
+      event.preventDefault();
+      changes.forEach((change) => updateLineItem(change.itemId, change.previous));
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [updateLineItem]);
+
+  const fillRange = (sourceId, targetId, column) => {
+    const sourceIndex = rows.findIndex((item) => item.id === sourceId);
+    const targetIndex = rows.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return [];
+    const [from, to] = [Math.min(sourceIndex, targetIndex), Math.max(sourceIndex, targetIndex)];
+    return rows.slice(from, to + 1).map((row) => ({ itemId: row.id, column }));
+  };
+
+  const startFillDrag = (event, sourceId, column) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const source = rows.find((item) => item.id === sourceId);
+    if (!source) return;
+    const sourceIndex = rows.findIndex((item) => item.id === sourceId);
+    const sourceValue = Array.isArray(source[column]) ? [...source[column]] : source[column];
+    let targetId = sourceId;
+
+    const updateTarget = (clientX, clientY) => {
+      const targetCell = document
+        .elementsFromPoint(clientX, clientY)
+        .map((element) => element.closest?.(`[data-fill-cell="true"][data-cell-column="${column}"]`))
+        .find((element) => element?.dataset.cellId);
+      if (!targetCell) return;
+      targetId = targetCell.dataset.cellId;
+      setFillCells(fillRange(sourceId, targetId, column));
+    };
+
+    const move = (moveEvent) => {
+      updateTarget(moveEvent.clientX, moveEvent.clientY);
+    };
+
+    const up = () => {
+      const targetIndex = rows.findIndex((item) => item.id === targetId);
+      if (targetIndex > sourceIndex) {
+        applySpreadsheetUpdate(rows.slice(sourceIndex + 1, targetIndex + 1).map((item) => item.id), column, sourceValue);
+      }
+      setSelectedCells([]);
+      setFillCells([]);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+
+    setSelectedCells([{ itemId: sourceId, column }]);
+    setFillCells([{ itemId: sourceId, column }]);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  const selectedVisibleCount = rows.filter((item) => selectedIds.includes(item.id)).length;
+  const detailsItem = detailsItemId ? allRows.find((item) => item.id === detailsItemId) : null;
+  const openBookingDetails = (itemId) => {
+    if (suppressDetailsOpen.current) return;
+    setDetailsItemId(itemId);
+  };
+
+  return (
+    <main className="h-[calc(100vh-7rem)] overflow-hidden">
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
+          <div>
+            <h1 className="text-xl font-semibold">{project.name}</h1>
+            <p className="text-sm text-ink-500">{project.client || 'Internal project'}</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" onClick={() => focusToday()} className="secondary-button"><CalendarClock size={16} /> Today</button>
+            <ToolbarMenu icon={Columns3} label="Columns">
+              {OPTIONAL_COLUMNS.map((key) => (
+                <label key={key} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
+                  <input type="checkbox" checked={columnVisibility[key]} onChange={() => setColumnVisibility((current) => ({ ...current, [key]: !current[key] }))} />
+                  {COLUMN_LABELS[key]}
+                </label>
+              ))}
+            </ToolbarMenu>
+            <ToolbarMenu icon={Filter} label="Who">
+              {labelsByType.who.map((label) => (
+                <label key={label.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-white/5">
+                  <span className="flex items-center gap-2">
+                    <input type="checkbox" checked={!hiddenWhoIds.includes(label.id)} onChange={() => toggleWhoFilter(label.id)} />
+                    <Pill label={label} />
+                  </span>
+                </label>
+              ))}
+            </ToolbarMenu>
+            <button type="button" onClick={() => setTableVisible((next) => !next)} className="secondary-button">
+              {tableVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+              {tableVisible ? 'Hide table' : 'Show table'}
+            </button>
+            <div className="relative">
+              <button type="button" onClick={() => setReviewMenuOpen((next) => !next)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="secondary-button">
+                <Plus size={16} /> Client reviews
+              </button>
+              {reviewMenuOpen && (
+                <div className="absolute right-0 z-[500] mt-2 w-52 overflow-hidden rounded-lg border border-white/10 bg-ink-850 p-1 shadow-glow">
+                  <button type="button" onClick={() => addClientReviewRows(1)} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5">Place 24h later</button>
+                  <button type="button" onClick={() => addClientReviewRows(2)} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5">Place 48h later</button>
+                  <div className="my-1 border-t border-white/10" />
+                  <button type="button" onClick={removeClientReviewRows} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
+                </div>
+              )}
+            </div>
+            <div className="segmented">
+              {['day', 'week', 'month'].map((item) => <button key={item} type="button" onClick={() => setZoom(item)} className={zoom === item ? 'selected' : ''}>{item}</button>)}
+            </div>
+            <button type="button" onClick={() => addCategory(project.id)} className="secondary-button"><Plus size={16} /> Category</button>
+          </div>
+        </div>
+
+        <div ref={scrollRef} className="timeline-scroll" onScroll={() => setVisibleMonth(monthAtScroll(timelineDays, scrollRef.current?.scrollLeft ?? 0, dayWidth))}>
+          <div className="relative" style={{ minWidth: leftWidth + timelineWidth }}>
+            <div className="sticky top-0 z-40 grid" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
+              {tableVisible && (
+                <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
+                  <div className="absolute right-2 top-2 flex items-center gap-1 normal-case">
+                    {optionsVisible && (
+                      <>
+                        <button type="button" onClick={() => shiftPlanning(7)} className="timeline-header-chip">Move +1</button>
+                        <button type="button" onClick={() => shiftPlanning(-7)} className="timeline-header-chip">Move -1</button>
+                      </>
+                    )}
+                    <button type="button" onClick={() => setOptionsVisible((next) => !next)} className={`timeline-header-chip ${optionsVisible ? 'is-active' : ''}`} aria-pressed={optionsVisible}>Options</button>
+                  </div>
+                  <span />
+                  <span />
+                  {columnVisibility.who && <HeaderCell columnKey="who" onResizeStart={onColumnResizeStart}>Who</HeaderCell>}
+                  {columnVisibility.asset && <HeaderCell columnKey="asset" onResizeStart={onColumnResizeStart}>Asset</HeaderCell>}
+                  {columnVisibility.what && <HeaderCell columnKey="what" onResizeStart={onColumnResizeStart}>What</HeaderCell>}
+                  {columnVisibility.todo && <HeaderCell columnKey="todo" onResizeStart={onColumnResizeStart}>Todo</HeaderCell>}
+                  {optionsVisible && (
+                    <>
+                      <span className="grid h-full place-items-end justify-items-center pb-3">
+                        <span className="focus-button timeline-header-focus">F</span>
+                      </span>
+                      <span className="grid h-full place-items-end justify-items-center pb-2">
+                        <button type="button" onClick={deleteSelectedRows} disabled={!selectedIds.length} className="icon-button" aria-label="Delete selected rows"><Trash2 size={16} /></button>
+                      </span>
+                      <label className="grid h-full place-items-end justify-items-center pb-4"><input type="checkbox" checked={rows.length > 0 && selectedVisibleCount === rows.length} onChange={(event) => toggleSelectAll(event.target.checked)} aria-label="Select all rows" /></label>
+                    </>
+                  )}
+                </div>
+              )}
+              <div className="bg-zinc-50 dark:bg-ink-900" style={timelineColumnStyle(tableVisible)}>
+                <div className="flex h-7 border-b border-black/10 text-xs font-semibold text-ink-500 dark:border-white/10">
+                  <div className="sticky z-20 grid place-items-center px-2" style={{ left: tableVisible ? leftWidth + 8 : 8 }}>
+                    <span className="timeline-month-label">{visibleMonth || months[0]?.label}</span>
+                  </div>
+                  {months.map((month) => <div key={month.key} className="px-3 py-2" style={{ width: month.span * dayWidth }} />)}
+                </div>
+                <div className="flex h-4 border-b border-black/10 text-center font-mono text-[0.5rem] font-semibold text-ink-500 dark:border-white/10">
+                  {weeks.map((week) => <div key={week.key} className="grid place-items-center border-r border-black/5 dark:border-white/5" style={{ width: week.span * dayWidth }}>{week.label}</div>)}
+                </div>
+                <div className="flex h-9 border-b border-black/10 text-center font-mono text-xs text-ink-500 dark:border-white/10">
+                  {timelineDays.map((day) => (
+                    <div key={day.toISOString()} className={`grid place-items-center border-r border-black/5 py-2 dark:border-white/5 ${isWeekend(day) ? 'bg-black/[0.04] dark:bg-white/[0.055]' : ''}`} style={{ width: dayWidth }}>
+                      {format(day, 'd')}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute bottom-0 flex" style={{ left: leftWidth, top: HEADER_HEIGHT }}>
+              {timelineDays.map((day) => <div key={day.toISOString()} className={`timeline-day ${isWeekend(day) ? 'weekend' : ''} ${isToday(day) ? 'today' : ''}`} style={{ width: dayWidth }} />)}
+            </div>
+
+            <DndContext
+              sensors={sensors}
+              onDragEnd={({ active, over }) => {
+                if (!over || active.id === over.id) return;
+                const activeId = String(active.id);
+                const overId = String(over.id);
+                if (activeId.startsWith('category:') && overId.startsWith('category:')) {
+                  reorderCategories(project.id, activeId.replace('category:', ''), overId.replace('category:', ''));
+                  return;
+                }
+                reorderLineItems(project.id, active.id, over.id);
+              }}
+            >
+              <SortableContext items={projectCategories.map((category) => `category:${category.id}`)} strategy={verticalListSortingStrategy}>
+                {projectCategories.map((category) => {
+                  const categoryRows = rows.filter((item) => item.category_id === category.id);
+                  return (
+                    <CategoryBlock
+                      key={category.id}
+                      category={category}
+                      rows={categoryRows}
+                      projectId={project.id}
+                      labelsById={labelsById}
+                      labelsByType={labelsByType}
+                      timelineWidth={timelineWidth}
+                      dayWidth={dayWidth}
+                      timelineStart={timelineStart}
+                      leftWidth={leftWidth}
+                      tableVisible={tableVisible}
+                      columns={columns}
+                      columnVisibility={columnVisibility}
+                      optionsVisible={optionsVisible}
+                      onResizeStart={onResizeStart}
+                      onAddLineItem={addItemToday}
+                      selectedIds={selectedIds}
+                      onSelect={toggleSelect}
+                      duplicatedIds={duplicatedIds}
+                      onDuplicate={duplicateRow}
+                      onFocusBlock={focusBlock}
+                      onInteract={clearDuplicateState}
+                      dragPreview={dragPreview}
+                      dropTarget={dropTarget}
+                      onOpenDetails={openBookingDetails}
+                      selectedCells={selectedCells}
+                      onCellSelect={selectCell}
+                      fillCells={fillCells}
+                      onFillStart={startFillDrag}
+                      onSpreadsheetUpdate={applySpreadsheetUpdate}
+                    />
+                  );
+                })}
+              </SortableContext>
+              {uncategorized.length > 0 && (
+                <CategoryBlock
+                  category={{ id: 'uncategorized', name: uncategorizedName, collapsed: false }}
+                  rows={uncategorized}
+                  projectId={project.id}
+                  labelsById={labelsById}
+                  labelsByType={labelsByType}
+                  timelineWidth={timelineWidth}
+                  dayWidth={dayWidth}
+                  timelineStart={timelineStart}
+                  leftWidth={leftWidth}
+                  tableVisible={tableVisible}
+                  columns={columns}
+                  columnVisibility={columnVisibility}
+                  optionsVisible={optionsVisible}
+                  onResizeStart={onResizeStart}
+                  onAddLineItem={addItemToday}
+                  selectedIds={selectedIds}
+                  onSelect={toggleSelect}
+                  duplicatedIds={duplicatedIds}
+                  onDuplicate={duplicateRow}
+                  onFocusBlock={focusBlock}
+                  onInteract={clearDuplicateState}
+                  dragPreview={dragPreview}
+                  dropTarget={dropTarget}
+                  onOpenDetails={openBookingDetails}
+                  selectedCells={selectedCells}
+                  onCellSelect={selectCell}
+                  fillCells={fillCells}
+                  onFillStart={startFillDrag}
+                  onSpreadsheetUpdate={applySpreadsheetUpdate}
+                  onRenameUncategorized={renameUncategorized}
+                />
+              )}
+            </DndContext>
+          </div>
+        </div>
+      </div>
+      {detailsItem && (
+        <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/60 px-4" onMouseDown={() => setDetailsItemId(null)}>
+          <div className="w-full max-w-lg rounded-lg border border-white/10 bg-ink-900 p-5 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-ink-100">{detailsItem.asset || 'Booking details'}</h2>
+                <p className="mt-1 text-sm text-ink-500">Add client-visible time and notes for this milestone.</p>
+              </div>
+              <button type="button" onClick={() => setDetailsItemId(null)} className="icon-button" aria-label="Close details">×</button>
+            </div>
+            <label className="block text-sm font-semibold text-ink-300">
+              Time
+              <input
+                value={detailsItem.time ?? ''}
+                onChange={(event) => updateLineItem(detailsItem.id, { time: normalizeTimeInput(event.target.value) })}
+                className="mt-2 w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
+                inputMode="numeric"
+                pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                maxLength={5}
+                placeholder="HH:MM"
+              />
+            </label>
+            <label className="mt-4 block text-sm font-semibold text-ink-300">
+              Notes
+              <textarea
+                value={detailsItem.notes ?? ''}
+                onChange={(event) => updateLineItem(detailsItem.id, { notes: event.target.value })}
+                className="mt-2 min-h-28 w-full resize-y rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
+                placeholder="Add notes for the client planning..."
+              />
+            </label>
+            <div className="mt-5 flex justify-end">
+              <button type="button" onClick={() => setDetailsItemId(null)} className="primary-button">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
