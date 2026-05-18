@@ -594,12 +594,18 @@ export function PlannerProvider({ children }) {
           draft.invitations.unshift(invitation);
         });
         if (useSupabase) await saveSupabase('invitation', supabase.from('invitations').insert(invitation), { throwOnError: true });
-        if (useSupabase) await saveSupabase('password email', supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login?mode=update-password` }), { throwOnError: true });
+        if (useSupabase) {
+          await saveSupabase('invite email', supabase.functions.invoke('admin-user-email', {
+            body: { mode: 'invite', email },
+          }), { throwOnError: true });
+        }
         return invitation;
       },
       resetUserPassword: async (email) => {
         if (!useSupabase) return null;
-        return saveSupabase('password reset email', supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login?mode=update-password` }), { throwOnError: true });
+        return saveSupabase('password reset email', supabase.functions.invoke('admin-user-email', {
+          body: { mode: 'reset', email },
+        }), { throwOnError: true });
       },
       upsertPresence: (projectId) => {
         const row = { id: id(), project_id: projectId, user_id: user.id, last_seen_at: new Date().toISOString() };

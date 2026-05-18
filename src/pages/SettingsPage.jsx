@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const {
     profiles,
+    invitations,
     labels,
     projects,
     addGlobalLabel,
@@ -31,6 +32,9 @@ export default function SettingsPage() {
   const [userError, setUserError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
   const selectedProfile = profiles.find((item) => item.id === selectedUserId) ?? null;
+  const pendingInvites = (invitations ?? [])
+    .filter((invite) => !invite.accepted && !profiles.some((item) => item.email?.toLowerCase() === invite.email?.toLowerCase()))
+    .sort((a, b) => new Date(b.created_at ?? 0) - new Date(a.created_at ?? 0));
 
   const globalLabels = useMemo(
     () => labels.filter((label) => label.scope === 'global' || !label.project_id),
@@ -53,7 +57,7 @@ export default function SettingsPage() {
     setUserError('');
     try {
       await inviteUser(inviteEmail.trim());
-      setUserNotice(`Invite/reset email sent to ${inviteEmail.trim()}.`);
+      setUserNotice(`Invite email sent to ${inviteEmail.trim()}.`);
       setInviteEmail('');
     } catch (error) {
       setUserError(error.message);
@@ -171,6 +175,19 @@ export default function SettingsPage() {
                       <td>
                         <button type="button" onClick={() => resetPasswordForUser(item)} className="secondary-button !px-2 !py-1">
                           <KeyRound size={14} /> Reset
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {pendingInvites.map((invite) => (
+                    <tr key={invite.id} className="border-t border-black/10 opacity-55 dark:border-white/10">
+                      <td className="py-3 text-ink-500">Pending invite</td>
+                      <td>{invite.email}</td>
+                      <td><span className="rounded-full bg-amber-400/15 px-2 py-1 text-xs font-semibold uppercase text-amber-300">pending invite</span></td>
+                      <td className="text-ink-500">{invite.created_at ? new Date(invite.created_at).toLocaleDateString() : '-'}</td>
+                      <td>
+                        <button type="button" className="secondary-button !px-2 !py-1" disabled>
+                          Pending
                         </button>
                       </td>
                     </tr>
