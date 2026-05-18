@@ -249,6 +249,31 @@ export function PlannerProvider({ children }) {
     return result;
   }, [useSupabase]);
 
+  const invokeAdminUserEmail = useCallback(async (mode, email) => {
+    if (!useSupabase) return null;
+    const result = await supabase.functions.invoke('admin-user-email', {
+      body: { mode, email },
+    });
+    if (result.error) {
+      let message = result.error.message;
+      const context = result.error.context;
+      if (context && typeof context.json === 'function') {
+        try {
+          const body = await context.json();
+          message = body?.error || message;
+        } catch {
+          // Keep the original Supabase error message.
+        }
+      }
+      const error = new Error(message);
+      console.error(`Could not send ${mode} email`, error);
+      setSaveError(`${mode === 'invite' ? 'Invite email' : 'Password reset email'} was not sent: ${message}`);
+      throw error;
+    }
+    setSaveError('');
+    return result.data;
+  }, [useSupabase]);
+
   const api = useMemo(
     () => ({
       ...data,
@@ -595,17 +620,13 @@ export function PlannerProvider({ children }) {
         });
         if (useSupabase) await saveSupabase('invitation', supabase.from('invitations').insert(invitation), { throwOnError: true });
         if (useSupabase) {
-          await saveSupabase('invite email', supabase.functions.invoke('admin-user-email', {
-            body: { mode: 'invite', email },
-          }), { throwOnError: true });
+          await invokeAdminUserEmail('invite', email);
         }
         return invitation;
       },
       resetUserPassword: async (email) => {
         if (!useSupabase) return null;
-        return saveSupabase('password reset email', supabase.functions.invoke('admin-user-email', {
-          body: { mode: 'reset', email },
-        }), { throwOnError: true });
+        return invokeAdminUserEmail('reset', email);
       },
       upsertPresence: (projectId) => {
         const row = { id: id(), project_id: projectId, user_id: user.id, last_seen_at: new Date().toISOString() };
@@ -649,7 +670,7 @@ export function PlannerProvider({ children }) {
         return token;
       },
     }),
-    [data, loading, markDirty, mutate, saveError, saveSupabase, useSupabase, user.id],
+    [data, invokeAdminUserEmail, loading, markDirty, mutate, saveError, saveSupabase, useSupabase, user.id],
   );
 
   return <PlannerContext.Provider value={api}>{children}</PlannerContext.Provider>;
