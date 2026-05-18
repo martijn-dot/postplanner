@@ -41,6 +41,8 @@ export function AuthProvider({ children }) {
       user: session?.user ?? { id: 'demo-user', email: 'demo@planner.local' },
       signIn: async (email, password) => supabase.auth.signInWithPassword({ email, password }),
       signUp: async (email, password, displayName) => supabase.auth.signUp({ email, password, options: { data: { display_name: displayName } } }),
+      resetPassword: async (email) => supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login?mode=update-password` }),
+      updatePassword: async (password) => supabase.auth.updateUser({ password }),
       signOut: async () => {
         if (hasSupabaseConfig) await supabase.auth.signOut();
         setDemoMode(!hasSupabaseConfig || localAdminMode);

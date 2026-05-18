@@ -1,4 +1,4 @@
-import { ArchiveRestore, Plus, Trash2 } from 'lucide-react';
+import { ArchiveRestore, KeyRound, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
@@ -18,6 +18,7 @@ export default function SettingsPage() {
     updateLabel,
     deleteLabel,
     inviteUser,
+    resetUserPassword,
     restoreProject,
     deleteProjectForever,
   } = usePlanner();
@@ -25,7 +26,11 @@ export default function SettingsPage() {
   const [tab, setTab] = useState('labels');
   const [drafts, setDrafts] = useState({});
   const [inviteEmail, setInviteEmail] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [userNotice, setUserNotice] = useState('');
+  const [userError, setUserError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
+  const selectedProfile = profiles.find((item) => item.id === selectedUserId) ?? null;
 
   const globalLabels = useMemo(
     () => labels.filter((label) => label.scope === 'global' || !label.project_id),
@@ -44,8 +49,26 @@ export default function SettingsPage() {
   const submitInvite = async (event) => {
     event.preventDefault();
     if (!inviteEmail.trim()) return;
-    await inviteUser(inviteEmail.trim());
-    setInviteEmail('');
+    setUserNotice('');
+    setUserError('');
+    try {
+      await inviteUser(inviteEmail.trim());
+      setUserNotice(`Invite/reset email sent to ${inviteEmail.trim()}.`);
+      setInviteEmail('');
+    } catch (error) {
+      setUserError(error.message);
+    }
+  };
+
+  const resetPasswordForUser = async (targetProfile) => {
+    setUserNotice('');
+    setUserError('');
+    try {
+      await resetUserPassword(targetProfile.email);
+      setUserNotice(`Password reset email sent to ${targetProfile.email}.`);
+    } catch (error) {
+      setUserError(error.message);
+    }
   };
 
   return (
@@ -110,10 +133,33 @@ export default function SettingsPage() {
               <input className="field !py-2" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="Invite user by email" />
               <button type="submit" className="primary-button">Invite User</button>
             </form>
+            <div className="mb-5 grid gap-3 rounded-lg border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.035] md:grid-cols-[1fr_auto] md:items-center">
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase text-ink-500">Show settings for user</label>
+                <select className="field !py-2" value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}>
+                  <option value="">Select user</option>
+                  {profiles.map((item) => <option key={item.id} value={item.id}>{item.display_name} - {item.email}</option>)}
+                </select>
+              </div>
+              {selectedProfile && (
+                <button type="button" onClick={() => resetPasswordForUser(selectedProfile)} className="secondary-button self-end">
+                  <KeyRound size={16} /> Reset password
+                </button>
+              )}
+              {selectedProfile && (
+                <div className="md:col-span-2 rounded-md border border-white/10 bg-ink-950/40 p-3 text-sm">
+                  <p className="font-semibold">{selectedProfile.display_name}</p>
+                  <p className="mt-1 text-ink-500">{selectedProfile.email}</p>
+                  <p className="mt-2"><span className="rounded-full bg-accent-500/15 px-2 py-1 text-xs font-semibold uppercase text-accent-300">{selectedProfile.role}</span></p>
+                </div>
+              )}
+            </div>
+            {userNotice && <p className="mb-4 rounded-md border border-accent-400/30 bg-accent-500/10 px-3 py-2 text-sm text-accent-100">{userNotice}</p>}
+            {userError && <p className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{userError}</p>}
             <div className="overflow-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="text-xs uppercase text-ink-500">
-                  <tr><th className="py-2">Name</th><th>Email</th><th>Role</th><th>Joined</th></tr>
+                  <tr><th className="py-2">Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   {profiles.map((item) => (
@@ -122,6 +168,11 @@ export default function SettingsPage() {
                       <td>{item.email}</td>
                       <td><span className="rounded-full bg-accent-500/15 px-2 py-1 text-xs font-semibold uppercase text-accent-300">{item.role}</span></td>
                       <td className="text-ink-500">{item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'}</td>
+                      <td>
+                        <button type="button" onClick={() => resetPasswordForUser(item)} className="secondary-button !px-2 !py-1">
+                          <KeyRound size={14} /> Reset
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

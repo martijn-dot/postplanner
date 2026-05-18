@@ -1,23 +1,46 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function AuthPage() {
-  const { session, demoMode, hasSupabaseConfig, signIn, signUp, enterDemo } = useAuth();
-  const [mode, setMode] = useState('signin');
+  const { session, demoMode, hasSupabaseConfig, signIn, signUp, resetPassword, updatePassword, enterDemo } = useAuth();
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState(searchParams.get('mode') === 'update-password' ? 'update-password' : 'signin');
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  if (session || demoMode) return <Navigate to="/" replace />;
+  if ((session && mode !== 'update-password') || demoMode) return <Navigate to="/" replace />;
 
   const submit = async (event) => {
     event.preventDefault();
     setError('');
+    setNotice('');
+
+    if (mode === 'recover') {
+      const result = await resetPassword(email);
+      if (result.error) setError(result.error.message);
+      else setNotice('Password reset email sent. Check your inbox.');
+      return;
+    }
+
+    if (mode === 'update-password') {
+      const result = await updatePassword(password);
+      if (result.error) setError(result.error.message);
+      else {
+        setNotice('Password updated. You can continue to the planner.');
+        setMode('signin');
+        setPassword('');
+      }
+      return;
+    }
+
     const result = mode === 'signin' ? await signIn(email, password) : await signUp(email, password, displayName);
     if (result.error) setError(result.error.message);
+    else if (mode === 'signup') setNotice('Account created. Check your email if Supabase asks you to confirm it, then sign in.');
   };
 
   return (
@@ -30,16 +53,28 @@ export default function AuthPage() {
 
         {hasSupabaseConfig ? (
           <form onSubmit={submit} className="space-y-4">
-            <input className="field" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" required />
+            {mode !== 'update-password' && <input className="field" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" required />}
             {mode === 'signup' && <input className="field" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Display name" required />}
-            <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" required />
+            {mode !== 'recover' && <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === 'update-password' ? 'New password' : 'Password'} required />}
             {error && <p className="text-sm text-red-300">{error}</p>}
+            {notice && <p className="rounded-md border border-accent-400/30 bg-accent-500/10 px-3 py-2 text-sm text-accent-100">{notice}</p>}
             <button className="primary-button w-full" type="submit">
-              {mode === 'signin' ? 'Sign in' : 'Create account'} <ArrowRight size={17} />
+              {mode === 'signin' && 'Sign in'}
+              {mode === 'signup' && 'Create account'}
+              {mode === 'recover' && 'Send reset email'}
+              {mode === 'update-password' && 'Set new password'}
+              <ArrowRight size={17} />
             </button>
-            <button type="button" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')} className="w-full text-sm text-ink-400 hover:text-ink-100">
-              {mode === 'signin' ? 'Need an account?' : 'Already have an account?'}
-            </button>
+            <div className="flex justify-between gap-3 text-sm text-ink-400">
+              <button type="button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setNotice(''); }} className="hover:text-ink-100">
+                {mode === 'signin' ? 'Need an account?' : 'Already have an account?'}
+              </button>
+              {mode !== 'recover' && (
+                <button type="button" onClick={() => { setMode('recover'); setError(''); setNotice(''); }} className="hover:text-ink-100">
+                  Reset password
+                </button>
+              )}
+            </div>
           </form>
         ) : (
           <div className="space-y-4">

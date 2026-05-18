@@ -25,7 +25,7 @@ export default function TopBar({ project }) {
           <button type="button" onClick={clearSaveError} className="text-xs uppercase tracking-wide text-red-200 hover:text-white">Dismiss</button>
         </div>
       )}
-      <header className="flex h-16 items-center justify-between border-b border-black/10 bg-white/80 px-5 text-ink-950 backdrop-blur dark:border-white/10 dark:bg-ink-950/80 dark:text-ink-100">
+      <header className="relative z-[1200] flex h-16 items-center justify-between border-b border-black/10 bg-white/80 px-5 text-ink-950 backdrop-blur dark:border-white/10 dark:bg-ink-950/80 dark:text-ink-100">
         <div className="flex items-center gap-3">
           <Link to="/" className="text-sm font-bold uppercase tracking-[0.18em] text-accent-400">Post Planner</Link>
           {project && <span className="text-sm text-ink-500">/ {project.name}</span>}
@@ -47,7 +47,7 @@ export default function TopBar({ project }) {
               <ChevronDown size={14} />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 z-[600] mt-2 w-64 rounded-lg border border-white/10 bg-ink-900 p-3 text-sm text-ink-100 shadow-glow">
+              <div className="fixed right-5 top-16 z-[3000] w-64 rounded-lg border border-white/10 bg-ink-900 p-3 text-sm text-ink-100 shadow-glow">
                 <p className="font-semibold">{profile.display_name}</p>
                 <p className="mt-1 truncate text-ink-500">{profile.email}</p>
                 <span className="mt-3 inline-flex rounded-full bg-accent-500/15 px-2 py-1 text-xs font-semibold uppercase text-accent-300">{profile.role}</span>
