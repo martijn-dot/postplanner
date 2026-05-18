@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [client, setClient] = useState('');
   const [postProducer, setPostProducer] = useState('');
   const [producer, setProducer] = useState('');
+  const [formError, setFormError] = useState('');
   const clients = [...new Set(projects.map((project) => project.client).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const activeUsers = (profiles ?? []).filter((profile) => profile.is_active !== false);
   const resetForm = () => {
@@ -42,6 +43,7 @@ export default function Dashboard() {
 
   const submit = async (event) => {
     event.preventDefault();
+    setFormError('');
     if (editingProject) {
       updateProject(editingProject.id, {
         project_number: projectNumber,
@@ -53,9 +55,13 @@ export default function Dashboard() {
       resetForm();
       return;
     }
-    const project = await createProject({ projectNumber, name, client, postProducer, producer });
-    resetForm();
-    location.href = `/projects/${project.id}`;
+    try {
+      const project = await createProject({ projectNumber, name, client, postProducer, producer });
+      resetForm();
+      location.href = `/projects/${project.id}`;
+    } catch (error) {
+      setFormError(error.message);
+    }
   };
   const visibleProjects = projects
     .filter((project) => !project.is_archived)
@@ -201,6 +207,7 @@ export default function Dashboard() {
                 <option value="">Producer</option>
                 {activeUsers.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
               </select>
+              {formError && <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{formError}</p>}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button

@@ -186,6 +186,7 @@ export function PlannerProvider({ children }) {
   const { user, demoMode, hasSupabaseConfig } = useAuth();
   const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], presence: [], invitations: [] });
   const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState('');
   const [dirtyProjectIds, setDirtyProjectIds] = useState([]);
   const dirtyProjectIdsRef = useRef([]);
   const useSupabase = hasSupabaseConfig && !demoMode;
@@ -235,10 +236,25 @@ export function PlannerProvider({ children }) {
     setDirtyProjectIds((current) => (current.includes(projectId) ? current : [...current, projectId]));
   }, []);
 
+  const saveSupabase = useCallback(async (label, request, { throwOnError = false } = {}) => {
+    if (!useSupabase) return null;
+    const result = await request;
+    if (result?.error) {
+      console.error(`Could not save ${label}`, result.error);
+      setSaveError(`${label} was not saved: ${result.error.message}`);
+      if (throwOnError) throw result.error;
+      return result;
+    }
+    setSaveError('');
+    return result;
+  }, [useSupabase]);
+
   const api = useMemo(
     () => ({
       ...data,
       loading,
+      saveError,
+      clearSaveError: () => setSaveError(''),
       createProject: async ({ projectNumber, name, client, postProducer, producer }) => {
         const now = new Date().toISOString();
         const project = {
@@ -263,8 +279,8 @@ export function PlannerProvider({ children }) {
           draft.categories.push(category);
         });
         if (useSupabase) {
-          await supabase.from('projects').insert(project);
-          await supabase.from('categories').insert({ ...category, collapsed: undefined });
+          await saveSupabase('project', supabase.from('projects').insert(project), { throwOnError: true });
+          await saveSupabase('category', supabase.from('categories').insert({ ...category, collapsed: undefined }), { throwOnError: true });
         }
         return project;
       },
@@ -272,7 +288,7 @@ export function PlannerProvider({ children }) {
         const project = draft.projects.find((item) => item.id === projectId);
         Object.assign(project, patch);
         markDirty(projectId);
-        if (useSupabase) supabase.from('projects').update(patch).eq('id', projectId);
+        if (useSupabase) void saveSupabase('project changes', supabase.from('projects').update(patch).eq('id', projectId));
       }),
       markProjectEdited: (projectId) => mutate((draft) => {
         if (!dirtyProjectIdsRef.current.includes(projectId)) return;
@@ -281,35 +297,35 @@ export function PlannerProvider({ children }) {
         const patch = { last_edited_by: user.id, last_edited_at: new Date().toISOString() };
         Object.assign(project, patch);
         setDirtyProjectIds((current) => current.filter((id) => id !== projectId));
-        if (useSupabase) supabase.from('projects').update(patch).eq('id', projectId);
+        if (useSupabase) void saveSupabase('last edited time', supabase.from('projects').update(patch).eq('id', projectId));
       }),
       archiveProject: (projectId) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);
         if (!project) return;
         const patch = { is_archived: true, archived_by: user.id, archived_at: new Date().toISOString() };
         Object.assign(project, patch);
-        if (useSupabase) supabase.from('projects').update(patch).eq('id', projectId);
+        if (useSupabase) void saveSupabase('project archive', supabase.from('projects').update(patch).eq('id', projectId));
       }),
       restoreProject: (projectId) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);
         if (!project) return;
         const patch = { is_archived: false, archived_by: null, archived_at: null };
         Object.assign(project, patch);
-        if (useSupabase) supabase.from('projects').update(patch).eq('id', projectId);
+        if (useSupabase) void saveSupabase('project restore', supabase.from('projects').update(patch).eq('id', projectId));
       }),
       deleteProjectForever: (projectId) => mutate((draft) => {
         draft.projects = draft.projects.filter((item) => item.id !== projectId);
         draft.categories = draft.categories.filter((item) => item.project_id !== projectId);
         draft.lineItems = draft.lineItems.filter((item) => item.project_id !== projectId);
         draft.labels = draft.labels.filter((item) => item.project_id !== projectId);
-        if (useSupabase) supabase.from('projects').delete().eq('id', projectId);
+        if (useSupabase) void saveSupabase('project delete', supabase.from('projects').delete().eq('id', projectId));
       }),
       addCategory: (projectId) => mutate((draft) => {
         const count = draft.categories.filter((item) => item.project_id === projectId).length;
         const category = { id: id(), project_id: projectId, name: `Category ${count + 1}`, sort_order: count, collapsed: false };
         draft.categories.push(category);
         markDirty(projectId);
-        if (useSupabase) supabase.from('categories').insert({ ...category, collapsed: undefined });
+        if (useSupabase) void saveSupabase('category', supabase.from('categories').insert({ ...category, collapsed: undefined }));
       }),
       updateCategory: (categoryId, patch) => mutate((draft) => {
         const category = draft.categories.find((item) => item.id === categoryId);
@@ -317,7 +333,7 @@ export function PlannerProvider({ children }) {
         markDirty(category?.project_id);
         if (useSupabase) {
           const dbPatch = Object.fromEntries(Object.entries(patch).filter(([key]) => key !== 'collapsed'));
-          if (Object.keys(dbPatch).length) supabase.from('categories').update(dbPatch).eq('id', categoryId);
+          if (Object.keys(dbPatch).length) void saveSupabase('category changes', supabase.from('categories').update(dbPatch).eq('id', categoryId));
         }
       }),
       reorderCategories: (projectId, activeId, overId) => mutate((draft) => {
@@ -334,7 +350,7 @@ export function PlannerProvider({ children }) {
         markDirty(projectId);
         if (useSupabase) {
           rows.forEach((item, index) => {
-            supabase.from('categories').update({ sort_order: index }).eq('id', item.id);
+            void saveSupabase('category order', supabase.from('categories').update({ sort_order: index }).eq('id', item.id));
           });
         }
       }),
@@ -346,8 +362,8 @@ export function PlannerProvider({ children }) {
         draft.categories = draft.categories.filter((item) => item.id !== categoryId);
         markDirty(category?.project_id);
         if (useSupabase) {
-          supabase.from('line_items').update({ category_id: null }).eq('category_id', categoryId);
-          supabase.from('categories').delete().eq('id', categoryId);
+          void saveSupabase('uncategorized rows', supabase.from('line_items').update({ category_id: null }).eq('category_id', categoryId));
+          void saveSupabase('category delete', supabase.from('categories').delete().eq('id', categoryId));
         }
       }),
       addLineItem: (projectId, categoryId, startDate = null) => mutate((draft) => {
@@ -370,7 +386,7 @@ export function PlannerProvider({ children }) {
         };
         draft.lineItems.push(item);
         markDirty(projectId);
-        if (useSupabase) supabase.from('line_items').insert(item);
+        if (useSupabase) void saveSupabase('line item', supabase.from('line_items').insert(item));
       }),
       duplicateLineItem: (itemId) => mutate((draft) => {
         const source = draft.lineItems.find((item) => item.id === itemId);
@@ -390,7 +406,7 @@ export function PlannerProvider({ children }) {
         };
         draft.lineItems.push(duplicate);
         markDirty(source.project_id);
-        if (useSupabase) supabase.from('line_items').insert(duplicate);
+        if (useSupabase) void saveSupabase('duplicated line item', supabase.from('line_items').insert(duplicate));
         return duplicate.id;
       }),
       addClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelId, offsetDays = 1, existingReviewTodoLabelIds = [reviewTodoLabelId]) => mutate((draft) => {
@@ -441,10 +457,10 @@ export function PlannerProvider({ children }) {
 
         if (useSupabase) {
           duplicates.forEach((item) => {
-            supabase.from('line_items').insert(item);
+            void saveSupabase('client review row', supabase.from('line_items').insert(item));
           });
           nextRows.forEach((item, index) => {
-            supabase.from('line_items').update({ sort_order: index }).eq('id', item.id);
+            void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: index }).eq('id', item.id));
           });
         }
 
@@ -478,7 +494,7 @@ export function PlannerProvider({ children }) {
           });
         markDirty(projectId);
         if (useSupabase) {
-          reviewIds.forEach((itemId) => supabase.from('line_items').delete().eq('id', itemId));
+          reviewIds.forEach((itemId) => void saveSupabase('client review delete', supabase.from('line_items').delete().eq('id', itemId)));
         }
         return reviewIds;
       }),
@@ -486,13 +502,13 @@ export function PlannerProvider({ children }) {
         const item = draft.lineItems.find((lineItem) => lineItem.id === itemId);
         Object.assign(item, patch);
         markDirty(item?.project_id);
-        if (useSupabase) supabase.from('line_items').update(patch).eq('id', itemId);
+        if (useSupabase) void saveSupabase('line item changes', supabase.from('line_items').update(patch).eq('id', itemId));
       }),
       deleteLineItem: (itemId) => mutate((draft) => {
         const item = draft.lineItems.find((lineItem) => lineItem.id === itemId);
         draft.lineItems = draft.lineItems.filter((item) => item.id !== itemId);
         markDirty(item?.project_id);
-        if (useSupabase) supabase.from('line_items').delete().eq('id', itemId);
+        if (useSupabase) void saveSupabase('line item delete', supabase.from('line_items').delete().eq('id', itemId));
       }),
       reorderLineItems: (projectId, activeId, overId) => mutate((draft) => {
         const rows = draft.lineItems.filter((item) => item.project_id === projectId).sort((a, b) => a.sort_order - b.sort_order);
@@ -508,7 +524,7 @@ export function PlannerProvider({ children }) {
         markDirty(projectId);
         if (useSupabase) {
           rows.forEach((item, index) => {
-            supabase.from('line_items').update({ sort_order: index }).eq('id', item.id);
+            void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: index }).eq('id', item.id));
           });
         }
       }),
@@ -528,7 +544,7 @@ export function PlannerProvider({ children }) {
         markDirty(projectId);
         if (useSupabase) {
           rows.forEach((item, index) => {
-            supabase.from('line_items').update({ sort_order: index }).eq('id', item.id);
+            void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: index }).eq('id', item.id));
           });
         }
       }),
@@ -539,9 +555,7 @@ export function PlannerProvider({ children }) {
         });
         markDirty(projectId);
         if (useSupabase) {
-          supabase.from('labels').insert(label).then(({ error }) => {
-            if (error) console.error('Could not save project label', error);
-          });
+          void saveSupabase('project label', supabase.from('labels').insert(label));
         }
         return label;
       },
@@ -550,7 +564,7 @@ export function PlannerProvider({ children }) {
         mutate((draft) => {
           draft.labels.push(label);
         });
-        if (useSupabase) supabase.from('labels').insert(label);
+        if (useSupabase) void saveSupabase('global label', supabase.from('labels').insert(label));
         return label;
       },
       updateLabel: (labelId, patch) => mutate((draft) => {
@@ -558,13 +572,13 @@ export function PlannerProvider({ children }) {
         if (!label) return;
         Object.assign(label, patch);
         markDirty(label.project_id);
-        if (useSupabase) supabase.from('labels').update(patch).eq('id', labelId);
+        if (useSupabase) void saveSupabase('label changes', supabase.from('labels').update(patch).eq('id', labelId));
       }),
       deleteLabel: (labelId) => mutate((draft) => {
         const label = draft.labels.find((item) => item.id === labelId);
         draft.labels = draft.labels.filter((item) => item.id !== labelId);
         markDirty(label?.project_id);
-        if (useSupabase) supabase.from('labels').delete().eq('id', labelId);
+        if (useSupabase) void saveSupabase('label delete', supabase.from('labels').delete().eq('id', labelId));
       }),
       inviteUser: async (email) => {
         const invitation = {
@@ -579,7 +593,7 @@ export function PlannerProvider({ children }) {
         mutate((draft) => {
           draft.invitations.unshift(invitation);
         });
-        if (useSupabase) await supabase.from('invitations').insert(invitation);
+        if (useSupabase) await saveSupabase('invitation', supabase.from('invitations').insert(invitation), { throwOnError: true });
         return invitation;
       },
       upsertPresence: (projectId) => {
@@ -588,11 +602,11 @@ export function PlannerProvider({ children }) {
           draft.presence = draft.presence.filter((item) => !(item.project_id === projectId && item.user_id === user.id));
           draft.presence.push(row);
         });
-        if (useSupabase) supabase.from('project_presence').upsert({ project_id: projectId, user_id: user.id, last_seen_at: row.last_seen_at }, { onConflict: 'project_id,user_id' });
+        if (useSupabase) void saveSupabase('presence', supabase.from('project_presence').upsert({ project_id: projectId, user_id: user.id, last_seen_at: row.last_seen_at }, { onConflict: 'project_id,user_id' }));
       },
       clearPresence: (projectId) => mutate((draft) => {
         draft.presence = draft.presence.filter((item) => !(item.project_id === projectId && item.user_id === user.id));
-        if (useSupabase) supabase.from('project_presence').delete().eq('project_id', projectId).eq('user_id', user.id);
+        if (useSupabase) void saveSupabase('presence clear', supabase.from('project_presence').delete().eq('project_id', projectId).eq('user_id', user.id));
       }),
       createShareLink: async (projectId) => {
         if (useSupabase) {
@@ -624,7 +638,7 @@ export function PlannerProvider({ children }) {
         return token;
       },
     }),
-    [data, loading, markDirty, mutate, useSupabase, user.id],
+    [data, loading, markDirty, mutate, saveError, saveSupabase, useSupabase, user.id],
   );
 
   return <PlannerContext.Provider value={api}>{children}</PlannerContext.Provider>;
