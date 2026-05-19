@@ -8,7 +8,7 @@ import { usePlanner } from '../context/PlannerContext.jsx';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, presence, createProject, updateProject, archiveProject, addClient, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, createProject, updateProject, archiveProject, addClient, addProducer, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [search, setSearch] = useState('');
@@ -17,18 +17,20 @@ export default function Dashboard() {
   const [projectNumber, setProjectNumber] = useState('');
   const [name, setName] = useState('');
   const [client, setClient] = useState('');
-  const [postProducer, setPostProducer] = useState(user.id);
+  const currentProfile = (profiles ?? []).find((profile) => profile.id === user.id);
+  const currentUserName = currentProfile?.display_name ?? user.email?.split('@')[0] ?? '';
+  const [postProducer, setPostProducer] = useState(currentUserName);
   const [producer, setProducer] = useState('');
   const [formError, setFormError] = useState('');
   const clients = [...new Set([...(savedClients ?? []).map((item) => item.name), ...projects.map((project) => project.client)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const activeUsers = (profiles ?? []).filter((profile) => profile.is_active !== false);
+  const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name), ...profiles.map((profile) => profile.display_name), ...projects.flatMap((project) => [project.post_producer, project.producer])].filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const resetForm = () => {
     setOpen(false);
     setEditingProject(null);
     setProjectNumber('');
     setName('');
     setClient('');
-    setPostProducer(user.id);
+    setPostProducer(currentUserName);
     setProducer('');
   };
   const openNewProject = () => {
@@ -36,7 +38,7 @@ export default function Dashboard() {
     setProjectNumber('');
     setName('');
     setClient('');
-    setPostProducer(user.id);
+    setPostProducer(currentUserName);
     setProducer('');
     setFormError('');
     setOpen(true);
@@ -63,12 +65,16 @@ export default function Dashboard() {
         producer: producer || null,
       });
       if (client) addClient(client);
+      if (postProducer) addProducer(postProducer);
+      if (producer) addProducer(producer);
       resetForm();
       return;
     }
     try {
       const project = await createProject({ projectNumber, name, client, postProducer, producer });
       if (client) addClient(client);
+      if (postProducer) addProducer(postProducer);
+      if (producer) addProducer(producer);
       resetForm();
       location.href = `/projects/${project.id}`;
     } catch (error) {
@@ -80,7 +86,8 @@ export default function Dashboard() {
     .filter((project) => {
       const haystack = [project.project_number, project.name, project.client].filter(Boolean).join(' ').toLowerCase();
       const matchesSearch = !search || haystack.includes(search.toLowerCase());
-      const matchesUser = !userFilter || project.post_producer === userFilter || project.producer === userFilter || project.created_by === userFilter;
+      const createdBy = profiles.find((profile) => profile.id === project.created_by);
+      const matchesUser = !userFilter || project.post_producer === userFilter || project.producer === userFilter || createdBy?.display_name === userFilter;
       const matchesClient = !clientFilter || project.client === clientFilter;
       return matchesSearch && matchesUser && matchesClient;
     });
@@ -105,7 +112,7 @@ export default function Dashboard() {
           </label>
           <select className="field !py-2" value={userFilter} onChange={(event) => setUserFilter(event.target.value)}>
             <option value="">Filter user</option>
-            {activeUsers.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
+            {producers.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
           <select className="field !py-2" value={clientFilter} onChange={(event) => setClientFilter(event.target.value)}>
             <option value="">Filter client</option>
@@ -127,7 +134,7 @@ export default function Dashboard() {
             {visibleProjects.map((project) => {
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
-              const postProducerProfile = (profiles ?? []).find((profile) => profile.id === project.post_producer);
+              const postProducerName = project.post_producer || '-';
               const activePresence = (presence ?? []).filter((item) => item.project_id === project.id && item.user_id !== user.id && Date.now() - new Date(item.last_seen_at).getTime() < 90_000);
               const activeNames = activePresence.map((item) => (profiles ?? []).find((profile) => profile.id === item.user_id)?.display_name).filter(Boolean);
               const locked = activeNames.length > 0;
@@ -139,7 +146,7 @@ export default function Dashboard() {
                     {project.client && <span className="ml-2 rounded bg-accent-500/15 px-2 py-0.5 text-xs font-semibold text-accent-300">{project.client}</span>}
                     {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                   </span>
-                  <span className="text-sm text-ink-500">{postProducerProfile?.display_name ?? '-'}</span>
+                  <span className="text-sm text-ink-500">{postProducerName}</span>
                   <span className="text-sm text-ink-500">
                     {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'}
                     <span className="block text-xs">by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</span>
@@ -220,17 +227,14 @@ export default function Dashboard() {
               </label>
               <label className="block space-y-1">
                 <span className="text-xs font-semibold uppercase text-ink-500">Post Producer</span>
-                <select className="field" value={postProducer} onChange={(event) => setPostProducer(event.target.value)} required>
-                  <option value="">Post producer</option>
-                  {activeUsers.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
-                </select>
+                <input className="field" list="existing-producers" value={postProducer} onChange={(event) => setPostProducer(event.target.value)} placeholder="Post producer" required />
               </label>
               <label className="block space-y-1">
                 <span className="text-xs font-semibold uppercase text-ink-500">Producer</span>
-                <select className="field" value={producer} onChange={(event) => setProducer(event.target.value)} required>
-                  <option value="">Producer</option>
-                  {activeUsers.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
-                </select>
+                <input className="field" list="existing-producers" value={producer} onChange={(event) => setProducer(event.target.value)} placeholder="Producer" required />
+                <datalist id="existing-producers">
+                  {producers.map((item) => <option key={item} value={item} />)}
+                </datalist>
               </label>
               {formError && <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{formError}</p>}
             </div>

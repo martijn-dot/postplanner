@@ -92,6 +92,7 @@ function hydrateDefaults(userId) {
     labels,
     profiles: [profile],
     clients: [{ id: id(), name: DEFAULT_PROJECT.client, created_by: userId, created_at: new Date().toISOString() }],
+    producers: [{ id: id(), name: profile.display_name, created_by: userId, created_at: new Date().toISOString() }],
     presence: [],
     invitations: [],
   };
@@ -142,6 +143,7 @@ function normalizeLocalData(data, userId) {
     labels,
     profiles,
     clients: data.clients ?? [...new Set(projects.map((project) => project.client).filter(Boolean))].map((name) => ({ id: id(), name, created_by: userId, created_at: now })),
+    producers: data.producers ?? [...new Set(profiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: id(), name, created_by: userId, created_at: now })),
     presence: data.presence ?? [],
     invitations: data.invitations ?? [],
   };
@@ -160,7 +162,7 @@ function readLocal(userId) {
 }
 
 async function loadSupabaseData() {
-  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients] = await Promise.all([
+  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers] = await Promise.all([
     supabase.from('projects').select('*').order('created_at', { ascending: false }),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('line_items').select('*').order('sort_order'),
@@ -169,12 +171,14 @@ async function loadSupabaseData() {
     supabase.from('project_presence').select('*'),
     supabase.from('invitations').select('*').order('created_at', { ascending: false }),
     supabase.from('clients').select('*').order('name'),
+    supabase.from('producers').select('*').order('name'),
   ]);
   for (const result of [projects, categories, lineItems, labels, profiles, presence]) {
     if (result.error) throw result.error;
   }
   if (invitations.error && invitations.error.code !== '42501') throw invitations.error;
   if (clients.error && clients.error.code !== '42P01' && clients.error.code !== '42501') throw clients.error;
+  if (producers.error && producers.error.code !== '42P01' && producers.error.code !== '42501') throw producers.error;
   return {
     projects: projects.data,
     categories: categories.data.map((category) => ({ ...category, collapsed: false })),
@@ -182,6 +186,7 @@ async function loadSupabaseData() {
     labels: labels.data,
     profiles: profiles.data,
     clients: clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name })),
+    producers: producers.data ?? [...new Set(profiles.data.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: name, name })),
     presence: presence.data ?? [],
     invitations: invitations.data ?? [],
   };
@@ -189,7 +194,7 @@ async function loadSupabaseData() {
 
 export function PlannerProvider({ children }) {
   const { user, demoMode, hasSupabaseConfig } = useAuth();
-  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], presence: [], invitations: [] });
+  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [] });
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
   const [dirtyProjectIds, setDirtyProjectIds] = useState([]);
@@ -310,11 +315,17 @@ export function PlannerProvider({ children }) {
           if (client && !draft.clients.some((item) => item.name.toLowerCase() === client.toLowerCase())) {
             draft.clients.push({ id: id(), name: client, created_by: user.id, created_at: now });
           }
+          [postProducer, producer].filter(Boolean).forEach((producerName) => {
+            if (!draft.producers.some((item) => item.name.toLowerCase() === producerName.toLowerCase())) {
+              draft.producers.push({ id: id(), name: producerName, created_by: user.id, created_at: now });
+            }
+          });
         });
         if (useSupabase) {
           await saveSupabase('project', supabase.from('projects').insert(project), { throwOnError: true });
           await saveSupabase('category', supabase.from('categories').insert({ ...category, collapsed: undefined }), { throwOnError: true });
           if (client) await saveSupabase('client', supabase.from('clients').upsert({ name: client, created_by: user.id }, { onConflict: 'name' }), { throwOnError: false });
+          await Promise.all([postProducer, producer].filter(Boolean).map((producerName) => saveSupabase('producer', supabase.from('producers').upsert({ name: producerName, created_by: user.id }, { onConflict: 'name' }), { throwOnError: false })));
         }
         return project;
       },
@@ -324,9 +335,17 @@ export function PlannerProvider({ children }) {
         if (patch.client && !draft.clients.some((item) => item.name.toLowerCase() === patch.client.toLowerCase())) {
           draft.clients.push({ id: id(), name: patch.client, created_by: user.id, created_at: new Date().toISOString() });
         }
+        [patch.post_producer, patch.producer].filter(Boolean).forEach((producerName) => {
+          if (!draft.producers.some((item) => item.name.toLowerCase() === producerName.toLowerCase())) {
+            draft.producers.push({ id: id(), name: producerName, created_by: user.id, created_at: new Date().toISOString() });
+          }
+        });
         markDirty(projectId);
         if (useSupabase) void saveSupabase('project changes', supabase.from('projects').update(patch).eq('id', projectId));
         if (useSupabase && patch.client) void saveSupabase('client', supabase.from('clients').upsert({ name: patch.client, created_by: user.id }, { onConflict: 'name' }));
+        if (useSupabase) [patch.post_producer, patch.producer].filter(Boolean).forEach((producerName) => {
+          void saveSupabase('producer', supabase.from('producers').upsert({ name: producerName, created_by: user.id }, { onConflict: 'name' }));
+        });
       }),
       markProjectEdited: (projectId) => mutate((draft) => {
         if (!dirtyProjectIdsRef.current.includes(projectId)) return;
@@ -672,6 +691,16 @@ export function PlannerProvider({ children }) {
         });
         if (useSupabase) void saveSupabase('client', supabase.from('clients').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name' }));
         return client;
+      },
+      addProducer: (name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return null;
+        const producer = { id: id(), name: trimmed, created_by: user.id, created_at: new Date().toISOString() };
+        mutate((draft) => {
+          if (!draft.producers.some((item) => item.name.toLowerCase() === trimmed.toLowerCase())) draft.producers.push(producer);
+        });
+        if (useSupabase) void saveSupabase('producer', supabase.from('producers').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name' }));
+        return producer;
       },
       upsertPresence: (projectId) => {
         const row = { id: id(), project_id: projectId, user_id: user.id, last_seen_at: new Date().toISOString() };

@@ -110,6 +110,13 @@ create table if not exists public.clients (
   created_at timestamptz default now()
 );
 
+create table if not exists public.producers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_by uuid references public.profiles(id),
+  created_at timestamptz default now()
+);
+
 alter table public.profiles enable row level security;
 alter table public.projects enable row level security;
 alter table public.categories enable row level security;
@@ -119,6 +126,7 @@ alter table public.public_share_links enable row level security;
 alter table public.project_presence enable row level security;
 alter table public.invitations enable row level security;
 alter table public.clients enable row level security;
+alter table public.producers enable row level security;
 
 create or replace function public.current_user_role()
 returns text
@@ -189,12 +197,16 @@ drop policy if exists "Users can update share links in their projects" on public
 drop policy if exists "Users can delete share links in their projects" on public.public_share_links;
 drop policy if exists "Presence is readable by authenticated users" on public.project_presence;
 drop policy if exists "Users manage their own presence" on public.project_presence;
+drop policy if exists "Users update their own presence" on public.project_presence;
 drop policy if exists "Users delete their own presence" on public.project_presence;
 drop policy if exists "Admins read invitations" on public.invitations;
 drop policy if exists "Admins create invitations" on public.invitations;
 drop policy if exists "Users can read clients" on public.clients;
 drop policy if exists "Users can create clients" on public.clients;
 drop policy if exists "Admins can delete clients" on public.clients;
+drop policy if exists "Users can read producers" on public.producers;
+drop policy if exists "Users can create producers" on public.producers;
+drop policy if exists "Admins can delete producers" on public.producers;
 
 create policy "Users can read their projects"
 on public.projects for select
@@ -332,6 +344,18 @@ with check (auth.role() = 'authenticated');
 
 create policy "Admins can delete clients"
 on public.clients for delete
+using (public.is_admin());
+
+create policy "Users can read producers"
+on public.producers for select
+using (auth.role() = 'authenticated');
+
+create policy "Users can create producers"
+on public.producers for insert
+with check (auth.role() = 'authenticated');
+
+create policy "Admins can delete producers"
+on public.producers for delete
 using (public.is_admin());
 
 create or replace function public.get_public_client_planning(share_token text)

@@ -14,6 +14,7 @@ export default function SettingsPage() {
     profiles,
     invitations,
     clients,
+    producers,
     labels,
     projects,
     addGlobalLabel,
@@ -24,6 +25,7 @@ export default function SettingsPage() {
     revokeInvite,
     deleteUser,
     addClient,
+    addProducer,
     restoreProject,
     deleteProjectForever,
   } = usePlanner();
@@ -32,6 +34,7 @@ export default function SettingsPage() {
   const [drafts, setDrafts] = useState({});
   const [inviteEmail, setInviteEmail] = useState('');
   const [clientName, setClientName] = useState('');
+  const [producerName, setProducerName] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [userNotice, setUserNotice] = useState('');
   const [userError, setUserError] = useState('');
@@ -111,6 +114,13 @@ export default function SettingsPage() {
     setClientName('');
   };
 
+  const submitProducer = (event) => {
+    event.preventDefault();
+    if (!producerName.trim()) return;
+    addProducer(producerName);
+    setProducerName('');
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar />
@@ -125,6 +135,7 @@ export default function SettingsPage() {
             ['labels', 'Default Labels'],
             ['users', 'User Management'],
             ['clients', 'Clients'],
+            ['producers', 'Producers'],
             ['archived', 'Archived Projects'],
           ].map(([key, label]) => (
             <button key={key} type="button" onClick={() => setTab(key)} className={`tab ${tab === key ? 'tab-active' : ''}`}>{label}</button>
@@ -261,6 +272,23 @@ export default function SettingsPage() {
                 </div>
               ))}
               {!(clients ?? []).length && <p className="text-sm text-ink-500">No clients yet.</p>}
+            </div>
+          </section>
+        )}
+
+        {tab === 'producers' && (
+          <section className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
+            <form onSubmit={submitProducer} className="mb-5 flex max-w-xl gap-2">
+              <input className="field !py-2" value={producerName} onChange={(event) => setProducerName(event.target.value)} placeholder="Add producer" />
+              <button type="submit" className="primary-button"><Plus size={16} /> Add Producer</button>
+            </form>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {(producers ?? []).map((producer) => (
+                <div key={producer.id ?? producer.name} className="rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
+                  {producer.name}
+                </div>
+              ))}
+              {!(producers ?? []).length && <p className="text-sm text-ink-500">No producers yet.</p>}
             </div>
           </section>
         )}
