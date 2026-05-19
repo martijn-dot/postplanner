@@ -1,4 +1,4 @@
-import { ArchiveRestore, KeyRound, Plus, Trash2 } from 'lucide-react';
+import { ArchiveRestore, KeyRound, Plus, Trash2, UserX, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const {
     profiles,
     invitations,
+    clients,
     labels,
     projects,
     addGlobalLabel,
@@ -20,6 +21,9 @@ export default function SettingsPage() {
     deleteLabel,
     inviteUser,
     resetUserPassword,
+    revokeInvite,
+    deleteUser,
+    addClient,
     restoreProject,
     deleteProjectForever,
   } = usePlanner();
@@ -27,10 +31,12 @@ export default function SettingsPage() {
   const [tab, setTab] = useState('labels');
   const [drafts, setDrafts] = useState({});
   const [inviteEmail, setInviteEmail] = useState('');
+  const [clientName, setClientName] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [userNotice, setUserNotice] = useState('');
   const [userError, setUserError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
+  const [confirmUserDelete, setConfirmUserDelete] = useState('');
   const selectedProfile = profiles.find((item) => item.id === selectedUserId) ?? null;
   const pendingInvites = (invitations ?? [])
     .filter((invite) => !invite.accepted && !profiles.some((item) => item.email?.toLowerCase() === invite.email?.toLowerCase()))
@@ -75,6 +81,36 @@ export default function SettingsPage() {
     }
   };
 
+  const revokePendingInvite = async (invite) => {
+    setUserNotice('');
+    setUserError('');
+    try {
+      await revokeInvite(invite.id, invite.email);
+      setUserNotice(`Invite revoked for ${invite.email}.`);
+    } catch (error) {
+      setUserError(error.message);
+    }
+  };
+
+  const deleteProfile = async (targetProfile) => {
+    setUserNotice('');
+    setUserError('');
+    try {
+      await deleteUser(targetProfile.id);
+      setUserNotice(`${targetProfile.display_name} was deleted. Their projects were assigned to you.`);
+      setConfirmUserDelete('');
+    } catch (error) {
+      setUserError(error.message);
+    }
+  };
+
+  const submitClient = (event) => {
+    event.preventDefault();
+    if (!clientName.trim()) return;
+    addClient(clientName);
+    setClientName('');
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar />
@@ -88,6 +124,7 @@ export default function SettingsPage() {
           {[
             ['labels', 'Default Labels'],
             ['users', 'User Management'],
+            ['clients', 'Clients'],
             ['archived', 'Archived Projects'],
           ].map(([key, label]) => (
             <button key={key} type="button" onClick={() => setTab(key)} className={`tab ${tab === key ? 'tab-active' : ''}`}>{label}</button>
@@ -173,9 +210,22 @@ export default function SettingsPage() {
                       <td><span className="rounded-full bg-accent-500/15 px-2 py-1 text-xs font-semibold uppercase text-accent-300">{item.role}</span></td>
                       <td className="text-ink-500">{item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'}</td>
                       <td>
-                        <button type="button" onClick={() => resetPasswordForUser(item)} className="secondary-button !px-2 !py-1">
-                          <KeyRound size={14} /> Reset
-                        </button>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => resetPasswordForUser(item)} className="secondary-button !px-2 !py-1">
+                            <KeyRound size={14} /> Reset
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirmUserDelete === item.id) deleteProfile(item);
+                              else setConfirmUserDelete(item.id);
+                            }}
+                            disabled={item.id === user.id}
+                            className="secondary-button !px-2 !py-1 text-red-300"
+                          >
+                            <UserX size={14} /> {confirmUserDelete === item.id ? 'Confirm' : 'Delete'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -186,14 +236,31 @@ export default function SettingsPage() {
                       <td><span className="rounded-full bg-amber-400/15 px-2 py-1 text-xs font-semibold uppercase text-amber-300">pending invite</span></td>
                       <td className="text-ink-500">{invite.created_at ? new Date(invite.created_at).toLocaleDateString() : '-'}</td>
                       <td>
-                        <button type="button" className="secondary-button !px-2 !py-1" disabled>
-                          Pending
+                        <button type="button" onClick={() => revokePendingInvite(invite)} className="secondary-button !px-2 !py-1 text-red-300">
+                          <XCircle size={14} /> Revoke
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          </section>
+        )}
+
+        {tab === 'clients' && (
+          <section className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
+            <form onSubmit={submitClient} className="mb-5 flex max-w-xl gap-2">
+              <input className="field !py-2" value={clientName} onChange={(event) => setClientName(event.target.value)} placeholder="Add client" />
+              <button type="submit" className="primary-button"><Plus size={16} /> Add Client</button>
+            </form>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {(clients ?? []).map((client) => (
+                <div key={client.id ?? client.name} className="rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
+                  {client.name}
+                </div>
+              ))}
+              {!(clients ?? []).length && <p className="text-sm text-ink-500">No clients yet.</p>}
             </div>
           </section>
         )}

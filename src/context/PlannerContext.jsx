@@ -91,6 +91,7 @@ function hydrateDefaults(userId) {
     lineItems,
     labels,
     profiles: [profile],
+    clients: [{ id: id(), name: DEFAULT_PROJECT.client, created_by: userId, created_at: new Date().toISOString() }],
     presence: [],
     invitations: [],
   };
@@ -140,6 +141,7 @@ function normalizeLocalData(data, userId) {
     lineItems,
     labels,
     profiles,
+    clients: data.clients ?? [...new Set(projects.map((project) => project.client).filter(Boolean))].map((name) => ({ id: id(), name, created_by: userId, created_at: now })),
     presence: data.presence ?? [],
     invitations: data.invitations ?? [],
   };
@@ -158,7 +160,7 @@ function readLocal(userId) {
 }
 
 async function loadSupabaseData() {
-  const [projects, categories, lineItems, labels, profiles, presence, invitations] = await Promise.all([
+  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients] = await Promise.all([
     supabase.from('projects').select('*').order('created_at', { ascending: false }),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('line_items').select('*').order('sort_order'),
@@ -166,17 +168,20 @@ async function loadSupabaseData() {
     supabase.from('profiles').select('*'),
     supabase.from('project_presence').select('*'),
     supabase.from('invitations').select('*').order('created_at', { ascending: false }),
+    supabase.from('clients').select('*').order('name'),
   ]);
   for (const result of [projects, categories, lineItems, labels, profiles, presence]) {
     if (result.error) throw result.error;
   }
   if (invitations.error && invitations.error.code !== '42501') throw invitations.error;
+  if (clients.error && clients.error.code !== '42P01' && clients.error.code !== '42501') throw clients.error;
   return {
     projects: projects.data,
     categories: categories.data.map((category) => ({ ...category, collapsed: false })),
     lineItems: lineItems.data,
     labels: labels.data,
     profiles: profiles.data,
+    clients: clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name })),
     presence: presence.data ?? [],
     invitations: invitations.data ?? [],
   };
@@ -184,7 +189,7 @@ async function loadSupabaseData() {
 
 export function PlannerProvider({ children }) {
   const { user, demoMode, hasSupabaseConfig } = useAuth();
-  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], presence: [], invitations: [] });
+  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], presence: [], invitations: [] });
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
   const [dirtyProjectIds, setDirtyProjectIds] = useState([]);
@@ -249,10 +254,10 @@ export function PlannerProvider({ children }) {
     return result;
   }, [useSupabase]);
 
-  const invokeAdminUserEmail = useCallback(async (mode, email) => {
+  const invokeAdminUserAction = useCallback(async (body) => {
     if (!useSupabase) return null;
     const result = await supabase.functions.invoke('admin-user-email', {
-      body: { mode, email },
+      body,
     });
     if (result.error) {
       let message = result.error.message;
@@ -266,8 +271,8 @@ export function PlannerProvider({ children }) {
         }
       }
       const error = new Error(message);
-      console.error(`Could not send ${mode} email`, error);
-      setSaveError(`${mode === 'invite' ? 'Invite email' : 'Password reset email'} was not sent: ${message}`);
+      console.error('Admin user action failed', error);
+      setSaveError(`Admin action failed: ${message}`);
       throw error;
     }
     setSaveError('');
@@ -302,18 +307,26 @@ export function PlannerProvider({ children }) {
         mutate((draft) => {
           draft.projects.unshift(project);
           draft.categories.push(category);
+          if (client && !draft.clients.some((item) => item.name.toLowerCase() === client.toLowerCase())) {
+            draft.clients.push({ id: id(), name: client, created_by: user.id, created_at: now });
+          }
         });
         if (useSupabase) {
           await saveSupabase('project', supabase.from('projects').insert(project), { throwOnError: true });
           await saveSupabase('category', supabase.from('categories').insert({ ...category, collapsed: undefined }), { throwOnError: true });
+          if (client) await saveSupabase('client', supabase.from('clients').upsert({ name: client, created_by: user.id }, { onConflict: 'name' }), { throwOnError: false });
         }
         return project;
       },
       updateProject: (projectId, patch) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);
         Object.assign(project, patch);
+        if (patch.client && !draft.clients.some((item) => item.name.toLowerCase() === patch.client.toLowerCase())) {
+          draft.clients.push({ id: id(), name: patch.client, created_by: user.id, created_at: new Date().toISOString() });
+        }
         markDirty(projectId);
         if (useSupabase) void saveSupabase('project changes', supabase.from('projects').update(patch).eq('id', projectId));
+        if (useSupabase && patch.client) void saveSupabase('client', supabase.from('clients').upsert({ name: patch.client, created_by: user.id }, { onConflict: 'name' }));
       }),
       markProjectEdited: (projectId) => mutate((draft) => {
         if (!dirtyProjectIdsRef.current.includes(projectId)) return;
@@ -620,13 +633,45 @@ export function PlannerProvider({ children }) {
         });
         if (useSupabase) await saveSupabase('invitation', supabase.from('invitations').insert(invitation), { throwOnError: true });
         if (useSupabase) {
-          await invokeAdminUserEmail('invite', email);
+          await invokeAdminUserAction({ mode: 'invite', email });
         }
         return invitation;
       },
       resetUserPassword: async (email) => {
         if (!useSupabase) return null;
-        return invokeAdminUserEmail('reset', email);
+        return invokeAdminUserAction({ mode: 'reset', email });
+      },
+      revokeInvite: async (invitationId, email) => {
+        mutate((draft) => {
+          draft.invitations = draft.invitations.filter((item) => item.id !== invitationId);
+        });
+        if (useSupabase) {
+          await saveSupabase('invite revoke', supabase.from('invitations').delete().eq('id', invitationId), { throwOnError: true });
+          await invokeAdminUserAction({ mode: 'revoke-invite', email, invitationId });
+        }
+      },
+      deleteUser: async (targetUserId) => {
+        if (targetUserId === user.id) throw new Error('You cannot delete your own admin account.');
+        mutate((draft) => {
+          draft.projects.forEach((project) => {
+            ['user_id', 'created_by', 'last_edited_by', 'archived_by', 'post_producer', 'producer'].forEach((field) => {
+              if (project[field] === targetUserId) project[field] = user.id;
+            });
+          });
+          draft.profiles = draft.profiles.filter((profile) => profile.id !== targetUserId);
+          draft.presence = draft.presence.filter((item) => item.user_id !== targetUserId);
+        });
+        if (useSupabase) await invokeAdminUserAction({ mode: 'delete-user', targetUserId });
+      },
+      addClient: (name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return null;
+        const client = { id: id(), name: trimmed, created_by: user.id, created_at: new Date().toISOString() };
+        mutate((draft) => {
+          if (!draft.clients.some((item) => item.name.toLowerCase() === trimmed.toLowerCase())) draft.clients.push(client);
+        });
+        if (useSupabase) void saveSupabase('client', supabase.from('clients').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name' }));
+        return client;
       },
       upsertPresence: (projectId) => {
         const row = { id: id(), project_id: projectId, user_id: user.id, last_seen_at: new Date().toISOString() };
@@ -670,7 +715,7 @@ export function PlannerProvider({ children }) {
         return token;
       },
     }),
-    [data, invokeAdminUserEmail, loading, markDirty, mutate, saveError, saveSupabase, useSupabase, user.id],
+    [data, invokeAdminUserAction, loading, markDirty, mutate, saveError, saveSupabase, useSupabase, user.id],
   );
 
   return <PlannerContext.Provider value={api}>{children}</PlannerContext.Provider>;

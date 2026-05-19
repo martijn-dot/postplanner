@@ -12,6 +12,7 @@ Deno.serve(async (request) => {
   }
 
   try {
+    console.log('admin-user-email request received');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -30,6 +31,7 @@ Deno.serve(async (request) => {
 
     const { data: authUser, error: authError } = await userClient.auth.getUser();
     if (authError || !authUser.user) throw new Error('Not authenticated.');
+    console.log(`admin-user-email authenticated user: ${authUser.user.id}`);
 
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
@@ -38,29 +40,114 @@ Deno.serve(async (request) => {
       .single();
 
     if (profileError || profile?.role !== 'admin' || profile?.is_active === false) {
+      console.error('admin-user-email admin check failed', {
+        profileError: profileError?.message,
+        role: profile?.role,
+        isActive: profile?.is_active,
+      });
       throw new Error('Only admins can send user emails.');
     }
 
-    const { email, mode } = await request.json();
-    if (!email || !String(email).includes('@')) throw new Error('A valid email address is required.');
+    const { email, mode, targetUserId, invitationId } = await request.json();
+    console.log(`admin-user-email mode=${mode} email=${email ?? 'none'} targetUserId=${targetUserId ?? 'none'}`);
 
     const siteUrl = Deno.env.get('SITE_URL') ?? request.headers.get('Origin') ?? new URL(request.url).origin;
     const redirectTo = `${siteUrl.replace(/\/$/, '')}/login?mode=update-password`;
+    console.log(`admin-user-email redirectTo=${redirectTo}`);
 
     if (mode === 'invite') {
+      if (!email || !String(email).includes('@')) throw new Error('A valid email address is required.');
       const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, { redirectTo });
-      if (error) throw error;
+      if (error) {
+        console.error('admin-user-email invite failed', {
+          message: error.message,
+          name: error.name,
+          status: error.status,
+        });
+        throw error;
+      }
+      console.log(`admin-user-email invite sent userId=${data.user?.id ?? 'none'}`);
       return Response.json({ ok: true, userId: data.user?.id ?? null }, { headers: corsHeaders });
     }
 
     if (mode === 'reset') {
+      if (!email || !String(email).includes('@')) throw new Error('A valid email address is required.');
       const { error } = await userClient.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) {
+        console.error('admin-user-email reset failed', {
+          message: error.message,
+          name: error.name,
+          status: error.status,
+        });
+        throw error;
+      }
+      console.log('admin-user-email reset sent');
+      return Response.json({ ok: true }, { headers: corsHeaders });
+    }
+
+    if (mode === 'revoke-invite') {
+      if (!email || !String(email).includes('@')) throw new Error('A valid email address is required.');
+      if (invitationId) {
+        const { error } = await adminClient.from('invitations').delete().eq('id', invitationId);
+        if (error) throw error;
+      }
+      const { data, error } = await adminClient.auth.admin.listUsers();
       if (error) throw error;
+      const invitedUser = data.users.find((item) => item.email?.toLowerCase() === String(email).toLowerCase() && !item.email_confirmed_at);
+      if (invitedUser) {
+        const deleted = await adminClient.auth.admin.deleteUser(invitedUser.id);
+        if (deleted.error) throw deleted.error;
+      }
+      console.log('admin-user-email invite revoked');
+      return Response.json({ ok: true }, { headers: corsHeaders });
+    }
+
+    if (mode === 'delete-user') {
+      if (!targetUserId) throw new Error('Missing target user.');
+      if (targetUserId === authUser.user.id) throw new Error('You cannot delete your own admin account.');
+
+      const { count: adminCount, error: adminCountError } = await adminClient
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'admin')
+        .eq('is_active', true);
+      if (adminCountError) throw adminCountError;
+
+      const { data: targetProfile, error: targetProfileError } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', targetUserId)
+        .single();
+      if (targetProfileError) throw targetProfileError;
+      if (targetProfile.role === 'admin' && (adminCount ?? 0) <= 1) {
+        throw new Error('You cannot delete the last admin.');
+      }
+
+      const projectFields = ['user_id', 'created_by', 'last_edited_by', 'archived_by', 'post_producer', 'producer'];
+      for (const field of projectFields) {
+        const { error } = await adminClient
+          .from('projects')
+          .update({ [field]: authUser.user.id })
+          .eq(field, targetUserId);
+        if (error) throw error;
+      }
+
+      const { error: presenceError } = await adminClient.from('project_presence').delete().eq('user_id', targetUserId);
+      if (presenceError) throw presenceError;
+
+      const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId);
+      if (deleteError) throw deleteError;
+
+      console.log(`admin-user-email deleted user ${targetUserId}`);
       return Response.json({ ok: true }, { headers: corsHeaders });
     }
 
     throw new Error('Unsupported email mode.');
   } catch (error) {
+    console.error('admin-user-email failed', {
+      message: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : 'UnknownError',
+    });
     return Response.json(
       { error: error instanceof Error ? error.message : 'Could not send email.' },
       { status: 400, headers: corsHeaders },

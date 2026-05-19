@@ -8,7 +8,7 @@ import { usePlanner } from '../context/PlannerContext.jsx';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, presence, createProject, updateProject, archiveProject, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, presence, createProject, updateProject, archiveProject, addClient, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [search, setSearch] = useState('');
@@ -17,10 +17,10 @@ export default function Dashboard() {
   const [projectNumber, setProjectNumber] = useState('');
   const [name, setName] = useState('');
   const [client, setClient] = useState('');
-  const [postProducer, setPostProducer] = useState('');
+  const [postProducer, setPostProducer] = useState(user.id);
   const [producer, setProducer] = useState('');
   const [formError, setFormError] = useState('');
-  const clients = [...new Set(projects.map((project) => project.client).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const clients = [...new Set([...(savedClients ?? []).map((item) => item.name), ...projects.map((project) => project.client)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const activeUsers = (profiles ?? []).filter((profile) => profile.is_active !== false);
   const resetForm = () => {
     setOpen(false);
@@ -28,8 +28,18 @@ export default function Dashboard() {
     setProjectNumber('');
     setName('');
     setClient('');
-    setPostProducer('');
+    setPostProducer(user.id);
     setProducer('');
+  };
+  const openNewProject = () => {
+    setEditingProject(null);
+    setProjectNumber('');
+    setName('');
+    setClient('');
+    setPostProducer(user.id);
+    setProducer('');
+    setFormError('');
+    setOpen(true);
   };
   const openProjectSettings = (project) => {
     setEditingProject(project);
@@ -52,11 +62,13 @@ export default function Dashboard() {
         post_producer: postProducer || null,
         producer: producer || null,
       });
+      if (client) addClient(client);
       resetForm();
       return;
     }
     try {
       const project = await createProject({ projectNumber, name, client, postProducer, producer });
+      if (client) addClient(client);
       resetForm();
       location.href = `/projects/${project.id}`;
     } catch (error) {
@@ -82,7 +94,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-semibold">Projects</h1>
             <p className="mt-2 text-sm text-ink-500">Plan delivery timelines, client milestones, and review moments.</p>
           </div>
-          <button type="button" onClick={() => setOpen(true)} className="primary-button">
+          <button type="button" onClick={openNewProject} className="primary-button">
             <Plus size={17} /> New Project
           </button>
         </div>
@@ -183,30 +195,43 @@ export default function Dashboard() {
           <form onSubmit={submit} className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 text-ink-100 shadow-glow">
             <h2 className="text-xl font-semibold">{editingProject ? 'Project settings' : 'New project'}</h2>
             <div className="mt-5 space-y-3">
-              <input
-                className="field"
-                value={projectNumber}
-                onChange={(event) => setProjectNumber(event.target.value.replace(/\D/g, ''))}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="Project number"
-                required
-              />
-              <input className="field" value={name} onChange={(event) => setName(event.target.value)} placeholder="Project name" required />
-              <div>
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold uppercase text-ink-500">Project Code</span>
+                <input
+                  className="field"
+                  value={projectNumber}
+                  onChange={(event) => setProjectNumber(event.target.value.replace(/\D/g, ''))}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Project code"
+                  required
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold uppercase text-ink-500">Projectname</span>
+                <input className="field" value={name} onChange={(event) => setName(event.target.value)} placeholder="Project name" required />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold uppercase text-ink-500">Client</span>
                 <input className="field" list="existing-clients" value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client" required />
                 <datalist id="existing-clients">
                   {clients.map((item) => <option key={item} value={item} />)}
                 </datalist>
-              </div>
-              <select className="field" value={postProducer} onChange={(event) => setPostProducer(event.target.value)} required>
-                <option value="">Post producer</option>
-                {activeUsers.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
-              </select>
-              <select className="field" value={producer} onChange={(event) => setProducer(event.target.value)} required>
-                <option value="">Producer</option>
-                {activeUsers.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
-              </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold uppercase text-ink-500">Post Producer</span>
+                <select className="field" value={postProducer} onChange={(event) => setPostProducer(event.target.value)} required>
+                  <option value="">Post producer</option>
+                  {activeUsers.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold uppercase text-ink-500">Producer</span>
+                <select className="field" value={producer} onChange={(event) => setProducer(event.target.value)} required>
+                  <option value="">Producer</option>
+                  {activeUsers.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name}</option>)}
+                </select>
+              </label>
               {formError && <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{formError}</p>}
             </div>
             <div className="mt-5 flex justify-end gap-2">

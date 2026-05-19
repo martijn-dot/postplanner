@@ -4,11 +4,10 @@ import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function AuthPage() {
-  const { session, demoMode, hasSupabaseConfig, signIn, signUp, resetPassword, updatePassword, enterDemo } = useAuth();
+  const { session, demoMode, hasSupabaseConfig, signIn, resetPassword, updatePassword, enterDemo } = useAuth();
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState(searchParams.get('mode') === 'update-password' ? 'update-password' : 'signin');
   const [email, setEmail] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -38,9 +37,8 @@ export default function AuthPage() {
       return;
     }
 
-    const result = mode === 'signin' ? await signIn(email, password) : await signUp(email, password, displayName);
+    const result = await signIn(email, password);
     if (result.error) setError(result.error.message);
-    else if (mode === 'signup') setNotice('Account created. Check your email if Supabase asks you to confirm it, then sign in.');
   };
 
   return (
@@ -54,21 +52,21 @@ export default function AuthPage() {
         {hasSupabaseConfig ? (
           <form onSubmit={submit} className="space-y-4">
             {mode !== 'update-password' && <input className="field" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" required />}
-            {mode === 'signup' && <input className="field" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Display name" required />}
             {mode !== 'recover' && <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === 'update-password' ? 'New password' : 'Password'} required />}
             {error && <p className="text-sm text-red-300">{error}</p>}
             {notice && <p className="rounded-md border border-accent-400/30 bg-accent-500/10 px-3 py-2 text-sm text-accent-100">{notice}</p>}
             <button className="primary-button w-full" type="submit">
               {mode === 'signin' && 'Sign in'}
-              {mode === 'signup' && 'Create account'}
               {mode === 'recover' && 'Send reset email'}
               {mode === 'update-password' && 'Set new password'}
               <ArrowRight size={17} />
             </button>
-            <div className="flex justify-between gap-3 text-sm text-ink-400">
-              <button type="button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setNotice(''); }} className="hover:text-ink-100">
-                {mode === 'signin' ? 'Need an account?' : 'Already have an account?'}
-              </button>
+            <div className="flex justify-end gap-3 text-sm text-ink-400">
+              {mode !== 'signin' && (
+                <button type="button" onClick={() => { setMode('signin'); setError(''); setNotice(''); }} className="hover:text-ink-100">
+                  Back to sign in
+                </button>
+              )}
               {mode !== 'recover' && (
                 <button type="button" onClick={() => { setMode('recover'); setError(''); setNotice(''); }} className="hover:text-ink-100">
                   Reset password
