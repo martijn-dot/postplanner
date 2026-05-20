@@ -10,7 +10,6 @@ import {
   Columns3,
   Copy,
   FileText,
-  Filter,
   GripVertical,
   PanelLeftClose,
   PanelLeftOpen,
@@ -23,6 +22,7 @@ import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { buildTimelineDays, daysBetween, isToday, iso, monthSegments } from '../lib/dates.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
+import { buildProjectSummary } from '../lib/projectSummary.js';
 
 const DAY_WIDTH = { day: 128, week: 72, month: 52 };
 const ROW_HEIGHT = 52;
@@ -525,12 +525,12 @@ export default function TimelineView({ project }) {
   const [duplicatedIds, setDuplicatedIds] = useState([]);
   const [visibleMonth, setVisibleMonth] = useState('');
   const [optionsVisible, setOptionsVisible] = useState(false);
+  const [infoVisible, setInfoVisible] = useState(true);
   const [dragPreview, setDragPreview] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [selectedCells, setSelectedCells] = useState([]);
   const [fillCells, setFillCells] = useState([]);
   const [detailsItemId, setDetailsItemId] = useState(null);
-  const [reviewMenuOpen, setReviewMenuOpen] = useState(false);
   const scrollRef = useRef(null);
   const didInitialFocus = useRef(false);
   const suppressDetailsOpen = useRef(false);
@@ -567,34 +567,10 @@ export default function TimelineView({ project }) {
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
   const months = monthSegments(timelineDays);
   const weeks = weekSegments(timelineDays);
-  const projectInfo = useMemo(() => {
-    const datedRows = allRows.filter((item) => item.start_date || item.end_date);
-    const startDates = datedRows.map((item) => item.start_date || item.end_date).filter(Boolean).sort();
-    const endDates = datedRows.map((item) => item.end_date || item.start_date).filter(Boolean).sort();
-    const firstStart = startDates[0] ?? null;
-    const lastEnd = endDates.at(-1) ?? null;
-    const daysToStart = firstStart ? differenceInCalendarDays(parseISO(firstStart), new Date()) : null;
-    const weekLength = firstStart && lastEnd ? Math.max(1, Math.ceil((differenceInCalendarDays(parseISO(lastEnd), parseISO(firstStart)) + 1) / 7)) : null;
-    const dateLabel = (value) => (value ? format(parseISO(value), 'd MMM') : '');
-    const uniqueDates = (items) => [...new Set(items.map((item) => item.end_date || item.start_date).filter(Boolean))].sort().map(dateLabel).join(', ');
-    const rowsByWhat = (needle) => allRows.filter((item) => (labelsById[item.what]?.value ?? '').toLowerCase().includes(needle));
-    const finalRows = rowsByWhat('final delivery');
-    const finalByCategory = projectCategories
-      .map((category) => {
-        const dates = uniqueDates(finalRows.filter((item) => item.category_id === category.id));
-        return dates ? `${category.name}: ${dates}` : '';
-      })
-      .filter(Boolean);
-    const uncategorizedFinalDates = uniqueDates(finalRows.filter((item) => !item.category_id));
-    if (uncategorizedFinalDates) finalByCategory.push(`${uncategorizedName}: ${uncategorizedFinalDates}`);
-    return {
-      start: daysToStart == null ? '-' : daysToStart < 0 ? `Started ${Math.abs(daysToStart)}d ago` : `Starts within ${daysToStart}d`,
-      weeks: weekLength ? `${weekLength}w` : '-',
-      final: finalByCategory.length ? finalByCategory.join(' | ') : '-',
-      offlineLock: uniqueDates(rowsByWhat('offline lock')) || '-',
-      grading: uniqueDates(rowsByWhat('grading')) || '-',
-    };
-  }, [allRows, labelsById, projectCategories, uncategorizedName]);
+  const projectInfo = useMemo(
+    () => buildProjectSummary({ lineItems: allRows, labelsById, categories: projectCategories, uncategorizedName }),
+    [allRows, labelsById, projectCategories, uncategorizedName],
+  );
 
   useEffect(() => {
     if (scrollAnchorRef.current && scrollRef.current) {
@@ -839,7 +815,6 @@ export default function TimelineView({ project }) {
       ?? addLabel(project.id, 'todo', 'Share Feedback', '#6d5dfc')?.id;
     const reviewTodoIds = [shareFeedbackId, reviewLabels.share].filter(Boolean);
     const createdIds = addClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, shareFeedbackId, offsetDays, reviewTodoIds) ?? [];
-    setReviewMenuOpen(false);
     if (!createdIds.length) return;
     setDuplicatedIds((current) => [...current, ...createdIds]);
     window.setTimeout(() => {
@@ -849,7 +824,6 @@ export default function TimelineView({ project }) {
 
   const removeClientReviewRows = () => {
     const removedIds = removeClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, [reviewLabels.shareFeedback, reviewLabels.share]) ?? [];
-    setReviewMenuOpen(false);
     if (removedIds.length) setSelectedIds((current) => current.filter((id) => !removedIds.includes(id)));
   };
 
@@ -976,41 +950,11 @@ export default function TimelineView({ project }) {
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <button type="button" onClick={() => focusToday()} className="secondary-button"><CalendarClock size={16} /> Today</button>
-            <ToolbarMenu icon={Columns3} label="Columns">
-              {OPTIONAL_COLUMNS.map((key) => (
-                <label key={key} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
-                  <input type="checkbox" checked={columnVisibility[key]} onChange={() => setColumnVisibility((current) => ({ ...current, [key]: !current[key] }))} />
-                  {COLUMN_LABELS[key]}
-                </label>
-              ))}
-            </ToolbarMenu>
-            <ToolbarMenu icon={Filter} label="Who">
-              {labelsByType.who.map((label) => (
-                <label key={label.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-white/5">
-                  <span className="flex items-center gap-2">
-                    <input type="checkbox" checked={!hiddenWhoIds.includes(label.id)} onChange={() => toggleWhoFilter(label.id)} />
-                    <Pill label={label} />
-                  </span>
-                </label>
-              ))}
-            </ToolbarMenu>
+            <button type="button" onClick={() => setInfoVisible((next) => !next)} className="secondary-button"><FileText size={16} /> {infoVisible ? 'Hide info' : 'Show info'}</button>
             <button type="button" onClick={() => setTableVisible((next) => !next)} className="secondary-button">
               {tableVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               {tableVisible ? 'Hide table' : 'Show table'}
             </button>
-            <div className="relative">
-              <button type="button" onClick={() => setReviewMenuOpen((next) => !next)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="secondary-button">
-                <Plus size={16} /> Client reviews
-              </button>
-              {reviewMenuOpen && (
-                <div className="absolute right-0 z-[500] mt-2 w-52 overflow-hidden rounded-lg border border-white/10 bg-ink-850 p-1 shadow-glow">
-                  <button type="button" onClick={() => addClientReviewRows(1)} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5">Place 24h later</button>
-                  <button type="button" onClick={() => addClientReviewRows(2)} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5">Place 48h later</button>
-                  <div className="my-1 border-t border-white/10" />
-                  <button type="button" onClick={removeClientReviewRows} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
-                </div>
-              )}
-            </div>
             <div className="segmented">
               {['day', 'week', 'month'].map((item) => <button key={item} type="button" onClick={() => setZoom(item)} className={zoom === item ? 'selected' : ''}>{item}</button>)}
             </div>
@@ -1018,13 +962,13 @@ export default function TimelineView({ project }) {
           </div>
         </div>
 
-        <div className="grid gap-2 border-b border-black/10 bg-white px-5 py-3 text-sm dark:border-white/10 dark:bg-ink-950 md:grid-cols-5">
+        {infoVisible && <div className="grid gap-2 border-b border-black/10 bg-white px-5 py-3 text-sm dark:border-white/10 dark:bg-ink-950 md:grid-cols-5">
           <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Start</span>{projectInfo.start}</div>
-          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Length</span>{projectInfo.weeks}</div>
-          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Final delivery</span>{projectInfo.final}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Project running</span>{projectInfo.running}</div>
           <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Offline lock</span>{projectInfo.offlineLock}</div>
           <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Grading</span>{projectInfo.grading}</div>
-        </div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Final delivery</span>{projectInfo.final}</div>
+        </div>}
 
         <div ref={scrollRef} className="timeline-scroll" onScroll={() => setVisibleMonth(monthAtScroll(timelineDays, scrollRef.current?.scrollLeft ?? 0, dayWidth))}>
           <div className="relative" style={{ minWidth: leftWidth + timelineWidth }}>
@@ -1032,13 +976,32 @@ export default function TimelineView({ project }) {
               {tableVisible && (
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
                   <div className="absolute right-2 top-2 flex items-center gap-1 normal-case">
-                    {optionsVisible && (
-                      <>
-                        <button type="button" onClick={() => shiftPlanning(7)} className="timeline-header-chip">Move +1</button>
-                        <button type="button" onClick={() => shiftPlanning(-7)} className="timeline-header-chip">Move -1</button>
-                      </>
-                    )}
-                    <button type="button" onClick={() => setOptionsVisible((next) => !next)} className={`timeline-header-chip ${optionsVisible ? 'is-active' : ''}`} aria-pressed={optionsVisible}>Options</button>
+                    <button type="button" onClick={() => shiftPlanning(7)} className="timeline-header-chip">Move +1</button>
+                    <button type="button" onClick={() => shiftPlanning(-7)} className="timeline-header-chip">Move -1</button>
+                    <ToolbarMenu icon={Columns3} label="Table">
+                      <p className="px-2 py-1 text-xs font-semibold uppercase text-ink-500">Columns</p>
+                      {OPTIONAL_COLUMNS.map((key) => (
+                        <label key={key} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
+                          <input type="checkbox" checked={columnVisibility[key]} onChange={() => setColumnVisibility((current) => ({ ...current, [key]: !current[key] }))} />
+                          {COLUMN_LABELS[key]}
+                        </label>
+                      ))}
+                      <div className="my-1 border-t border-white/10" />
+                      <p className="px-2 py-1 text-xs font-semibold uppercase text-ink-500">Who</p>
+                      {labelsByType.who.map((label) => (
+                        <label key={label.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-white/5">
+                          <span className="flex items-center gap-2">
+                            <input type="checkbox" checked={!hiddenWhoIds.includes(label.id)} onChange={() => toggleWhoFilter(label.id)} />
+                            <Pill label={label} />
+                          </span>
+                        </label>
+                      ))}
+                      <div className="my-1 border-t border-white/10" />
+                      <button type="button" onClick={() => addClientReviewRows(1)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 24h</button>
+                      <button type="button" onClick={() => addClientReviewRows(2)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 48h</button>
+                      <button type="button" onClick={removeClientReviewRows} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
+                    </ToolbarMenu>
+                    <button type="button" onClick={() => setOptionsVisible((next) => !next)} className={`timeline-header-chip ${optionsVisible ? 'is-active' : ''}`} aria-pressed={optionsVisible}>{optionsVisible ? 'Hide options' : 'Show options'}</button>
                   </div>
                   <span />
                   <span />

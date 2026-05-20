@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
+import { buildProjectSummary } from '../lib/projectSummary.js';
 
 function ComboField({ label, value, onChange, options, placeholder, required = false }) {
   const [open, setOpen] = useState(false);
@@ -78,7 +79,7 @@ function isUuidLike(value) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, createProject, updateProject, archiveProject, addClient, addProducer, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [search, setSearch] = useState('');
@@ -96,6 +97,7 @@ export default function Dashboard() {
   const postProducers = [...new Set((profiles ?? []).map((profile) => profile.display_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name), ...profiles.map((profile) => profile.display_name), ...projects.flatMap((project) => [project.post_producer, project.producer])].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
   const profileByName = Object.fromEntries((profiles ?? []).map((profile) => [profile.display_name, profile]));
+  const labelsById = Object.fromEntries((labels ?? []).map((label) => [label.id, label]));
   const resetForm = () => {
     setOpen(false);
     setEditingProject(null);
@@ -210,6 +212,11 @@ export default function Dashboard() {
               const knownClient = project.client && savedClients.some((item) => item.name === project.client);
               const clientLabel = knownClient ? project.client : 'no client';
               const missingClient = clientLabel === 'no client';
+              const summary = buildProjectSummary({
+                lineItems: (lineItems ?? []).filter((item) => item.project_id === project.id),
+                labelsById,
+                categories: (categories ?? []).filter((category) => category.project_id === project.id),
+              });
               const activePresence = (presence ?? []).filter((item) => item.project_id === project.id && item.user_id !== user.id && Date.now() - new Date(item.last_seen_at).getTime() < 90_000);
               const activeNames = activePresence.map((item) => (profiles ?? []).find((profile) => profile.id === item.user_id)?.display_name).filter(Boolean);
               const locked = activeNames.length > 0;
@@ -220,6 +227,13 @@ export default function Dashboard() {
                     <span className="font-semibold">{project.name}</span>
                     {clientLabel && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${missingClient ? 'bg-red-500/15 text-red-300' : 'bg-accent-500/15 text-accent-300'}`}>{clientLabel}</span>}
                     {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
+                    <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-500">
+                      <span>Start: {summary.start}</span>
+                      <span>Running: {summary.running}</span>
+                      {summary.offlineLock !== '-' && <span>Offline lock: {summary.offlineLock}</span>}
+                      {summary.grading !== '-' && <span>Grading: {summary.grading}</span>}
+                      {summary.final !== '-' && <span>Final: {summary.final}</span>}
+                    </span>
                   </span>
                   <span className="flex min-w-0 items-center gap-2 text-sm text-ink-500">
                     <span className="grid h-7 w-7 shrink-0 overflow-hidden place-items-center rounded-full bg-accent-500/20 text-[10px] font-bold text-accent-100">

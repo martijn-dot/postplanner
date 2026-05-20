@@ -1,4 +1,7 @@
-import { ArchiveRestore, ArrowDown, ArrowUp, KeyRound, Plus, Trash2, UserX, XCircle } from 'lucide-react';
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ArchiveRestore, GripVertical, KeyRound, Plus, Trash2, UserX, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
@@ -7,6 +10,27 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 
 const LABEL_TYPES = ['who', 'what', 'todo'];
+
+function SortableLabelRow({ label, onUpdate, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: label.id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex items-center gap-2 rounded-md border border-black/10 bg-white p-2 dark:border-white/10 dark:bg-ink-900 ${label.is_divider ? 'bg-black/5 dark:bg-white/[0.035]' : ''}`}
+    >
+      <button type="button" className="drag-handle" aria-label="Drag label" {...attributes} {...listeners}>
+        <GripVertical size={15} />
+      </button>
+      {label.is_divider ? <span className="rounded bg-white/10 px-2 py-1 text-xs font-semibold uppercase text-ink-500">Divider</span> : <Pill label={label} />}
+      <input value={label.value} onChange={(event) => onUpdate(label.id, { value: event.target.value })} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+      {!label.is_divider && <input type="color" value={label.color} onChange={(event) => onUpdate(label.id, { color: event.target.value })} className="h-8 w-9 rounded border border-white/10 bg-transparent" />}
+      <button type="button" onClick={() => window.confirm("Delete this global label? This won't affect project-level labels.") && onDelete(label.id)} className="icon-button" aria-label="Delete label">
+        <Trash2 size={15} />
+      </button>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -45,6 +69,7 @@ export default function SettingsPage() {
   const [settingsNotice, setSettingsNotice] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
   const [confirmUserDelete, setConfirmUserDelete] = useState('');
+  const labelSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const selectedProfile = profiles.find((item) => item.id === selectedUserId) ?? null;
   const pendingInvites = (invitations ?? [])
     .filter((invite) => !invite.accepted && !profiles.some((item) => item.email?.toLowerCase() === invite.email?.toLowerCase()))
@@ -222,24 +247,15 @@ export default function SettingsPage() {
                     </label>
                   )}
                 </form>
-                <div className="space-y-2">
-                  {globalLabels.filter((label) => label.column_type === type).map((label, index, list) => (
-                    <div key={label.id} className={`flex items-center gap-2 rounded-md border border-black/10 p-2 dark:border-white/10 ${label.is_divider ? 'bg-black/5 dark:bg-white/[0.035]' : ''}`}>
-                      {label.is_divider ? <span className="rounded bg-white/10 px-2 py-1 text-xs font-semibold uppercase text-ink-500">Divider</span> : <Pill label={label} />}
-                      <input value={label.value} onChange={(event) => updateLabel(label.id, { value: event.target.value })} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
-                      {!label.is_divider && <input type="color" value={label.color} onChange={(event) => updateLabel(label.id, { color: event.target.value })} className="h-8 w-9 rounded border border-white/10 bg-transparent" />}
-                      <button type="button" onClick={() => reorderLabels(type, label.id, -1)} disabled={index === 0} className="icon-button !h-8 !w-8" aria-label="Move label up">
-                        <ArrowUp size={14} />
-                      </button>
-                      <button type="button" onClick={() => reorderLabels(type, label.id, 1)} disabled={index === list.length - 1} className="icon-button !h-8 !w-8" aria-label="Move label down">
-                        <ArrowDown size={14} />
-                      </button>
-                      <button type="button" onClick={() => window.confirm("Delete this global label? This won't affect project-level labels.") && deleteLabel(label.id)} className="icon-button" aria-label="Delete label">
-                        <Trash2 size={15} />
-                      </button>
+                <DndContext sensors={labelSensors} onDragEnd={({ active, over }) => over && reorderLabels(type, active.id, over.id)}>
+                  <SortableContext items={globalLabels.filter((label) => label.column_type === type).map((label) => label.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {globalLabels.filter((label) => label.column_type === type).map((label) => (
+                        <SortableLabelRow key={label.id} label={label} onUpdate={updateLabel} onDelete={deleteLabel} />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </SortableContext>
+                </DndContext>
               </section>
             ))}
           </div>

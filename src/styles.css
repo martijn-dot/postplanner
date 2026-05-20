@@ -175,6 +175,7 @@ input {
 }
 
 .timeline-table-panel {
+  background-color: #ffffff !important;
   background-clip: padding-box;
   box-shadow: 12px 0 0 #ffffff;
   isolation: isolate;
@@ -792,12 +793,12 @@ input {
 }
 
 .dark .timeline-table-panel {
-  background-color: rgba(16, 14, 29, 0.96) !important;
+  background-color: #100e1d !important;
 }
 
 .dark .timeline-table-panel.bg-zinc-50,
 .dark .timeline-table-panel.bg-zinc-100 {
-  background-color: rgba(29, 24, 46, 0.96) !important;
+  background-color: #1d182e !important;
 }
 
 .dark .timeline-scroll .bg-zinc-50 {

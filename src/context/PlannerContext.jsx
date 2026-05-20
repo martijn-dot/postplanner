@@ -665,15 +665,15 @@ export function PlannerProvider({ children }) {
         if (useSupabase) void saveSupabase('global label', supabase.from('labels').insert(label));
         return label;
       },
-      reorderLabels: (columnType, labelId, direction) => mutate((draft) => {
+      reorderLabels: (columnType, activeId, overId) => mutate((draft) => {
         const rows = draft.labels
           .filter((item) => !item.project_id && item.column_type === columnType)
           .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-        const index = rows.findIndex((item) => item.id === labelId);
-        const nextIndex = index + direction;
-        if (index < 0 || nextIndex < 0 || nextIndex >= rows.length) return;
-        const [moved] = rows.splice(index, 1);
-        rows.splice(nextIndex, 0, moved);
+        const oldIndex = rows.findIndex((item) => item.id === activeId);
+        const newIndex = rows.findIndex((item) => item.id === overId);
+        if (oldIndex < 0 || newIndex < 0 || activeId === overId) return;
+        const [moved] = rows.splice(oldIndex, 1);
+        rows.splice(newIndex, 0, moved);
         rows.forEach((item, sortOrder) => {
           const label = draft.labels.find((entry) => entry.id === item.id);
           label.sort_order = sortOrder;
