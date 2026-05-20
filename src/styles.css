@@ -223,12 +223,23 @@ input {
   overflow: visible;
 }
 
+.fill-handle-zone {
+  bottom: -11px;
+  display: grid;
+  height: 28px;
+  place-items: center;
+  pointer-events: auto;
+  position: absolute;
+  right: -11px;
+  width: 28px;
+  z-index: 240;
+}
+
 .fill-handle {
   align-items: center;
   background: #6d5dfc;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 999px;
-  bottom: 0;
   color: white;
   cursor: crosshair;
   display: inline-flex;
@@ -239,24 +250,19 @@ input {
   line-height: 14px;
   opacity: 0;
   pointer-events: none;
-  position: absolute;
-  right: 0;
   text-align: center;
-  transform: translate(50%, 50%);
   transition: opacity 0.12s ease, transform 0.12s ease;
   width: 14px;
-  z-index: 240;
 }
 
-.copy-cell:hover .fill-handle,
-.copy-cell:focus-within .fill-handle,
-.copy-cell-selected .fill-handle {
+.fill-handle-zone:hover .fill-handle,
+.fill-handle-zone:focus-within .fill-handle {
   opacity: 1;
   pointer-events: auto;
 }
 
 .fill-handle:hover {
-  transform: translate(50%, 50%) scale(1.08);
+  transform: scale(1.08);
 }
 
 .dark .timeline-table-row-new {
@@ -519,11 +525,15 @@ input {
 }
 
 .timeline-header-chip {
+  align-items: center;
   border: 1px solid rgba(109, 93, 252, 0.36);
   border-radius: 5px;
   color: #c7c0ff;
+  display: inline-flex;
   font-size: 0.68rem;
   font-weight: 700;
+  gap: 0.25rem;
+  justify-content: center;
   line-height: 1;
   padding: 5px 7px;
   text-transform: none;

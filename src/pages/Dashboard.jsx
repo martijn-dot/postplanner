@@ -197,7 +197,7 @@ export default function Dashboard() {
           <p className="text-ink-500">Loading projects...</p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
-            <div className="grid grid-cols-[120px_1.6fr_220px_180px_112px] border-b border-black/10 px-4 py-3 text-xs font-semibold uppercase text-ink-500 dark:border-white/10">
+            <div className="grid grid-cols-[84px_1.6fr_220px_180px_112px] border-b border-black/10 px-4 py-3 text-xs font-semibold uppercase text-ink-500 dark:border-white/10">
               <span>Project #</span>
               <span>Project</span>
               <span>Post Producer</span>
@@ -227,12 +227,12 @@ export default function Dashboard() {
                     <span className="font-semibold">{project.name}</span>
                     {clientLabel && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${missingClient ? 'bg-red-500/15 text-red-300' : 'bg-accent-500/15 text-accent-300'}`}>{clientLabel}</span>}
                     {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
-                    <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-500">
-                      <span>Start: {summary.start}</span>
-                      <span>Running: {summary.running}</span>
-                      {summary.offlineLock !== '-' && <span>Offline lock: {summary.offlineLock}</span>}
-                      {summary.grading !== '-' && <span>Grading: {summary.grading}</span>}
-                      {summary.final !== '-' && <span>Final: {summary.final}</span>}
+                    <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      <span><span className="font-semibold text-accent-300">Start</span> <span className="text-ink-500">{summary.start}</span></span>
+                      <span><span className="font-semibold text-accent-300">Running</span> <span className="text-ink-500">{summary.running}</span></span>
+                      {summary.offlineLock !== '-' && <span><span className="font-semibold text-accent-300">Offline lock</span> <span className="text-ink-500">{summary.offlineLock}</span></span>}
+                      {summary.grading !== '-' && <span><span className="font-semibold text-accent-300">Grading</span> <span className="text-ink-500">{summary.grading}</span></span>}
+                      {summary.final !== '-' && <span><span className="font-semibold text-accent-300">Final</span> <span className="text-ink-500">{summary.final}</span></span>}
                     </span>
                   </span>
                   <span className="flex min-w-0 items-center gap-2 text-sm text-ink-500">
@@ -279,13 +279,13 @@ export default function Dashboard() {
               );
               if (locked) {
                 return (
-                  <div key={project.id} className="grid grid-cols-[120px_1.6fr_220px_180px_112px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-3 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]">
+                  <div key={project.id} className="grid grid-cols-[84px_1.6fr_220px_180px_112px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-3 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]">
                     {rowContent}
                   </div>
                 );
               }
               return (
-                <Link key={project.id} to={`/projects/${project.id}`} className="grid grid-cols-[120px_1.6fr_220px_180px_112px] items-center border-b border-black/5 px-4 py-3 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
+                <Link key={project.id} to={`/projects/${project.id}`} className="grid grid-cols-[84px_1.6fr_220px_180px_112px] items-center border-b border-black/5 px-4 py-3 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
                   {rowContent}
                 </Link>
               );

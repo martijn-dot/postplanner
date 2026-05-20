@@ -124,13 +124,13 @@ function HeaderCell({ children, columnKey, onResizeStart }) {
   );
 }
 
-function ToolbarMenu({ icon, label, children }) {
+function ToolbarMenu({ icon, label, active = false, children }) {
   const [open, setOpen] = useState(false);
   const MenuIcon = icon;
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen((next) => !next)} className="secondary-button">
-        <MenuIcon size={16} /> {label}
+      <button type="button" onClick={() => setOpen((next) => !next)} className={`timeline-header-chip ${open || active ? 'is-active' : ''}`}>
+        {MenuIcon && <MenuIcon size={13} />} {label}
       </button>
       {open && (
         <div className="absolute right-0 z-[500] mt-2 w-64 rounded-lg border border-white/10 bg-ink-850 p-2 text-sm text-ink-100 shadow-glow">
@@ -273,21 +273,33 @@ function SortableLine({
       event.stopPropagation();
       onCellSelect(item.id, column, event);
     },
+    onKeyDown: (event) => {
+      if (event.key !== 'Enter') return;
+      if (event.target !== event.currentTarget) return;
+      const control = event.currentTarget.querySelector('input, button');
+      if (!control) return;
+      event.preventDefault();
+      event.stopPropagation();
+      control.focus();
+      if (control.tagName === 'BUTTON') control.click();
+    },
     onCopy: (event) => copyCell(event, column),
     onPaste: (event) => pasteCell(event, column),
     title: `${COLUMN_LABELS[column]} cell. Use standard copy and paste shortcuts.`,
   });
 
   const fillHandle = (column) => (
-    <button
-      type="button"
-      className="fill-handle"
-      onPointerDown={(event) => onFillStart(event, item.id, column)}
-      aria-label={`Fill ${COLUMN_LABELS[column]} down`}
-      title={`Drag to fill ${COLUMN_LABELS[column]} down`}
-    >
-      +
-    </button>
+    <span className="fill-handle-zone">
+      <button
+        type="button"
+        className="fill-handle"
+        onPointerDown={(event) => onFillStart(event, item.id, column)}
+        aria-label={`Fill ${COLUMN_LABELS[column]} down`}
+        title={`Drag to fill ${COLUMN_LABELS[column]} down`}
+      >
+        +
+      </button>
+    </span>
   );
 
   return (
@@ -302,7 +314,7 @@ function SortableLine({
           <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
           {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); updateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} />{fillHandle('who')}</div>}
-          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); updateLineItem(item.id, { asset: event.target.value }); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
+          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); updateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
           {columnVisibility.what && <div {...cellProps('what')}><LabelSelect labels={labelsByType.what} value={item.what} placeholder="What" onChange={(what) => { onInteract(item.id); updateLineItem(item.id, { what }); }} onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)} />{fillHandle('what')}</div>}
           {columnVisibility.todo && <div {...cellProps('todo')}><LabelSelect labels={labelsByType.todo} value={item.todo} placeholder="Todo" onChange={(todo) => { onInteract(item.id); updateLineItem(item.id, { todo }); }} onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)} />{fillHandle('todo')}</div>}
           {optionsVisible && (
@@ -524,7 +536,7 @@ export default function TimelineView({ project }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [duplicatedIds, setDuplicatedIds] = useState([]);
   const [visibleMonth, setVisibleMonth] = useState('');
-  const [optionsVisible, setOptionsVisible] = useState(false);
+  const [optionsVisible, setOptionsVisible] = useState(true);
   const [infoVisible, setInfoVisible] = useState(true);
   const [dragPreview, setDragPreview] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
@@ -978,16 +990,15 @@ export default function TimelineView({ project }) {
                   <div className="absolute right-2 top-2 flex items-center gap-1 normal-case">
                     <button type="button" onClick={() => shiftPlanning(7)} className="timeline-header-chip">Move +1</button>
                     <button type="button" onClick={() => shiftPlanning(-7)} className="timeline-header-chip">Move -1</button>
-                    <ToolbarMenu icon={Columns3} label="Table">
-                      <p className="px-2 py-1 text-xs font-semibold uppercase text-ink-500">Columns</p>
+                    <ToolbarMenu icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key])}>
                       {OPTIONAL_COLUMNS.map((key) => (
                         <label key={key} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
                           <input type="checkbox" checked={columnVisibility[key]} onChange={() => setColumnVisibility((current) => ({ ...current, [key]: !current[key] }))} />
                           {COLUMN_LABELS[key]}
                         </label>
                       ))}
-                      <div className="my-1 border-t border-white/10" />
-                      <p className="px-2 py-1 text-xs font-semibold uppercase text-ink-500">Who</p>
+                    </ToolbarMenu>
+                    <ToolbarMenu label="Who" active={hiddenWhoIds.length > 0}>
                       {labelsByType.who.map((label) => (
                         <label key={label.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-white/5">
                           <span className="flex items-center gap-2">
@@ -996,7 +1007,8 @@ export default function TimelineView({ project }) {
                           </span>
                         </label>
                       ))}
-                      <div className="my-1 border-t border-white/10" />
+                    </ToolbarMenu>
+                    <ToolbarMenu label="Clients">
                       <button type="button" onClick={() => addClientReviewRows(1)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 24h</button>
                       <button type="button" onClick={() => addClientReviewRows(2)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 48h</button>
                       <button type="button" onClick={removeClientReviewRows} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
