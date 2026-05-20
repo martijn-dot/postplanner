@@ -93,6 +93,7 @@ export default function Dashboard() {
   const [producer, setProducer] = useState('');
   const [formError, setFormError] = useState('');
   const clients = [...new Set([...(savedClients ?? []).map((item) => item.name)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const postProducers = [...new Set((profiles ?? []).map((profile) => profile.display_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name), ...profiles.map((profile) => profile.display_name), ...projects.flatMap((project) => [project.post_producer, project.producer])].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
   const profileByName = Object.fromEntries((profiles ?? []).map((profile) => [profile.display_name, profile]));
   const resetForm = () => {
@@ -302,7 +303,7 @@ export default function Dashboard() {
                 <input className="field" value={name} onChange={(event) => setName(event.target.value)} placeholder="Project name" required />
               </label>
               <ComboField label="Client" value={client} onChange={setClient} options={clients} placeholder="Client" required />
-              <ComboField label="Post Producer" value={postProducer} onChange={setPostProducer} options={producers} placeholder="Post producer" required />
+              <ComboField label="Post Producer" value={postProducer} onChange={setPostProducer} options={postProducers} placeholder="Post producer" required />
               <ComboField label="Producer" value={producer} onChange={setProducer} options={producers} placeholder="Producer" required />
               {formError && <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{formError}</p>}
             </div>
