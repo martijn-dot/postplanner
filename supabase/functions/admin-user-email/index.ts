@@ -115,7 +115,7 @@ Deno.serve(async (request) => {
 
       const { data: targetProfile, error: targetProfileError } = await adminClient
         .from('profiles')
-        .select('role')
+        .select('role, display_name')
         .eq('id', targetUserId)
         .single();
       if (targetProfileError) throw targetProfileError;
@@ -123,12 +123,27 @@ Deno.serve(async (request) => {
         throw new Error('You cannot delete the last admin.');
       }
 
-      const projectFields = ['user_id', 'created_by', 'last_edited_by', 'archived_by', 'post_producer', 'producer'];
+      const { data: adminProfile, error: adminProfileError } = await adminClient
+        .from('profiles')
+        .select('display_name')
+        .eq('id', authUser.user.id)
+        .single();
+      if (adminProfileError) throw adminProfileError;
+
+      const projectFields = ['user_id', 'created_by', 'last_edited_by', 'archived_by'];
       for (const field of projectFields) {
         const { error } = await adminClient
           .from('projects')
           .update({ [field]: authUser.user.id })
           .eq(field, targetUserId);
+        if (error) throw error;
+      }
+
+      for (const field of ['post_producer', 'producer']) {
+        const { error } = await adminClient
+          .from('projects')
+          .update({ [field]: adminProfile.display_name })
+          .eq(field, targetProfile.display_name);
         if (error) throw error;
       }
 

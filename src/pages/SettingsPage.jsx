@@ -24,6 +24,7 @@ export default function SettingsPage() {
     resetUserPassword,
     revokeInvite,
     deleteUser,
+    updateUserRole,
     addClient,
     deleteClient,
     addProducer,
@@ -40,6 +41,7 @@ export default function SettingsPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [userNotice, setUserNotice] = useState('');
   const [userError, setUserError] = useState('');
+  const [settingsNotice, setSettingsNotice] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
   const [confirmUserDelete, setConfirmUserDelete] = useState('');
   const selectedProfile = profiles.find((item) => item.id === selectedUserId) ?? null;
@@ -117,23 +119,53 @@ export default function SettingsPage() {
     }
   };
 
+  const changeUserRole = async (targetProfile, role) => {
+    setUserNotice('');
+    setUserError('');
+    try {
+      await updateUserRole(targetProfile.id, role);
+      setUserNotice(`${targetProfile.display_name} is now ${role === 'admin' ? 'an admin' : 'a user'}.`);
+    } catch (error) {
+      setUserError(error.message);
+    }
+  };
+
   const submitClient = (event) => {
     event.preventDefault();
-    if (!clientName.trim()) return;
-    addClient(clientName);
+    const value = clientName.trim();
+    if (!value) return;
+    if ((clients ?? []).some((client) => client.name.trim().toLowerCase() === value.toLowerCase())) {
+      setSettingsNotice('already exist');
+      window.setTimeout(() => setSettingsNotice(''), 2500);
+      return;
+    }
+    addClient(value);
+    setSettingsNotice('');
     setClientName('');
   };
 
   const submitProducer = (event) => {
     event.preventDefault();
-    if (!producerName.trim()) return;
-    addProducer(producerName);
+    const value = producerName.trim();
+    if (!value) return;
+    if ((producers ?? []).some((producer) => producer.name.trim().toLowerCase() === value.toLowerCase())) {
+      setSettingsNotice('already exist');
+      window.setTimeout(() => setSettingsNotice(''), 2500);
+      return;
+    }
+    addProducer(value);
+    setSettingsNotice('');
     setProducerName('');
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar />
+      {settingsNotice && (
+        <div className="fixed right-5 top-20 z-[4000] rounded-lg border border-amber-400/30 bg-ink-900 px-4 py-3 text-sm font-semibold text-amber-200 shadow-glow">
+          {settingsNotice}
+        </div>
+      )}
       <main className="mx-auto max-w-7xl px-5 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-semibold">Settings</h1>
@@ -193,7 +225,7 @@ export default function SettingsPage() {
           <section className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
             <form onSubmit={submitInvite} className="mb-5 flex max-w-xl gap-2">
               <input className="field !py-2" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="Invite user by email" />
-              <button type="submit" className="primary-button">Invite User</button>
+              <button type="submit" className="primary-button shrink-0 whitespace-nowrap">Invite User</button>
             </form>
             <div className="mb-5 grid gap-3 rounded-lg border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.035] md:grid-cols-[1fr_auto] md:items-center">
               <div>
@@ -235,6 +267,15 @@ export default function SettingsPage() {
                           <button type="button" onClick={() => resetPasswordForUser(item)} className="secondary-button !px-2 !py-1">
                             <KeyRound size={14} /> Reset
                           </button>
+                          {item.role === 'admin' ? (
+                            <button type="button" onClick={() => changeUserRole(item, 'user')} className="secondary-button !px-2 !py-1" disabled={profiles.filter((profile) => profile.role === 'admin' && profile.is_active !== false).length <= 1}>
+                              Remove admin
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => changeUserRole(item, 'admin')} className="secondary-button !px-2 !py-1">
+                              Make admin
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {

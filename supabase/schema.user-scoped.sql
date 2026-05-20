@@ -15,8 +15,8 @@ create table if not exists public.projects (
   project_number text,
   name text not null,
   client text,
-  post_producer uuid references public.profiles(id),
-  producer uuid references public.profiles(id),
+  post_producer text,
+  producer text,
   created_at timestamptz not null default now(),
   user_id uuid not null references auth.users(id) on delete cascade,
   created_by uuid references public.profiles(id),
@@ -28,14 +28,87 @@ create table if not exists public.projects (
 );
 
 alter table public.projects add column if not exists project_number text;
-alter table public.projects add column if not exists post_producer uuid references public.profiles(id);
-alter table public.projects add column if not exists producer uuid references public.profiles(id);
+alter table public.projects add column if not exists post_producer text;
+alter table public.projects add column if not exists producer text;
 alter table public.projects add column if not exists created_by uuid references public.profiles(id);
 alter table public.projects add column if not exists last_edited_by uuid references public.profiles(id);
 alter table public.projects add column if not exists last_edited_at timestamptz default now();
 alter table public.projects add column if not exists is_archived boolean default false;
 alter table public.projects add column if not exists archived_by uuid references public.profiles(id);
 alter table public.projects add column if not exists archived_at timestamptz;
+
+do $$
+declare
+  constraint_name text;
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'projects'
+      and column_name = 'post_producer'
+      and data_type = 'uuid'
+  ) then
+    alter table public.projects add column if not exists post_producer_text text;
+    update public.projects p
+    set post_producer_text = pr.display_name
+    from public.profiles pr
+    where p.post_producer = pr.id;
+    update public.projects
+    set post_producer_text = post_producer::text
+    where post_producer is not null and post_producer_text is null;
+
+    for constraint_name in
+      select tc.constraint_name
+      from information_schema.table_constraints tc
+      join information_schema.key_column_usage kcu
+        on tc.constraint_name = kcu.constraint_name
+        and tc.table_schema = kcu.table_schema
+      where tc.table_schema = 'public'
+        and tc.table_name = 'projects'
+        and kcu.column_name = 'post_producer'
+    loop
+      execute format('alter table public.projects drop constraint if exists %I', constraint_name);
+    end loop;
+
+    alter table public.projects drop column post_producer;
+    alter table public.projects rename column post_producer_text to post_producer;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'projects'
+      and column_name = 'producer'
+      and data_type = 'uuid'
+  ) then
+    alter table public.projects add column if not exists producer_text text;
+    update public.projects p
+    set producer_text = pr.display_name
+    from public.profiles pr
+    where p.producer = pr.id;
+    update public.projects
+    set producer_text = producer::text
+    where producer is not null and producer_text is null;
+
+    for constraint_name in
+      select tc.constraint_name
+      from information_schema.table_constraints tc
+      join information_schema.key_column_usage kcu
+        on tc.constraint_name = kcu.constraint_name
+        and tc.table_schema = kcu.table_schema
+      where tc.table_schema = 'public'
+        and tc.table_name = 'projects'
+        and kcu.column_name = 'producer'
+    loop
+      execute format('alter table public.projects drop constraint if exists %I', constraint_name);
+    end loop;
+
+    alter table public.projects drop column producer;
+    alter table public.projects rename column producer_text to producer;
+  end if;
+end $$;
 
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
@@ -190,6 +263,43 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
+
+create or replace function public.prevent_last_admin_removal()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'DELETE' then
+    if old.role = 'admin' and old.is_active = true and not exists (
+      select 1 from public.profiles
+      where id <> old.id and role = 'admin' and is_active = true
+    ) then
+      raise exception 'At least one admin should remain.';
+    end if;
+    return old;
+  end if;
+
+  if old.role = 'admin'
+    and old.is_active = true
+    and (new.role <> 'admin' or new.is_active = false)
+    and not exists (
+      select 1 from public.profiles
+      where id <> old.id and role = 'admin' and is_active = true
+    )
+  then
+    raise exception 'At least one admin should remain.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists prevent_last_admin_update on public.profiles;
+create trigger prevent_last_admin_update
+before update or delete on public.profiles
+for each row execute procedure public.prevent_last_admin_removal();
 
 drop policy if exists "Users can read their projects" on public.projects;
 drop policy if exists "Profiles are readable by authenticated users" on public.profiles;

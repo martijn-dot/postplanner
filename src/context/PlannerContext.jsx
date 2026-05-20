@@ -699,16 +699,34 @@ export function PlannerProvider({ children }) {
       },
       deleteUser: async (targetUserId) => {
         if (targetUserId === user.id) throw new Error('You cannot delete your own admin account.');
+        const targetProfile = data.profiles.find((profile) => profile.id === targetUserId);
+        const currentProfile = data.profiles.find((profile) => profile.id === user.id);
         mutate((draft) => {
           draft.projects.forEach((project) => {
-            ['user_id', 'created_by', 'last_edited_by', 'archived_by', 'post_producer', 'producer'].forEach((field) => {
+            ['user_id', 'created_by', 'last_edited_by', 'archived_by'].forEach((field) => {
               if (project[field] === targetUserId) project[field] = user.id;
             });
+            if (targetProfile?.display_name && currentProfile?.display_name && project.post_producer === targetProfile.display_name) project.post_producer = currentProfile.display_name;
+            if (targetProfile?.display_name && currentProfile?.display_name && project.producer === targetProfile.display_name) project.producer = currentProfile.display_name;
           });
           draft.profiles = draft.profiles.filter((profile) => profile.id !== targetUserId);
           draft.presence = draft.presence.filter((item) => item.user_id !== targetUserId);
         });
         if (useSupabase) await invokeAdminUserAction({ mode: 'delete-user', targetUserId });
+      },
+      updateUserRole: async (targetUserId, role) => {
+        if (!['admin', 'user'].includes(role)) throw new Error('Invalid role.');
+        const target = data.profiles.find((profile) => profile.id === targetUserId);
+        if (!target) throw new Error('User not found.');
+        const adminCount = data.profiles.filter((profile) => profile.role === 'admin' && profile.is_active !== false).length;
+        if (target.role === 'admin' && role !== 'admin' && adminCount <= 1) {
+          throw new Error('At least one admin should remain.');
+        }
+        mutate((draft) => {
+          const profile = draft.profiles.find((item) => item.id === targetUserId);
+          if (profile) profile.role = role;
+        });
+        if (useSupabase) await saveSupabase('user role', supabase.from('profiles').update({ role }).eq('id', targetUserId), { throwOnError: true });
       },
       addClient: (name) => {
         const trimmed = name.trim();
