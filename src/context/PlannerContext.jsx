@@ -53,7 +53,7 @@ function hydrateDefaults(userId) {
   const categoryB = id();
   const today = new Date();
 
-  const labels = DEFAULT_LABELS.map((label) => ({ ...label, id: id(), project_id: null, scope: 'global' }));
+  const labels = DEFAULT_LABELS.map((label, index) => ({ ...label, id: id(), project_id: null, scope: 'global', sort_order: index, is_divider: false }));
   const label = (type, value) => labels.find((item) => item.column_type === type && item.value === value)?.id;
 
   const lineItems = [
@@ -132,6 +132,8 @@ function normalizeLocalData(data, userId) {
         ? defaultColorByKey[`${label.column_type}:${label.value}`] ?? label.color
         : label.color,
       scope: label.scope ?? (label.project_id ? 'project' : 'global'),
+      sort_order: label.sort_order ?? 0,
+      is_divider: label.is_divider ?? false,
     };
     const key = labelKey(normalized);
     if (!labelsByKey.has(key)) labelsByKey.set(key, normalized);
@@ -210,7 +212,7 @@ async function loadSupabaseData() {
     projects: loadedProjects,
     categories: categories.data.map((category) => ({ ...category, collapsed: false })),
     lineItems: lineItems.data,
-    labels: labels.data,
+    labels: labels.data.map((label) => ({ ...label, sort_order: label.sort_order ?? 0, is_divider: label.is_divider ?? false })),
     profiles: loadedProfiles,
     clients: loadedClients,
     producers: producers.data ?? [...new Set(loadedProfiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: name, name })),
@@ -632,11 +634,12 @@ export function PlannerProvider({ children }) {
           });
         }
       }),
-      addLabel: (projectId, columnType, value, color) => {
+      addLabel: (projectId, columnType, value, color, options = {}) => {
         const trimmed = value.trim();
         const existing = data.labels.find((item) => item.project_id === projectId && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed));
         if (existing) return existing;
-        const label = { id: id(), project_id: projectId, column_type: columnType, value, color, is_default: false, scope: 'project' };
+        const sortOrder = data.labels.filter((item) => item.project_id === projectId && item.column_type === columnType).length;
+        const label = { id: id(), project_id: projectId, column_type: columnType, value, color, is_default: false, scope: 'project', sort_order: sortOrder, is_divider: options.isDivider ?? false };
         mutate((draft) => {
           if (!draft.labels.some((item) => item.project_id === projectId && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed))) {
             draft.labels.push({ ...label, value: trimmed });
@@ -648,11 +651,12 @@ export function PlannerProvider({ children }) {
         }
         return { ...label, value: trimmed };
       },
-      addGlobalLabel: (columnType, value, color) => {
+      addGlobalLabel: (columnType, value, color, options = {}) => {
         const trimmed = value.trim();
         const existing = data.labels.find((item) => !item.project_id && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed));
         if (existing) return existing;
-        const label = { id: id(), project_id: null, column_type: columnType, value: trimmed, color, is_default: true, scope: 'global' };
+        const sortOrder = data.labels.filter((item) => !item.project_id && item.column_type === columnType).length;
+        const label = { id: id(), project_id: null, column_type: columnType, value: trimmed, color, is_default: true, scope: 'global', sort_order: sortOrder, is_divider: options.isDivider ?? false };
         mutate((draft) => {
           if (!draft.labels.some((item) => !item.project_id && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed))) {
             draft.labels.push(label);
@@ -661,6 +665,21 @@ export function PlannerProvider({ children }) {
         if (useSupabase) void saveSupabase('global label', supabase.from('labels').insert(label));
         return label;
       },
+      reorderLabels: (columnType, labelId, direction) => mutate((draft) => {
+        const rows = draft.labels
+          .filter((item) => !item.project_id && item.column_type === columnType)
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        const index = rows.findIndex((item) => item.id === labelId);
+        const nextIndex = index + direction;
+        if (index < 0 || nextIndex < 0 || nextIndex >= rows.length) return;
+        const [moved] = rows.splice(index, 1);
+        rows.splice(nextIndex, 0, moved);
+        rows.forEach((item, sortOrder) => {
+          const label = draft.labels.find((entry) => entry.id === item.id);
+          label.sort_order = sortOrder;
+          if (useSupabase) void saveSupabase('label order', supabase.from('labels').update({ sort_order: sortOrder }).eq('id', item.id));
+        });
+      }),
       updateLabel: (labelId, patch) => mutate((draft) => {
         const label = draft.labels.find((item) => item.id === labelId);
         if (!label) return;

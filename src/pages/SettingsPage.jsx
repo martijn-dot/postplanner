@@ -1,4 +1,4 @@
-import { ArchiveRestore, KeyRound, Plus, Trash2, UserX, XCircle } from 'lucide-react';
+import { ArchiveRestore, ArrowDown, ArrowUp, KeyRound, Plus, Trash2, UserX, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
@@ -18,6 +18,7 @@ export default function SettingsPage() {
     labels,
     projects,
     addGlobalLabel,
+    reorderLabels,
     updateLabel,
     deleteLabel,
     inviteUser,
@@ -57,7 +58,7 @@ export default function SettingsPage() {
         const key = `${label.column_type}:${label.value.trim().toLowerCase()}`;
         if (!byKey.has(key)) byKey.set(key, label);
       });
-    return [...byKey.values()];
+    return [...byKey.values()].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [labels]);
 
   if (profile?.role !== 'admin') return <Navigate to="/" replace />;
@@ -67,7 +68,12 @@ export default function SettingsPage() {
     const value = draft.value?.trim();
     if (!value) return;
     const exists = globalLabels.some((label) => label.column_type === columnType && label.value.trim().toLowerCase() === value.toLowerCase());
-    if (!exists) addGlobalLabel(columnType, value, draft.color || '#6d5dfc');
+    if (exists) {
+      setSettingsNotice('already exist');
+      window.setTimeout(() => setSettingsNotice(''), 2500);
+      return;
+    }
+    addGlobalLabel(columnType, value, draft.color || '#6d5dfc', { isDivider: draft.isDivider ?? false });
     setDrafts((current) => ({ ...current, [columnType]: { value: '', color: '#6d5dfc' } }));
   };
 
@@ -189,32 +195,50 @@ export default function SettingsPage() {
             {LABEL_TYPES.map((type) => (
               <section key={type} className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
                 <h2 className="mb-4 text-lg font-semibold capitalize">{type}</h2>
+                <form className="mb-4 space-y-2 rounded-lg border border-black/10 p-2 dark:border-white/10" onSubmit={(event) => { event.preventDefault(); createLabel(type); }}>
+                  <div className="flex gap-2">
+                    <input
+                      value={drafts[type]?.value ?? ''}
+                      onChange={(event) => setDrafts((current) => ({ ...current, [type]: { color: '#6d5dfc', ...current[type], value: event.target.value } }))}
+                      className="field !py-2"
+                      placeholder={type === 'what' && drafts[type]?.isDivider ? 'Divider name' : `Add ${type} label`}
+                    />
+                    <input
+                      type="color"
+                      value={drafts[type]?.color ?? '#6d5dfc'}
+                      onChange={(event) => setDrafts((current) => ({ ...current, [type]: { value: '', ...current[type], color: event.target.value } }))}
+                      className="h-10 w-12 rounded-md border border-white/10 bg-transparent"
+                    />
+                    <button type="submit" className="icon-button" aria-label="Add label"><Plus size={17} /></button>
+                  </div>
+                  {type === 'what' && (
+                    <label className="flex items-center gap-2 px-1 text-xs font-semibold text-ink-500">
+                      <input
+                        type="checkbox"
+                        checked={drafts[type]?.isDivider ?? false}
+                        onChange={(event) => setDrafts((current) => ({ ...current, [type]: { value: '', color: '#6d5dfc', ...current[type], isDivider: event.target.checked } }))}
+                      />
+                      Add as category divider
+                    </label>
+                  )}
+                </form>
                 <div className="space-y-2">
-                  {globalLabels.filter((label) => label.column_type === type).map((label) => (
-                    <div key={label.id} className="flex items-center gap-2 rounded-md border border-black/10 p-2 dark:border-white/10">
-                      <Pill label={label} />
+                  {globalLabels.filter((label) => label.column_type === type).map((label, index, list) => (
+                    <div key={label.id} className={`flex items-center gap-2 rounded-md border border-black/10 p-2 dark:border-white/10 ${label.is_divider ? 'bg-black/5 dark:bg-white/[0.035]' : ''}`}>
+                      {label.is_divider ? <span className="rounded bg-white/10 px-2 py-1 text-xs font-semibold uppercase text-ink-500">Divider</span> : <Pill label={label} />}
                       <input value={label.value} onChange={(event) => updateLabel(label.id, { value: event.target.value })} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
-                      <input type="color" value={label.color} onChange={(event) => updateLabel(label.id, { color: event.target.value })} className="h-8 w-9 rounded border border-white/10 bg-transparent" />
+                      {!label.is_divider && <input type="color" value={label.color} onChange={(event) => updateLabel(label.id, { color: event.target.value })} className="h-8 w-9 rounded border border-white/10 bg-transparent" />}
+                      <button type="button" onClick={() => reorderLabels(type, label.id, -1)} disabled={index === 0} className="icon-button !h-8 !w-8" aria-label="Move label up">
+                        <ArrowUp size={14} />
+                      </button>
+                      <button type="button" onClick={() => reorderLabels(type, label.id, 1)} disabled={index === list.length - 1} className="icon-button !h-8 !w-8" aria-label="Move label down">
+                        <ArrowDown size={14} />
+                      </button>
                       <button type="button" onClick={() => window.confirm("Delete this global label? This won't affect project-level labels.") && deleteLabel(label.id)} className="icon-button" aria-label="Delete label">
                         <Trash2 size={15} />
                       </button>
                     </div>
                   ))}
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <input
-                    value={drafts[type]?.value ?? ''}
-                    onChange={(event) => setDrafts((current) => ({ ...current, [type]: { color: '#6d5dfc', ...current[type], value: event.target.value } }))}
-                    className="field !py-2"
-                    placeholder={`Add ${type} label`}
-                  />
-                  <input
-                    type="color"
-                    value={drafts[type]?.color ?? '#6d5dfc'}
-                    onChange={(event) => setDrafts((current) => ({ ...current, [type]: { value: '', ...current[type], color: event.target.value } }))}
-                    className="h-10 w-12 rounded-md border border-white/10 bg-transparent"
-                  />
-                  <button type="button" onClick={() => createLabel(type)} className="icon-button" aria-label="Add label"><Plus size={17} /></button>
                 </div>
               </section>
             ))}

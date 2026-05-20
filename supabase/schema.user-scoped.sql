@@ -146,11 +146,15 @@ create table if not exists public.labels (
   value text not null,
   color text not null default '#8bb9ff',
   is_default boolean not null default false,
+  sort_order int not null default 0,
+  is_divider boolean not null default false,
   scope text not null default 'global' check (scope in ('global', 'project')),
   unique(project_id, column_type, value)
 );
 
 alter table public.labels add column if not exists scope text not null default 'global' check (scope in ('global', 'project'));
+alter table public.labels add column if not exists sort_order int not null default 0;
+alter table public.labels add column if not exists is_divider boolean not null default false;
 
 with ranked_labels as (
   select

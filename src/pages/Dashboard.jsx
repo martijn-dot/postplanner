@@ -38,15 +38,15 @@ function ComboField({ label, value, onChange, options, placeholder, required = f
         >
           <ChevronDown size={16} />
         </button>
-        {open && (
+          {open && (
           <div className="combo-menu">
             {filteredOptions.map((option) => (
               <button
                 type="button"
                 key={option}
                 className="combo-option"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
+                onMouseDown={(event) => {
+                  event.preventDefault();
                   onChange(option);
                   setOpen(false);
                 }}

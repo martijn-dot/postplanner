@@ -32,6 +32,7 @@ export default function LabelSelect({
   const [multiEnabled, setMultiEnabled] = useState(false);
   const [newValue, setNewValue] = useState('');
   const [color, setColor] = useState(COLORS[0]);
+  const [notice, setNotice] = useState('');
   const [menuStyle, setMenuStyle] = useState({});
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
@@ -58,6 +59,11 @@ export default function LabelSelect({
 
   const create = async () => {
     if (!newValue.trim()) return;
+    if (labels.some((label) => !label.is_divider && label.value.trim().toLowerCase() === newValue.trim().toLowerCase())) {
+      setNotice('already exist');
+      window.setTimeout(() => setNotice(''), 2200);
+      return;
+    }
     const label = await Promise.resolve(onAddLabel(newValue.trim(), color));
     setNewValue('');
     setAdding(false);
@@ -108,6 +114,15 @@ export default function LabelSelect({
     <div ref={menuRef} className="fixed z-[9999] overflow-hidden rounded-lg border border-white/10 bg-ink-850 shadow-glow" style={menuStyle}>
       <div className="max-h-64 overflow-auto p-1">
         {labels.map((label) => {
+          if (label.is_divider) {
+            return (
+              <div key={label.id} className="my-1 flex items-center gap-2 px-2 py-1 text-[0.65rem] font-semibold uppercase text-ink-500">
+                <span className="h-px flex-1 bg-white/10" />
+                {label.value}
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
+            );
+          }
           const active = selected.some((item) => item.id === label.id);
           return (
             <button
@@ -127,6 +142,7 @@ export default function LabelSelect({
       </div>
 
       <div className="border-t border-white/10 p-2">
+        {notice && <div className="mb-2 rounded-md border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-xs font-semibold text-amber-200">{notice}</div>}
         {multiple && multipleModeToggle && !adding && (
           <label className="mb-1 flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-ink-100 hover:bg-white/5">
             <input
@@ -160,6 +176,13 @@ export default function LabelSelect({
                   />
                 ))}
               </div>
+              <input
+                type="color"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+                className="h-7 w-8 rounded border border-white/10 bg-transparent"
+                aria-label="Custom label color"
+              />
               <button type="button" onClick={create} className="rounded-md bg-accent-500 px-2 py-1 text-xs font-semibold text-white">
                 Add
               </button>

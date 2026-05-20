@@ -218,12 +218,16 @@ input {
   border-color: transparent !important;
 }
 
+.copy-cell {
+  overflow: visible;
+}
+
 .fill-handle {
   align-items: center;
   background: #6d5dfc;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 999px;
-  bottom: -7px;
+  bottom: 0;
   color: white;
   cursor: crosshair;
   display: inline-flex;
@@ -235,11 +239,12 @@ input {
   opacity: 0;
   pointer-events: none;
   position: absolute;
-  right: -7px;
+  right: 0;
   text-align: center;
+  transform: translate(50%, 50%);
   transition: opacity 0.12s ease, transform 0.12s ease;
   width: 14px;
-  z-index: 8;
+  z-index: 240;
 }
 
 .copy-cell:hover .fill-handle,
@@ -250,7 +255,7 @@ input {
 }
 
 .fill-handle:hover {
-  transform: scale(1.08);
+  transform: translate(50%, 50%) scale(1.08);
 }
 
 .dark .timeline-table-row-new {

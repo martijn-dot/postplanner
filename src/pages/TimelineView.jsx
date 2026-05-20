@@ -157,7 +157,7 @@ function cellText(item, column, labelsById) {
 
 function findLabelId(labels, value) {
   const normalized = value.trim().toLowerCase();
-  return labels.find((label) => label.value.toLowerCase() === normalized)?.id;
+  return labels.find((label) => !label.is_divider && label.value.toLowerCase() === normalized)?.id;
 }
 
 function normalizeTimeInput(value) {
@@ -541,10 +541,11 @@ export default function TimelineView({ project }) {
   const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id).sort((a, b) => a.sort_order - b.sort_order), [categories, project.id]);
   const projectLabels = useMemo(() => labels.filter((label) => !label.project_id || label.project_id === project.id), [labels, project.id]);
   const labelsById = useMemo(() => Object.fromEntries(projectLabels.map((label) => [label.id, label])), [projectLabels]);
+  const sortLabels = (items) => items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const labelsByType = useMemo(() => ({
-    who: projectLabels.filter((label) => label.column_type === 'who'),
-    what: projectLabels.filter((label) => label.column_type === 'what'),
-    todo: projectLabels.filter((label) => label.column_type === 'todo'),
+    who: sortLabels(projectLabels.filter((label) => label.column_type === 'who' && !label.is_divider)),
+    what: sortLabels(projectLabels.filter((label) => label.column_type === 'what')),
+    todo: sortLabels(projectLabels.filter((label) => label.column_type === 'todo' && !label.is_divider)),
   }), [projectLabels]);
   const reviewLabels = useMemo(() => ({
     wenneker: labelsByType.who.find((label) => label.value.toLowerCase() === 'wenneker')?.id,
@@ -566,6 +567,34 @@ export default function TimelineView({ project }) {
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
   const months = monthSegments(timelineDays);
   const weeks = weekSegments(timelineDays);
+  const projectInfo = useMemo(() => {
+    const datedRows = allRows.filter((item) => item.start_date || item.end_date);
+    const startDates = datedRows.map((item) => item.start_date || item.end_date).filter(Boolean).sort();
+    const endDates = datedRows.map((item) => item.end_date || item.start_date).filter(Boolean).sort();
+    const firstStart = startDates[0] ?? null;
+    const lastEnd = endDates.at(-1) ?? null;
+    const daysToStart = firstStart ? differenceInCalendarDays(parseISO(firstStart), new Date()) : null;
+    const weekLength = firstStart && lastEnd ? Math.max(1, Math.ceil((differenceInCalendarDays(parseISO(lastEnd), parseISO(firstStart)) + 1) / 7)) : null;
+    const dateLabel = (value) => (value ? format(parseISO(value), 'd MMM') : '');
+    const uniqueDates = (items) => [...new Set(items.map((item) => item.end_date || item.start_date).filter(Boolean))].sort().map(dateLabel).join(', ');
+    const rowsByWhat = (needle) => allRows.filter((item) => (labelsById[item.what]?.value ?? '').toLowerCase().includes(needle));
+    const finalRows = rowsByWhat('final delivery');
+    const finalByCategory = projectCategories
+      .map((category) => {
+        const dates = uniqueDates(finalRows.filter((item) => item.category_id === category.id));
+        return dates ? `${category.name}: ${dates}` : '';
+      })
+      .filter(Boolean);
+    const uncategorizedFinalDates = uniqueDates(finalRows.filter((item) => !item.category_id));
+    if (uncategorizedFinalDates) finalByCategory.push(`${uncategorizedName}: ${uncategorizedFinalDates}`);
+    return {
+      start: daysToStart == null ? '-' : daysToStart < 0 ? `Started ${Math.abs(daysToStart)}d ago` : `Starts within ${daysToStart}d`,
+      weeks: weekLength ? `${weekLength}w` : '-',
+      final: finalByCategory.length ? finalByCategory.join(' | ') : '-',
+      offlineLock: uniqueDates(rowsByWhat('offline lock')) || '-',
+      grading: uniqueDates(rowsByWhat('grading')) || '-',
+    };
+  }, [allRows, labelsById, projectCategories, uncategorizedName]);
 
   useEffect(() => {
     if (scrollAnchorRef.current && scrollRef.current) {
@@ -987,6 +1016,14 @@ export default function TimelineView({ project }) {
             </div>
             <button type="button" onClick={() => addCategory(project.id)} className="secondary-button"><Plus size={16} /> Category</button>
           </div>
+        </div>
+
+        <div className="grid gap-2 border-b border-black/10 bg-white px-5 py-3 text-sm dark:border-white/10 dark:bg-ink-950 md:grid-cols-5">
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Start</span>{projectInfo.start}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Length</span>{projectInfo.weeks}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Final delivery</span>{projectInfo.final}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Offline lock</span>{projectInfo.offlineLock}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Grading</span>{projectInfo.grading}</div>
         </div>
 
         <div ref={scrollRef} className="timeline-scroll" onScroll={() => setVisibleMonth(monthAtScroll(timelineDays, scrollRef.current?.scrollLeft ?? 0, dayWidth))}>
