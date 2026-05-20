@@ -351,8 +351,8 @@ export function PlannerProvider({ children }) {
         if (useSupabase) {
           await saveSupabase('project', supabase.from('projects').insert(project), { throwOnError: true });
           await saveSupabase('category', supabase.from('categories').insert({ ...category, collapsed: undefined }), { throwOnError: true });
-          if (client) await saveSupabase('client', supabase.from('clients').upsert({ name: client, created_by: user.id }, { onConflict: 'name' }), { throwOnError: false });
-          await Promise.all([postProducer, producer].filter(Boolean).map((producerName) => saveSupabase('producer', supabase.from('producers').upsert({ name: producerName, created_by: user.id }, { onConflict: 'name' }), { throwOnError: false })));
+          if (client) await saveSupabase('client', supabase.from('clients').upsert({ name: client, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }), { throwOnError: false });
+          await Promise.all([postProducer, producer].filter(Boolean).map((producerName) => saveSupabase('producer', supabase.from('producers').upsert({ name: producerName, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }), { throwOnError: false })));
         }
         return project;
       },
@@ -369,9 +369,9 @@ export function PlannerProvider({ children }) {
         });
         markDirty(projectId);
         if (useSupabase) void saveSupabase('project changes', supabase.from('projects').update(patch).eq('id', projectId));
-        if (useSupabase && patch.client) void saveSupabase('client', supabase.from('clients').upsert({ name: patch.client, created_by: user.id }, { onConflict: 'name' }));
+        if (useSupabase && patch.client) void saveSupabase('client', supabase.from('clients').upsert({ name: patch.client, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }));
         if (useSupabase) [patch.post_producer, patch.producer].filter(Boolean).forEach((producerName) => {
-          void saveSupabase('producer', supabase.from('producers').upsert({ name: producerName, created_by: user.id }, { onConflict: 'name' }));
+          void saveSupabase('producer', supabase.from('producers').upsert({ name: producerName, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }));
         });
       }),
       markProjectEdited: (projectId) => mutate((draft) => {
@@ -756,7 +756,7 @@ export function PlannerProvider({ children }) {
         mutate((draft) => {
           if (!draft.clients.some((item) => normalizedName(item.name) === normalizedName(trimmed))) draft.clients.push(client);
         });
-        if (useSupabase) void saveSupabase('client', supabase.from('clients').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name' }));
+        if (useSupabase) void saveSupabase('client', supabase.from('clients').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }));
         return client;
       },
       deleteClient: (clientId) => mutate((draft) => {
@@ -778,7 +778,7 @@ export function PlannerProvider({ children }) {
         mutate((draft) => {
           if (!draft.producers.some((item) => normalizedName(item.name) === normalizedName(trimmed))) draft.producers.push(producer);
         });
-        if (useSupabase) void saveSupabase('producer', supabase.from('producers').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name' }));
+        if (useSupabase) void saveSupabase('producer', supabase.from('producers').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }));
         return producer;
       },
       deleteProducer: (producerId) => mutate((draft) => {

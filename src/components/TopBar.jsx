@@ -68,7 +68,10 @@ export default function TopBar({ project }) {
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] text-accent-300">
             <RovalLogo />
-            ROVAL
+            <span className="flex flex-col leading-none">
+              <span>ROVAL</span>
+              <span className="mt-1 text-[10px] font-semibold normal-case tracking-normal text-ink-500">the post production planner without clutter</span>
+            </span>
           </Link>
           {project && <span className="text-sm text-ink-500">/ {project.name}</span>}
         </div>
@@ -103,10 +106,6 @@ export default function TopBar({ project }) {
                 <label className="mt-4 block space-y-1">
                   <span className="text-xs font-semibold uppercase text-ink-500">Username</span>
                   <input className="field !py-2" value={profileName} onChange={(event) => setProfileName(event.target.value)} />
-                </label>
-                <label className="mt-3 block space-y-1">
-                  <span className="text-xs font-semibold uppercase text-ink-500">Profile picture URL</span>
-                  <input className="field !py-2" value={profileAvatar} onChange={(event) => setProfileAvatar(event.target.value)} placeholder="https://..." />
                 </label>
                 <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-white/10 px-3 py-2 font-semibold text-ink-300 transition hover:bg-white/5 hover:text-white">
                   <Camera size={16} />

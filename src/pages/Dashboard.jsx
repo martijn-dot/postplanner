@@ -9,9 +9,7 @@ import { usePlanner } from '../context/PlannerContext.jsx';
 function ComboField({ label, value, onChange, options, placeholder, required = false }) {
   const [open, setOpen] = useState(false);
   const query = value.trim().toLowerCase();
-  const filteredOptions = options
-    .filter((option) => !query || option.toLowerCase().includes(query))
-    .slice(0, 8);
+  const filteredOptions = options.slice(0, 12);
   const exactMatch = options.some((option) => option.toLowerCase() === query);
 
   return (
@@ -96,6 +94,7 @@ export default function Dashboard() {
   const [formError, setFormError] = useState('');
   const clients = [...new Set([...(savedClients ?? []).map((item) => item.name)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name), ...profiles.map((profile) => profile.display_name), ...projects.flatMap((project) => [project.post_producer, project.producer])].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
+  const profileByName = Object.fromEntries((profiles ?? []).map((profile) => [profile.display_name, profile]));
   const resetForm = () => {
     setOpen(false);
     setEditingProject(null);
@@ -206,6 +205,7 @@ export default function Dashboard() {
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
               const postProducerName = project.post_producer || '-';
+              const postProducerProfile = profileByName[postProducerName];
               const knownClient = project.client && savedClients.some((item) => item.name === project.client);
               const clientLabel = knownClient ? project.client : 'no client';
               const missingClient = clientLabel === 'no client';
@@ -220,7 +220,16 @@ export default function Dashboard() {
                     {clientLabel && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${missingClient ? 'bg-red-500/15 text-red-300' : 'bg-accent-500/15 text-accent-300'}`}>{clientLabel}</span>}
                     {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                   </span>
-                  <span className="text-sm text-ink-500">{postProducerName}</span>
+                  <span className="flex min-w-0 items-center gap-2 text-sm text-ink-500">
+                    <span className="grid h-7 w-7 shrink-0 overflow-hidden place-items-center rounded-full bg-accent-500/20 text-[10px] font-bold text-accent-100">
+                      {postProducerProfile?.avatar_url ? (
+                        <img src={postProducerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+                      ) : (
+                        postProducerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+                      )}
+                    </span>
+                    <span className="truncate">{postProducerName}</span>
+                  </span>
                   <span className="text-sm text-ink-500">
                     {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'}
                     <span className="block text-xs">by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</span>
