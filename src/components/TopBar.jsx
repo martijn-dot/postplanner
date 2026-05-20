@@ -4,6 +4,19 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 
+export function RovalLogo() {
+  return (
+    <span className="roval-brand-mark" aria-hidden="true">
+      <span className="roval-brand-r">R</span>
+      <span className="roval-brand-lines">
+        <span />
+        <span />
+        <span />
+      </span>
+    </span>
+  );
+}
+
 export default function TopBar({ project }) {
   const { user, signOut, demoMode } = useAuth();
   const { profiles, saveError, clearSaveError } = usePlanner();
@@ -27,7 +40,10 @@ export default function TopBar({ project }) {
       )}
       <header className="relative z-[1200] flex h-16 items-center justify-between border-b border-black/10 bg-white/80 px-5 text-ink-950 backdrop-blur dark:border-white/10 dark:bg-ink-950/80 dark:text-ink-100">
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-sm font-bold uppercase tracking-[0.18em] text-accent-400">Post Planner</Link>
+          <Link to="/" className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] text-accent-300">
+            <RovalLogo />
+            ROVAL
+          </Link>
           {project && <span className="text-sm text-ink-500">/ {project.name}</span>}
         </div>
         <div className="flex items-center gap-2">

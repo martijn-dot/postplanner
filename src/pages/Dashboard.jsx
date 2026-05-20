@@ -1,10 +1,82 @@
-import { Archive, Plus, Search, Settings } from 'lucide-react';
+import { Archive, ChevronDown, Plus, Search, Settings } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
+
+function ComboField({ label, value, onChange, options, placeholder, required = false }) {
+  const [open, setOpen] = useState(false);
+  const query = value.trim().toLowerCase();
+  const filteredOptions = options
+    .filter((option) => !query || option.toLowerCase().includes(query))
+    .slice(0, 8);
+  const exactMatch = options.some((option) => option.toLowerCase() === query);
+
+  return (
+    <label className="block space-y-1">
+      <span className="text-xs font-semibold uppercase text-ink-500">{label}</span>
+      <div className="relative">
+        <input
+          className="field pr-10"
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          placeholder={placeholder}
+          autoComplete="off"
+          required={required}
+        />
+        <button
+          type="button"
+          className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-ink-500 transition hover:bg-white/10 hover:text-ink-100"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setOpen((next) => !next)}
+          aria-label={`Open ${label} options`}
+        >
+          <ChevronDown size={16} />
+        </button>
+        {open && (
+          <div className="combo-menu">
+            {filteredOptions.map((option) => (
+              <button
+                type="button"
+                key={option}
+                className="combo-option"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+              >
+                {option}
+              </button>
+            ))}
+            {!filteredOptions.length && <p className="px-3 py-2 text-sm text-ink-500">No saved names yet.</p>}
+            {value.trim() && !exactMatch && (
+              <button
+                type="button"
+                className="combo-option border-t border-white/10 text-accent-200"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setOpen(false)}
+              >
+                Use "{value.trim()}"
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </label>
+  );
+}
+
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -23,7 +95,7 @@ export default function Dashboard() {
   const [producer, setProducer] = useState('');
   const [formError, setFormError] = useState('');
   const clients = [...new Set([...(savedClients ?? []).map((item) => item.name), ...projects.map((project) => project.client)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name), ...profiles.map((profile) => profile.display_name), ...projects.flatMap((project) => [project.post_producer, project.producer])].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name), ...profiles.map((profile) => profile.display_name), ...projects.flatMap((project) => [project.post_producer, project.producer])].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
   const resetForm = () => {
     setOpen(false);
     setEditingProject(null);
@@ -218,24 +290,9 @@ export default function Dashboard() {
                 <span className="text-xs font-semibold uppercase text-ink-500">Projectname</span>
                 <input className="field" value={name} onChange={(event) => setName(event.target.value)} placeholder="Project name" required />
               </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-semibold uppercase text-ink-500">Client</span>
-                <input className="field" list="existing-clients" value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client" required />
-                <datalist id="existing-clients">
-                  {clients.map((item) => <option key={item} value={item} />)}
-                </datalist>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-semibold uppercase text-ink-500">Post Producer</span>
-                <input className="field" list="existing-producers" value={postProducer} onChange={(event) => setPostProducer(event.target.value)} placeholder="Post producer" required />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-semibold uppercase text-ink-500">Producer</span>
-                <input className="field" list="existing-producers" value={producer} onChange={(event) => setProducer(event.target.value)} placeholder="Producer" required />
-                <datalist id="existing-producers">
-                  {producers.map((item) => <option key={item} value={item} />)}
-                </datalist>
-              </label>
+              <ComboField label="Client" value={client} onChange={setClient} options={clients} placeholder="Client" required />
+              <ComboField label="Post Producer" value={postProducer} onChange={setPostProducer} options={producers} placeholder="Post producer" required />
+              <ComboField label="Producer" value={producer} onChange={setProducer} options={producers} placeholder="Producer" required />
               {formError && <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{formError}</p>}
             </div>
             <div className="mt-5 flex justify-end gap-2">

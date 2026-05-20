@@ -17,6 +17,18 @@ function shareToken() {
   return crypto.randomUUID().replaceAll('-', '');
 }
 
+function normalizedName(value) {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+function labelKey(label) {
+  return `${label.project_id ?? 'global'}:${label.column_type}:${normalizedName(label.value)}`;
+}
+
+function profileDisplayValue(value, profiles = []) {
+  return profiles.find((profile) => profile.id === value)?.display_name ?? value ?? '';
+}
+
 function readShares() {
   return JSON.parse(localStorage.getItem(SHARE_STORAGE_KEY) ?? '{}');
 }
@@ -77,8 +89,8 @@ function hydrateDefaults(userId) {
         archived_by: null,
         archived_at: null,
         project_number: '',
-        post_producer: userId,
-        producer: userId,
+        post_producer: profile.display_name,
+        producer: profile.display_name,
         name: DEFAULT_PROJECT.name,
         client: DEFAULT_PROJECT.client,
         created_at: new Date().toISOString(),
@@ -110,19 +122,25 @@ function normalizeLocalData(data, userId) {
     invited_by: null,
     is_active: true,
   }];
-  const labels = (data.labels ?? []).map((label) => ({
-    ...label,
-    color: label.is_default || (!label.project_id && defaultColorByKey[`${label.column_type}:${label.value}`])
-      ? defaultColorByKey[`${label.column_type}:${label.value}`] ?? label.color
-      : label.color,
-    scope: label.scope ?? (label.project_id ? 'project' : 'global'),
-  }));
+  const labelsByKey = new Map();
+  (data.labels ?? []).forEach((label) => {
+    const normalized = {
+      ...label,
+      color: label.is_default || (!label.project_id && defaultColorByKey[`${label.column_type}:${label.value}`])
+        ? defaultColorByKey[`${label.column_type}:${label.value}`] ?? label.color
+        : label.color,
+      scope: label.scope ?? (label.project_id ? 'project' : 'global'),
+    };
+    const key = labelKey(normalized);
+    if (!labelsByKey.has(key)) labelsByKey.set(key, normalized);
+  });
+  const labels = [...labelsByKey.values()];
   const projects = (data.projects ?? []).map((project) => ({
     ...project,
     user_id: project.user_id ?? userId,
     project_number: project.project_number ?? '',
-    post_producer: project.post_producer ?? '',
-    producer: project.producer ?? '',
+    post_producer: profileDisplayValue(project.post_producer, profiles),
+    producer: profileDisplayValue(project.producer, profiles),
     created_by: project.created_by ?? project.user_id ?? userId,
     last_edited_by: project.last_edited_by ?? project.user_id ?? userId,
     last_edited_at: project.last_edited_at ?? project.created_at ?? now,
@@ -312,11 +330,11 @@ export function PlannerProvider({ children }) {
         mutate((draft) => {
           draft.projects.unshift(project);
           draft.categories.push(category);
-          if (client && !draft.clients.some((item) => item.name.toLowerCase() === client.toLowerCase())) {
+          if (client && !draft.clients.some((item) => normalizedName(item.name) === normalizedName(client))) {
             draft.clients.push({ id: id(), name: client, created_by: user.id, created_at: now });
           }
           [postProducer, producer].filter(Boolean).forEach((producerName) => {
-            if (!draft.producers.some((item) => item.name.toLowerCase() === producerName.toLowerCase())) {
+            if (!draft.producers.some((item) => normalizedName(item.name) === normalizedName(producerName))) {
               draft.producers.push({ id: id(), name: producerName, created_by: user.id, created_at: now });
             }
           });
@@ -332,11 +350,11 @@ export function PlannerProvider({ children }) {
       updateProject: (projectId, patch) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);
         Object.assign(project, patch);
-        if (patch.client && !draft.clients.some((item) => item.name.toLowerCase() === patch.client.toLowerCase())) {
+        if (patch.client && !draft.clients.some((item) => normalizedName(item.name) === normalizedName(patch.client))) {
           draft.clients.push({ id: id(), name: patch.client, created_by: user.id, created_at: new Date().toISOString() });
         }
         [patch.post_producer, patch.producer].filter(Boolean).forEach((producerName) => {
-          if (!draft.producers.some((item) => item.name.toLowerCase() === producerName.toLowerCase())) {
+          if (!draft.producers.some((item) => normalizedName(item.name) === normalizedName(producerName))) {
             draft.producers.push({ id: id(), name: producerName, created_by: user.id, created_at: new Date().toISOString() });
           }
         });
@@ -606,20 +624,30 @@ export function PlannerProvider({ children }) {
         }
       }),
       addLabel: (projectId, columnType, value, color) => {
+        const trimmed = value.trim();
+        const existing = data.labels.find((item) => item.project_id === projectId && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed));
+        if (existing) return existing;
         const label = { id: id(), project_id: projectId, column_type: columnType, value, color, is_default: false, scope: 'project' };
         mutate((draft) => {
-          draft.labels.push(label);
+          if (!draft.labels.some((item) => item.project_id === projectId && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed))) {
+            draft.labels.push({ ...label, value: trimmed });
+          }
         });
         markDirty(projectId);
         if (useSupabase) {
-          void saveSupabase('project label', supabase.from('labels').insert(label));
+          void saveSupabase('project label', supabase.from('labels').insert({ ...label, value: trimmed }));
         }
-        return label;
+        return { ...label, value: trimmed };
       },
       addGlobalLabel: (columnType, value, color) => {
-        const label = { id: id(), project_id: null, column_type: columnType, value, color, is_default: true, scope: 'global' };
+        const trimmed = value.trim();
+        const existing = data.labels.find((item) => !item.project_id && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed));
+        if (existing) return existing;
+        const label = { id: id(), project_id: null, column_type: columnType, value: trimmed, color, is_default: true, scope: 'global' };
         mutate((draft) => {
-          draft.labels.push(label);
+          if (!draft.labels.some((item) => !item.project_id && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed))) {
+            draft.labels.push(label);
+          }
         });
         if (useSupabase) void saveSupabase('global label', supabase.from('labels').insert(label));
         return label;
@@ -685,23 +713,39 @@ export function PlannerProvider({ children }) {
       addClient: (name) => {
         const trimmed = name.trim();
         if (!trimmed) return null;
+        const existing = data.clients.find((item) => normalizedName(item.name) === normalizedName(trimmed));
+        if (existing) return existing;
         const client = { id: id(), name: trimmed, created_by: user.id, created_at: new Date().toISOString() };
         mutate((draft) => {
-          if (!draft.clients.some((item) => item.name.toLowerCase() === trimmed.toLowerCase())) draft.clients.push(client);
+          if (!draft.clients.some((item) => normalizedName(item.name) === normalizedName(trimmed))) draft.clients.push(client);
         });
         if (useSupabase) void saveSupabase('client', supabase.from('clients').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name' }));
         return client;
       },
+      deleteClient: (clientId) => mutate((draft) => {
+        const client = draft.clients.find((item) => item.id === clientId || item.name === clientId);
+        if (!client) return;
+        draft.clients = draft.clients.filter((item) => item.id !== client.id && item.name !== client.name);
+        if (useSupabase) void saveSupabase('client delete', supabase.from('clients').delete().eq('name', client.name));
+      }),
       addProducer: (name) => {
         const trimmed = name.trim();
         if (!trimmed) return null;
+        const existing = data.producers.find((item) => normalizedName(item.name) === normalizedName(trimmed));
+        if (existing) return existing;
         const producer = { id: id(), name: trimmed, created_by: user.id, created_at: new Date().toISOString() };
         mutate((draft) => {
-          if (!draft.producers.some((item) => item.name.toLowerCase() === trimmed.toLowerCase())) draft.producers.push(producer);
+          if (!draft.producers.some((item) => normalizedName(item.name) === normalizedName(trimmed))) draft.producers.push(producer);
         });
         if (useSupabase) void saveSupabase('producer', supabase.from('producers').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name' }));
         return producer;
       },
+      deleteProducer: (producerId) => mutate((draft) => {
+        const producer = draft.producers.find((item) => item.id === producerId || item.name === producerId);
+        if (!producer) return;
+        draft.producers = draft.producers.filter((item) => item.id !== producer.id && item.name !== producer.name);
+        if (useSupabase) void saveSupabase('producer delete', supabase.from('producers').delete().eq('name', producer.name));
+      }),
       upsertPresence: (projectId) => {
         const row = { id: id(), project_id: projectId, user_id: user.id, last_seen_at: new Date().toISOString() };
         mutate((draft) => {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { RovalLogo } from '../components/TopBar.jsx';
 
 export default function AuthPage() {
   const { session, demoMode, hasSupabaseConfig, signIn, resetPassword, updatePassword, enterDemo } = useAuth();
@@ -45,7 +46,10 @@ export default function AuthPage() {
     <main className="grid min-h-screen place-items-center bg-ink-950 px-5 text-ink-100">
       <section className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-6 shadow-glow">
         <div className="mb-8">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-accent-300">Post Planner</p>
+          <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-accent-300">
+            <RovalLogo />
+            ROVAL
+          </p>
           <h1 className="mt-4 text-3xl font-semibold">Production timelines without the spreadsheet drift.</h1>
         </div>
 

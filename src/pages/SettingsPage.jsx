@@ -25,7 +25,9 @@ export default function SettingsPage() {
     revokeInvite,
     deleteUser,
     addClient,
+    deleteClient,
     addProducer,
+    deleteProducer,
     restoreProject,
     deleteProjectForever,
   } = usePlanner();
@@ -45,17 +47,25 @@ export default function SettingsPage() {
     .filter((invite) => !invite.accepted && !profiles.some((item) => item.email?.toLowerCase() === invite.email?.toLowerCase()))
     .sort((a, b) => new Date(b.created_at ?? 0) - new Date(a.created_at ?? 0));
 
-  const globalLabels = useMemo(
-    () => labels.filter((label) => label.scope === 'global' || !label.project_id),
-    [labels],
-  );
+  const globalLabels = useMemo(() => {
+    const byKey = new Map();
+    labels
+      .filter((label) => label.scope === 'global' || !label.project_id)
+      .forEach((label) => {
+        const key = `${label.column_type}:${label.value.trim().toLowerCase()}`;
+        if (!byKey.has(key)) byKey.set(key, label);
+      });
+    return [...byKey.values()];
+  }, [labels]);
 
   if (profile?.role !== 'admin') return <Navigate to="/" replace />;
 
   const createLabel = (columnType) => {
     const draft = drafts[columnType] ?? {};
-    if (!draft.value?.trim()) return;
-    addGlobalLabel(columnType, draft.value.trim(), draft.color || '#6d5dfc');
+    const value = draft.value?.trim();
+    if (!value) return;
+    const exists = globalLabels.some((label) => label.column_type === columnType && label.value.trim().toLowerCase() === value.toLowerCase());
+    if (!exists) addGlobalLabel(columnType, value, draft.color || '#6d5dfc');
     setDrafts((current) => ({ ...current, [columnType]: { value: '', color: '#6d5dfc' } }));
   };
 
@@ -263,12 +273,15 @@ export default function SettingsPage() {
           <section className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
             <form onSubmit={submitClient} className="mb-5 flex max-w-xl gap-2">
               <input className="field !py-2" value={clientName} onChange={(event) => setClientName(event.target.value)} placeholder="Add client" />
-              <button type="submit" className="primary-button"><Plus size={16} /> Add Client</button>
+              <button type="submit" className="primary-button shrink-0 whitespace-nowrap"><Plus size={16} /> Add Client</button>
             </form>
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {(clients ?? []).map((client) => (
-                <div key={client.id ?? client.name} className="rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
-                  {client.name}
+                <div key={client.id ?? client.name} className="flex items-center justify-between gap-3 rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
+                  <span className="min-w-0 truncate">{client.name}</span>
+                  <button type="button" onClick={() => deleteClient(client.id ?? client.name)} className="icon-button !h-7 !w-7 shrink-0" aria-label={`Remove ${client.name}`}>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
               {!(clients ?? []).length && <p className="text-sm text-ink-500">No clients yet.</p>}
@@ -280,12 +293,15 @@ export default function SettingsPage() {
           <section className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
             <form onSubmit={submitProducer} className="mb-5 flex max-w-xl gap-2">
               <input className="field !py-2" value={producerName} onChange={(event) => setProducerName(event.target.value)} placeholder="Add producer" />
-              <button type="submit" className="primary-button"><Plus size={16} /> Add Producer</button>
+              <button type="submit" className="primary-button shrink-0 whitespace-nowrap"><Plus size={16} /> Add Producer</button>
             </form>
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {(producers ?? []).map((producer) => (
-                <div key={producer.id ?? producer.name} className="rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
-                  {producer.name}
+                <div key={producer.id ?? producer.name} className="flex items-center justify-between gap-3 rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
+                  <span className="min-w-0 truncate">{producer.name}</span>
+                  <button type="button" onClick={() => deleteProducer(producer.id ?? producer.name)} className="icon-button !h-7 !w-7 shrink-0" aria-label={`Remove ${producer.name}`}>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
               {!(producers ?? []).length && <p className="text-sm text-ink-500">No producers yet.</p>}
