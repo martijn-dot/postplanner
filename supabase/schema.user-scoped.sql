@@ -4,11 +4,14 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   display_name text not null,
+  avatar_url text,
   role text not null default 'user' check (role in ('admin', 'user')),
   created_at timestamptz default now(),
   invited_by uuid references public.profiles(id),
   is_active boolean not null default true
 );
+
+alter table public.profiles add column if not exists avatar_url text;
 
 create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
@@ -259,6 +262,20 @@ begin
 end;
 $$;
 
+create or replace function public.prevent_non_admin_role_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.role is distinct from new.role and not public.is_admin() then
+    raise exception 'Only admins can change roles.';
+  end if;
+  return new;
+end;
+$$;
+
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
@@ -300,6 +317,11 @@ drop trigger if exists prevent_last_admin_update on public.profiles;
 create trigger prevent_last_admin_update
 before update or delete on public.profiles
 for each row execute procedure public.prevent_last_admin_removal();
+
+drop trigger if exists prevent_non_admin_role_update on public.profiles;
+create trigger prevent_non_admin_role_update
+before update on public.profiles
+for each row execute procedure public.prevent_non_admin_role_change();
 
 drop policy if exists "Users can read their projects" on public.projects;
 drop policy if exists "Profiles are readable by authenticated users" on public.profiles;
@@ -362,6 +384,11 @@ create policy "Admins can update profiles"
 on public.profiles for update
 using (public.is_admin())
 with check (public.is_admin());
+
+create policy "Users can update their own profile"
+on public.profiles for update
+using (auth.uid() = id)
+with check (auth.uid() = id);
 
 create policy "Users can read categories in their projects"
 on public.categories for select

@@ -94,7 +94,7 @@ export default function Dashboard() {
   const [postProducer, setPostProducer] = useState(currentUserName);
   const [producer, setProducer] = useState('');
   const [formError, setFormError] = useState('');
-  const clients = [...new Set([...(savedClients ?? []).map((item) => item.name), ...projects.map((project) => project.client)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const clients = [...new Set([...(savedClients ?? []).map((item) => item.name)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name), ...profiles.map((profile) => profile.display_name), ...projects.flatMap((project) => [project.post_producer, project.producer])].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
   const resetForm = () => {
     setOpen(false);
@@ -143,12 +143,11 @@ export default function Dashboard() {
       return;
     }
     try {
-      const project = await createProject({ projectNumber, name, client, postProducer, producer });
+      await createProject({ projectNumber, name, client, postProducer, producer });
       if (client) addClient(client);
       if (postProducer) addProducer(postProducer);
       if (producer) addProducer(producer);
       resetForm();
-      location.href = `/projects/${project.id}`;
     } catch (error) {
       setFormError(error.message);
     }
@@ -207,6 +206,9 @@ export default function Dashboard() {
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
               const postProducerName = project.post_producer || '-';
+              const knownClient = project.client && savedClients.some((item) => item.name === project.client);
+              const clientLabel = knownClient ? project.client : 'no client';
+              const missingClient = clientLabel === 'no client';
               const activePresence = (presence ?? []).filter((item) => item.project_id === project.id && item.user_id !== user.id && Date.now() - new Date(item.last_seen_at).getTime() < 90_000);
               const activeNames = activePresence.map((item) => (profiles ?? []).find((profile) => profile.id === item.user_id)?.display_name).filter(Boolean);
               const locked = activeNames.length > 0;
@@ -215,7 +217,7 @@ export default function Dashboard() {
                   <span className="font-mono text-sm text-ink-500">{project.project_number || '-'}</span>
                   <span className="min-w-0">
                     <span className="font-semibold">{project.name}</span>
-                    {project.client && <span className="ml-2 rounded bg-accent-500/15 px-2 py-0.5 text-xs font-semibold text-accent-300">{project.client}</span>}
+                    {clientLabel && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${missingClient ? 'bg-red-500/15 text-red-300' : 'bg-accent-500/15 text-accent-300'}`}>{clientLabel}</span>}
                     {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                   </span>
                   <span className="text-sm text-ink-500">{postProducerName}</span>

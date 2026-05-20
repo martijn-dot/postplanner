@@ -42,6 +42,7 @@ function hydrateDefaults(userId) {
     id: userId,
     email: 'demo@planner.local',
     display_name: 'Martijn',
+    avatar_url: '',
     role: 'admin',
     created_at: new Date().toISOString(),
     invited_by: null,
@@ -117,6 +118,7 @@ function normalizeLocalData(data, userId) {
     id: userId,
     email: 'demo@planner.local',
     display_name: 'Martijn',
+    avatar_url: '',
     role: 'admin',
     created_at: now,
     invited_by: null,
@@ -197,14 +199,21 @@ async function loadSupabaseData() {
   if (invitations.error && invitations.error.code !== '42501') throw invitations.error;
   if (clients.error && clients.error.code !== '42P01' && clients.error.code !== '42501') throw clients.error;
   if (producers.error && producers.error.code !== '42P01' && producers.error.code !== '42501') throw producers.error;
+  const loadedProfiles = profiles.data ?? [];
+  const loadedClients = clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name }));
+  const loadedProjects = projects.data.map((project) => ({
+    ...project,
+    post_producer: profileDisplayValue(project.post_producer, loadedProfiles),
+    producer: profileDisplayValue(project.producer, loadedProfiles),
+  }));
   return {
-    projects: projects.data,
+    projects: loadedProjects,
     categories: categories.data.map((category) => ({ ...category, collapsed: false })),
     lineItems: lineItems.data,
     labels: labels.data,
-    profiles: profiles.data,
-    clients: clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name })),
-    producers: producers.data ?? [...new Set(profiles.data.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: name, name })),
+    profiles: loadedProfiles,
+    clients: loadedClients,
+    producers: producers.data ?? [...new Set(loadedProfiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: name, name })),
     presence: presence.data ?? [],
     invitations: invitations.data ?? [],
   };
@@ -728,6 +737,16 @@ export function PlannerProvider({ children }) {
         });
         if (useSupabase) await saveSupabase('user role', supabase.from('profiles').update({ role }).eq('id', targetUserId), { throwOnError: true });
       },
+      updateProfile: async (patch) => mutate((draft) => {
+        const profile = draft.profiles.find((item) => item.id === user.id);
+        if (!profile) return;
+        const cleanPatch = {
+          display_name: patch.display_name?.trim() || profile.display_name,
+          avatar_url: patch.avatar_url ?? profile.avatar_url ?? '',
+        };
+        Object.assign(profile, cleanPatch);
+        if (useSupabase) void saveSupabase('profile', supabase.from('profiles').update(cleanPatch).eq('id', user.id));
+      }),
       addClient: (name) => {
         const trimmed = name.trim();
         if (!trimmed) return null;
@@ -744,7 +763,11 @@ export function PlannerProvider({ children }) {
         const client = draft.clients.find((item) => item.id === clientId || item.name === clientId);
         if (!client) return;
         draft.clients = draft.clients.filter((item) => item.id !== client.id && item.name !== client.name);
+        draft.projects.forEach((project) => {
+          if (project.client === client.name) project.client = 'no client';
+        });
         if (useSupabase) void saveSupabase('client delete', supabase.from('clients').delete().eq('name', client.name));
+        if (useSupabase) void saveSupabase('project clients', supabase.from('projects').update({ client: 'no client' }).eq('client', client.name));
       }),
       addProducer: (name) => {
         const trimmed = name.trim();

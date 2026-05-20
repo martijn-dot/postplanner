@@ -1,4 +1,4 @@
-import { ChevronDown, LogOut, Moon, Settings, Sun } from 'lucide-react';
+import { Camera, ChevronDown, LogOut, Moon, Save, Settings, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -19,9 +19,11 @@ export function RovalLogo() {
 
 export default function TopBar({ project }) {
   const { user, signOut, demoMode } = useAuth();
-  const { profiles, saveError, clearSaveError } = usePlanner();
+  const { profiles, saveError, clearSaveError, updateProfile } = usePlanner();
   const [dark, setDark] = useState(() => localStorage.theme !== 'light');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState('');
   const profile = (profiles ?? []).find((item) => item.id === user.id) ?? { email: user.email, display_name: user.email?.split('@')[0] ?? 'User', role: 'user' };
   const initials = (profile.display_name ?? profile.email ?? 'U').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 
@@ -29,6 +31,30 @@ export default function TopBar({ project }) {
     document.documentElement.classList.toggle('dark', dark);
     localStorage.theme = dark ? 'dark' : 'light';
   }, [dark]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    setProfileName(profile.display_name ?? '');
+    setProfileAvatar(profile.avatar_url ?? '');
+  }, [menuOpen, profile.avatar_url, profile.display_name]);
+
+  const saveProfile = () => {
+    updateProfile({ display_name: profileName, avatar_url: profileAvatar });
+    setMenuOpen(false);
+  };
+
+  const readAvatarFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') setProfileAvatar(reader.result);
+    });
+    reader.readAsDataURL(file);
+  };
+
+  const avatar = profile.avatar_url ? (
+    <img src={profile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+  ) : initials;
 
   return (
     <>
@@ -58,15 +84,39 @@ export default function TopBar({ project }) {
           </button>
           <div className="relative">
             <button type="button" onClick={() => setMenuOpen((next) => !next)} className="flex items-center gap-2 rounded-md border border-black/10 bg-black/5 px-2 py-1.5 text-sm font-semibold dark:border-white/10 dark:bg-white/5">
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-accent-500 text-xs text-white">{initials}</span>
+              <span className="grid h-7 w-7 overflow-hidden place-items-center rounded-full bg-accent-500 text-xs text-white">{avatar}</span>
               <span className="hidden max-w-32 truncate sm:block">{profile.display_name}</span>
               <ChevronDown size={14} />
             </button>
             {menuOpen && (
-              <div className="fixed right-5 top-16 z-[3000] w-64 rounded-lg border border-white/10 bg-ink-900 p-3 text-sm text-ink-100 shadow-glow">
-                <p className="font-semibold">{profile.display_name}</p>
-                <p className="mt-1 truncate text-ink-500">{profile.email}</p>
+              <div className="fixed right-5 top-16 z-[3000] w-80 rounded-lg border border-white/10 bg-ink-900 p-3 text-sm text-ink-100 shadow-glow">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-12 w-12 overflow-hidden place-items-center rounded-full bg-accent-500 text-sm font-bold text-white">
+                    {profileAvatar ? <img src={profileAvatar} alt="" className="h-full w-full rounded-full object-cover" /> : initials}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{profile.display_name}</p>
+                    <p className="mt-1 truncate text-ink-500">{profile.email}</p>
+                  </div>
+                </div>
                 <span className="mt-3 inline-flex rounded-full bg-accent-500/15 px-2 py-1 text-xs font-semibold uppercase text-accent-300">{profile.role}</span>
+                <label className="mt-4 block space-y-1">
+                  <span className="text-xs font-semibold uppercase text-ink-500">Username</span>
+                  <input className="field !py-2" value={profileName} onChange={(event) => setProfileName(event.target.value)} />
+                </label>
+                <label className="mt-3 block space-y-1">
+                  <span className="text-xs font-semibold uppercase text-ink-500">Profile picture URL</span>
+                  <input className="field !py-2" value={profileAvatar} onChange={(event) => setProfileAvatar(event.target.value)} placeholder="https://..." />
+                </label>
+                <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-white/10 px-3 py-2 font-semibold text-ink-300 transition hover:bg-white/5 hover:text-white">
+                  <Camera size={16} />
+                  Upload picture
+                  <input type="file" accept="image/*" className="hidden" onChange={(event) => readAvatarFile(event.target.files?.[0])} />
+                </label>
+                <button type="button" onClick={saveProfile} className="primary-button mt-3 w-full">
+                  <Save size={16} /> Save profile
+                </button>
+                <div className="my-3 border-t border-white/10" />
                 <button type="button" onClick={signOut} className="mt-3 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-red-200 hover:bg-white/5">
                   <LogOut size={16} /> Sign out
                 </button>
