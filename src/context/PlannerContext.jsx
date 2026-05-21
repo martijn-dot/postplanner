@@ -473,6 +473,7 @@ export function PlannerProvider({ children }) {
         draft.lineItems.push(item);
         markDirty(projectId);
         if (useSupabase) void saveSupabase('line item', supabase.from('line_items').insert(item));
+        return item.id;
       }),
       duplicateLineItem: (itemId) => mutate((draft) => {
         const source = draft.lineItems.find((item) => item.id === itemId);

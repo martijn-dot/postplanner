@@ -34,8 +34,10 @@ export default function LabelSelect({
   const [color, setColor] = useState(COLORS[0]);
   const [notice, setNotice] = useState('');
   const [menuStyle, setMenuStyle] = useState({});
+  const [highlightedId, setHighlightedId] = useState(null);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
+  const typeaheadRef = useRef({ value: '', timer: null });
 
   const selected = useMemo(() => {
     const values = multiple ? value : [value];
@@ -55,6 +57,46 @@ export default function LabelSelect({
     }
     onChange(labelId);
     setOpen(false);
+  };
+
+  const selectableLabels = useMemo(() => labels.filter((label) => !label.is_divider), [labels]);
+
+  const highlightLabel = (labelId) => {
+    setHighlightedId(labelId);
+    window.setTimeout(() => {
+      menuRef.current?.querySelector(`[data-label-id="${labelId}"]`)?.scrollIntoView({ block: 'nearest' });
+    }, 0);
+  };
+
+  const handleTypeahead = (key) => {
+    const nextValue = `${typeaheadRef.current.value}${key}`.toLowerCase();
+    window.clearTimeout(typeaheadRef.current.timer);
+    typeaheadRef.current = {
+      value: nextValue,
+      timer: window.setTimeout(() => {
+        typeaheadRef.current.value = '';
+      }, 800),
+    };
+    const match = selectableLabels.find((label) => label.value.toLowerCase().startsWith(nextValue))
+      ?? selectableLabels.find((label) => label.value.toLowerCase().startsWith(key.toLowerCase()));
+    if (match) highlightLabel(match.id);
+  };
+
+  const handleMenuKeyDown = (event) => {
+    if (event.key === 'Enter' && highlightedId) {
+      event.preventDefault();
+      toggle(highlightedId);
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      buttonRef.current?.focus();
+      return;
+    }
+    if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      handleTypeahead(event.key);
+    }
   };
 
   const create = async () => {
@@ -83,8 +125,11 @@ export default function LabelSelect({
   }, []);
 
   useLayoutEffect(() => {
-    if (open) placeMenu();
-  }, [open, placeMenu, labels.length, adding]);
+    if (open) {
+      if (!highlightedId) setHighlightedId(selected[0]?.id ?? selectableLabels[0]?.id ?? null);
+      placeMenu();
+    }
+  }, [open, placeMenu, labels.length, adding, highlightedId, selected, selectableLabels]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -111,7 +156,7 @@ export default function LabelSelect({
   }, [multiple, multipleModeToggle, value]);
 
   const menu = open ? (
-    <div ref={menuRef} className="fixed z-[9999] overflow-hidden rounded-lg border border-white/10 bg-ink-850 shadow-glow" style={menuStyle}>
+    <div ref={menuRef} className="fixed z-[9999] overflow-hidden rounded-lg border border-white/10 bg-ink-850 shadow-glow" style={menuStyle} tabIndex={-1} onKeyDown={handleMenuKeyDown}>
       <div className="max-h-64 overflow-auto p-1">
         {labels.map((label) => {
           if (label.is_divider) {
@@ -127,9 +172,11 @@ export default function LabelSelect({
           return (
             <button
               key={label.id}
+              data-label-id={label.id}
               type="button"
+              onMouseEnter={() => setHighlightedId(label.id)}
               onClick={() => toggle(label.id)}
-              className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-sm text-ink-100 hover:bg-white/5"
+              className={`flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-sm text-ink-100 hover:bg-white/5 ${highlightedId === label.id ? 'bg-white/10' : ''}`}
             >
               <span className="flex items-center gap-2">
                 <Pill label={label} />
@@ -207,6 +254,21 @@ export default function LabelSelect({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((next) => !next)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            setOpen(true);
+            window.setTimeout(() => menuRef.current?.focus(), 0);
+            return;
+          }
+          if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+            setOpen(true);
+            window.setTimeout(() => {
+              menuRef.current?.focus();
+              handleTypeahead(event.key);
+            }, 0);
+          }
+        }}
         className="flex min-h-9 w-full min-w-0 items-center gap-1 overflow-hidden rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-left text-sm text-ink-100 hover:border-white/20"
       >
         {selected.length ? (

@@ -1,9 +1,6 @@
-import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { eachDayOfInterval, endOfWeek, format, getISODay, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { Check, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe2, GripVertical } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Check, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -35,73 +32,62 @@ function dateRangeFromMilestones(milestones) {
   });
 }
 
-export function buildCategorySections(project, items, categories, labelsById, showEmptyDates, uncategorizedName = 'Uncategorized') {
+export function buildClientPlanningRows(project, items, categories, labelsById, showEmptyDates, uncategorizedName = 'Uncategorized') {
   const milestones = projectMilestones(project, items);
   const days = dateRangeFromMilestones(milestones);
   if (!days.length) return [];
 
-  const projectCategories = categories
-    .filter((category) => category.project_id === project.id)
-    .sort((a, b) => a.sort_order - b.sort_order);
+  const categoriesById = Object.fromEntries(
+    categories
+      .filter((category) => category.project_id === project.id)
+      .map((category) => [category.id, category]),
+  );
+  const milestonesByDate = milestones.reduce((groups, item) => {
+    const group = groups.get(item.end_date) ?? [];
+    group.push(item);
+    groups.set(item.end_date, group);
+    return groups;
+  }, new Map());
 
-  const hasUncategorized = milestones.some((item) => !item.category_id);
-  const sections = [
-    ...projectCategories,
-    ...(hasUncategorized ? [{ id: null, name: uncategorizedName, sort_order: 9999 }] : []),
-  ];
+  return days.flatMap((day) => {
+    const dateKey = format(day, 'yyyy-MM-dd');
+    const dayMilestones = milestonesByDate.get(dateKey) ?? [];
+    const base = {
+      Week: weekNumber(day),
+      Day: format(day, 'EEEE'),
+      Date: format(day, 'd MMM'),
+      _dateKey: dateKey,
+      _isoWeekday: getISODay(day),
+      _isMonday: isMonday(day),
+      _isWeekend: isWeekend(day),
+    };
 
-  return sections
-    .map((category) => {
-      const categoryMilestones = milestones.filter((item) => item.category_id === category.id);
-      const milestonesByDate = categoryMilestones.reduce((groups, item) => {
-        const group = groups.get(item.end_date) ?? [];
-        group.push(item);
-        groups.set(item.end_date, group);
-        return groups;
-      }, new Map());
+    if (!dayMilestones.length) {
+      if (!showEmptyDates) return [];
+      return [{
+        ...base,
+        Category: '',
+        Time: '',
+        Who: '',
+        Asset: '',
+        What: '',
+        Todo: '',
+        Notes: '',
+      }];
+    }
 
-      const rows = days.flatMap((day) => {
-        const dateKey = format(day, 'yyyy-MM-dd');
-        const dayMilestones = milestonesByDate.get(dateKey) ?? [];
-        const base = {
-          Week: weekNumber(day),
-          Day: format(day, 'EEEE'),
-          Date: format(day, 'd MMM'),
-          Category: category.name,
-          _dateKey: dateKey,
-          _isoWeekday: getISODay(day),
-          _isMonday: isMonday(day),
-          _isWeekend: isWeekend(day),
-        };
-
-        if (!dayMilestones.length) {
-          if (!showEmptyDates) return [];
-          return [{
-            ...base,
-            Time: '',
-            Who: '',
-            Asset: '',
-            What: '',
-            Todo: '',
-            Notes: '',
-          }];
-        }
-
-        return dayMilestones.map((item) => ({
-          ...base,
-          Time: item.time ?? '',
-          Who: item.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', '),
-          Asset: item.asset,
-          What: labelsById[item.what]?.value ?? '',
-          Todo: labelsById[item.todo]?.value ?? '',
-          Notes: item.notes ?? '',
-          _item: item,
-        }));
-      });
-
-      return { category, rows };
-    })
-    .filter((section) => section.rows.length);
+    return dayMilestones.map((item) => ({
+      ...base,
+      Category: item.category_id ? categoriesById[item.category_id]?.name ?? uncategorizedName : uncategorizedName,
+      Time: item.time ?? '',
+      Who: item.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', '),
+      Asset: item.asset,
+      What: labelsById[item.what]?.value ?? '',
+      Todo: labelsById[item.todo]?.value ?? '',
+      Notes: item.notes ?? '',
+      _item: item,
+    }));
+  });
 }
 
 export function annotateRows(rows) {
@@ -126,168 +112,39 @@ export function annotateRows(rows) {
 
 export function clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName = 'Uncategorized') {
   const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
-  return buildCategorySections(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)
-    .flatMap((section) => annotateRows(section.rows).map((row) => ({
-      Category: section.category.name,
-      Week: row.Week,
-      Day: row.Day,
-      Date: row.Date,
-      Time: row.Time,
-      Who: row.Who,
-      Asset: row.Asset,
-      What: row.What,
-      Todo: row.Todo,
-      Notes: row.Notes,
-    })));
+  return annotateRows(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)).map((row) => ({
+    Week: row.Week,
+    Day: row.Day,
+    Date: row.Date,
+    Category: row.Category,
+    Time: row.Time,
+    Who: row.Who,
+    Asset: row.Asset,
+    What: row.What,
+    Todo: row.Todo,
+    Notes: row.Notes,
+  }));
 }
 
-function ClientCategorySection({
-  section,
-  collapsed,
-  onToggleCategory,
-  onUpdateCategory,
-  onRenameUncategorized,
-  onUpdateLineItem,
-  labelsById,
-  setEditingField,
-}) {
-  const sortableId = `category:${section.category.id}`;
-  const sortableEnabled = Boolean(section.category.id);
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: sortableId, disabled: !sortableEnabled });
-  const [draftName, setDraftName] = useState(section.category.name);
-
-  useEffect(() => {
-    setDraftName(section.category.name);
-  }, [section.category.name]);
-
-  const commitName = () => {
-    const nextName = draftName.trim() || section.category.name;
-    setDraftName(nextName);
-    if (nextName === section.category.name) return;
-    if (section.category.id) {
-      onUpdateCategory?.(section.category.id, { name: nextName });
-    } else {
-      onRenameUncategorized?.(nextName);
-    }
-  };
-
-  return (
-    <tbody
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
-    >
-      <tr className="client-category-row border-t border-black/10 bg-zinc-200/80 dark:border-white/10 dark:bg-white/10">
-        <td colSpan="9" className="px-4 py-3 text-sm font-semibold">
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => onToggleCategory(section.category.id)} className="grid h-6 w-6 shrink-0 place-items-center">
-              {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-            </button>
-            <button type="button" className="category-drag-handle" disabled={!sortableEnabled} aria-label="Drag category" {...attributes} {...listeners}>
-              <GripVertical size={15} />
-            </button>
-            <input
-              value={draftName}
-              onChange={(event) => setDraftName(event.target.value)}
-              onBlur={commitName}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur();
-                if (event.key === 'Escape') {
-                  setDraftName(section.category.name);
-                  event.currentTarget.blur();
-                }
-              }}
-              className="category-toggle-name min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none"
-            />
-          </div>
-        </td>
-      </tr>
-      {!collapsed && section.rows.map((row, index) => {
-        return (
-          <tr
-            key={`${section.category.id ?? 'uncategorized'}-${row._item?.id ?? row._dateKey}-${index}`}
-            className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._item ? 'booking-row' : ''} ${row._showWeekDivider ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
-          >
-            {row._showWeek && (
-              <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-4 py-3 align-middle font-mono">
-                <span>W{row.Week}</span>
-              </td>
-            )}
-            {row._showDateGroup && (
-              <>
-                <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
-                  <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>{row.Day}</span>
-                </td>
-                <td rowSpan={row._dateRowSpan} className={`date-group-cell whitespace-nowrap p-0 font-mono font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
-                  <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>{row.Date}</span>
-                </td>
-              </>
-            )}
-            <td className="px-3 py-3 font-mono">
-              {row._item && onUpdateLineItem ? (
-                <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">
-                  {row._item.time || <span className="text-ink-500">--:--</span>}
-                </button>
-              ) : (
-                row.Time || <span className="text-ink-500">-</span>
-              )}
-            </td>
-            <td className="px-4 py-3">
-              {row._item ? (
-                <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>
-              ) : (
-                <span className="text-ink-500">-</span>
-              )}
-            </td>
-            <td className="px-4 py-3">{row.Asset || <span className="text-ink-500">-</span>}</td>
-            <td className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : <span className="text-ink-500">-</span>}</td>
-            <td className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : <span className="text-ink-500">-</span>}</td>
-            <td className="max-w-[160px] overflow-visible px-4 py-3">
-              {row._item && onUpdateLineItem ? (
-                <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">
-                  <FileText size={14} className="shrink-0 text-ink-500" />
-                  <span className="truncate">{row._item.notes || 'Add note'}</span>
-                  {row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}
-                </button>
-              ) : (
-                row.Notes || <span className="text-ink-500">-</span>
-              )}
-            </td>
-          </tr>
-        );
-      })}
-    </tbody>
-  );
-}
-
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onUpdateCategory, onReorderCategory, uncategorizedName = 'Uncategorized', onRenameUncategorized }) {
-  const [collapsedCategories, setCollapsedCategories] = useState([]);
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, uncategorizedName = 'Uncategorized' }) {
   const [editingField, setEditingField] = useState(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const editingItem = editingField?.itemId ? lineItems.find((item) => item.id === editingField.itemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
-  const sections = useMemo(
-    () => buildCategorySections(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)
-      .map((section) => ({ ...section, rows: annotateRows(section.rows) })),
+  const rows = useMemo(
+    () => annotateRows(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)),
     [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName],
   );
-
-  const toggleCategory = (categoryId) => {
-    const key = categoryId ?? 'uncategorized';
-    setCollapsedCategories((current) => (current.includes(key) ? current.filter((id) => id !== key) : [...current, key]));
-  };
 
   return (
     <>
       <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
         <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
-          <table className="client-planning-table w-full min-w-[1220px] border-collapse text-sm">
+          <table className="client-planning-table w-full min-w-[1500px] border-collapse text-sm">
             <colgroup>
+              <col className="w-[48px]" />
+              <col className="w-[78px]" />
               <col className="w-[72px]" />
-              <col className="w-[96px]" />
-              <col className="w-[94px]" />
+              <col className="w-[150px]" />
               <col className="w-[74px]" />
               <col className="w-[118px]" />
               <col className="w-[400px]" />
@@ -297,9 +154,10 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
             </colgroup>
             <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
-                <th className="sticky-week px-4 py-3 font-semibold">Week</th>
-                <th className="px-4 py-3 font-semibold">Day</th>
-                <th className="px-4 py-3 font-semibold">Date</th>
+                <th className="sticky-week px-2 py-3 text-center font-semibold">Week</th>
+                <th className="px-2 py-3 font-semibold">Day</th>
+                <th className="px-2 py-3 font-semibold">Date</th>
+                <th className="px-4 py-3 font-semibold">Category</th>
                 <th className="px-3 py-3 font-semibold">Time</th>
                 <th className="px-4 py-3 font-semibold">Who</th>
                 <th className="px-4 py-3 font-semibold">Asset</th>
@@ -308,36 +166,66 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                 <th className="px-4 py-3 font-semibold">Notes</th>
               </tr>
             </thead>
-            <DndContext
-              sensors={sensors}
-              onDragEnd={({ active, over }) => {
-                if (!over || active.id === over.id) return;
-                onReorderCategory?.(project.id, String(active.id).replace('category:', ''), String(over.id).replace('category:', ''));
-              }}
-            >
-              <SortableContext items={sections.filter((section) => section.category.id).map((section) => `category:${section.category.id}`)} strategy={verticalListSortingStrategy}>
-                {sections.map((section) => (
-                  <ClientCategorySection
-                    key={section.category.id ?? 'uncategorized'}
-                    section={section}
-                    collapsed={collapsedCategories.includes(section.category.id ?? 'uncategorized')}
-                    onToggleCategory={toggleCategory}
-                    onUpdateCategory={onUpdateCategory}
-                    onRenameUncategorized={onRenameUncategorized}
-                    onUpdateLineItem={onUpdateLineItem}
-                    labelsById={labelsById}
-                    setEditingField={setEditingField}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
-            {!sections.length && (
-              <tbody>
-                <tr>
-                  <td colSpan="9" className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr
+                  key={`${row._item?.id ?? row._dateKey}-${index}`}
+                  className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._item ? 'booking-row' : ''} ${row._showWeekDivider ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
+                >
+                  {row._showWeek && (
+                    <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono">
+                      <span><em>W</em>{row.Week}</span>
+                    </td>
+                  )}
+                  {row._showDateGroup && (
+                    <>
+                      <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 text-xs font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
+                        <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>{row.Day}</span>
+                      </td>
+                      <td rowSpan={row._dateRowSpan} className={`date-group-cell whitespace-nowrap p-0 font-mono text-xs font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
+                        <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>{row.Date}</span>
+                      </td>
+                    </>
+                  )}
+                  <td className="px-4 py-3 text-sm font-semibold text-ink-400">{row.Category || <span className="text-ink-500">-</span>}</td>
+                  <td className="px-3 py-3 font-mono">
+                    {row._item && onUpdateLineItem ? (
+                      <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">
+                        {row._item.time || <span className="text-ink-500">--:--</span>}
+                      </button>
+                    ) : (
+                      row.Time || <span className="text-ink-500">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {row._item ? (
+                      <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>
+                    ) : (
+                      <span className="text-ink-500">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">{row.Asset || <span className="text-ink-500">-</span>}</td>
+                  <td className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : <span className="text-ink-500">-</span>}</td>
+                  <td className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : <span className="text-ink-500">-</span>}</td>
+                  <td className="max-w-[160px] overflow-visible px-4 py-3">
+                    {row._item && onUpdateLineItem ? (
+                      <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">
+                        <FileText size={14} className="shrink-0 text-ink-500" />
+                        <span className="truncate">{row._item.notes || 'Add note'}</span>
+                        {row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}
+                      </button>
+                    ) : (
+                      row.Notes || <span className="text-ink-500">-</span>
+                    )}
+                  </td>
                 </tr>
-              </tbody>
-            )}
+              ))}
+              {!rows.length && (
+                <tr>
+                  <td colSpan="10" className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
+                </tr>
+              )}
+            </tbody>
           </table>
         </div>
       </div>
@@ -383,11 +271,11 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
 }
 
 export default function ClientTableView({ project }) {
-  const { lineItems, labels, categories, createShareLink, updateLineItem, updateCategory, reorderCategories } = usePlanner();
+  const { lineItems, labels, categories, createShareLink, updateLineItem } = usePlanner();
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
-  const [uncategorizedNames, setUncategorizedNames] = useState(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}));
+  const uncategorizedNames = useMemo(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}), []);
   const [publishedUrl, setPublishedUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -406,14 +294,6 @@ export default function ClientTableView({ project }) {
     () => clientPlanningExportRows(project, filteredLineItems, labels, categories, showEmptyDates, uncategorizedName),
     [project, filteredLineItems, labels, categories, showEmptyDates, uncategorizedName],
   );
-
-  useEffect(() => {
-    localStorage.setItem(UNCATEGORIZED_NAME_STORAGE_KEY, JSON.stringify(uncategorizedNames));
-  }, [uncategorizedNames]);
-
-  const renameUncategorized = (name) => {
-    setUncategorizedNames((current) => ({ ...current, [project.id]: name }));
-  };
 
   const publish = async () => {
     setPublishing(true);
@@ -442,11 +322,11 @@ export default function ClientTableView({ project }) {
   };
 
   return (
-    <main className="mx-auto max-w-7xl px-5 py-6">
+    <main className="mx-auto max-w-[1600px] px-5 py-6">
       <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-2xl font-semibold">Client Planning</h1>
-          <p className="mt-1 text-sm text-ink-500">Milestones are grouped by timeline category and generated from the final day of each item.</p>
+          <p className="mt-1 text-sm text-ink-500">Milestones are generated from the final day of each timeline item.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={publish} className="secondary-button" disabled={publishing}>
@@ -500,10 +380,7 @@ export default function ClientTableView({ project }) {
         categories={categories}
         showEmptyDates={showEmptyDates}
         onUpdateLineItem={updateLineItem}
-        onUpdateCategory={updateCategory}
-        onReorderCategory={reorderCategories}
         uncategorizedName={uncategorizedName}
-        onRenameUncategorized={renameUncategorized}
       />
     </main>
   );

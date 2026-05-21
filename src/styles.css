@@ -46,6 +46,10 @@ input {
     @apply inline-grid h-9 w-9 place-items-center rounded-md text-ink-500 transition hover:bg-black/5 hover:text-ink-950 disabled:opacity-40 dark:hover:bg-white/[0.075] dark:hover:text-ink-100;
   }
 
+  .icon-button.is-active {
+    @apply bg-accent-500/15 text-accent-300;
+  }
+
   .field {
     @apply w-full rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-ink-100 outline-none transition placeholder:text-ink-500 focus:border-accent-400;
   }
@@ -671,7 +675,7 @@ input {
   align-items: center;
   display: flex;
   min-height: 58px;
-  padding: 0 1rem;
+  padding: 0 0.5rem;
   position: relative;
 }
 
@@ -697,8 +701,9 @@ input {
   background: #d7d2ed;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   color: #252038;
+  font-size: 0.66rem;
   text-align: center;
-  width: 72px;
+  width: 48px;
 }
 
 .dark .client-planning-table .week-cell {
@@ -710,10 +715,19 @@ input {
   align-items: center;
   border-radius: 5px;
   display: inline-flex;
+  flex-direction: column;
   font-weight: 700;
   justify-content: center;
   letter-spacing: 0.02em;
-  min-height: 28px;
+  line-height: 1;
+  min-height: 32px;
+}
+
+.client-planning-table .week-cell em {
+  color: inherit;
+  font-size: 0.55rem;
+  font-style: normal;
+  opacity: 0.72;
 }
 
 .client-planning-table .week-divider > td {
@@ -733,32 +747,6 @@ input {
   border-right: 1px solid rgba(255, 255, 255, 0.045);
   overflow: hidden;
   vertical-align: top;
-}
-
-.client-planning-table .client-category-row td {
-  background: #d8d5e4;
-  box-shadow: inset 0 1px 0 rgba(109, 93, 252, 0.45), inset 0 -1px 0 rgba(109, 93, 252, 0.45);
-  position: sticky;
-  top: 41px;
-  z-index: 24;
-}
-
-.dark .client-planning-table .client-category-row td {
-  background: #252038;
-}
-
-.client-planning-table .category-toggle-name {
-  border-radius: 6px;
-  padding: 2px 4px;
-}
-
-.client-planning-table .category-toggle-name:hover {
-  background: rgba(109, 93, 252, 0.09);
-}
-
-.client-planning-table .category-toggle-name:focus {
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(109, 93, 252, 0.62);
 }
 
 .note-preview .note-tooltip {

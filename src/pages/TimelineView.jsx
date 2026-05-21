@@ -11,6 +11,8 @@ import {
   Copy,
   FileText,
   GripVertical,
+  Link2,
+  Link2Off,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
@@ -43,6 +45,19 @@ const OPTIONAL_COLUMNS = ['who', 'asset', 'what', 'todo'];
 const COLUMN_LABELS = { who: 'Who', asset: 'Asset', what: 'What', todo: 'Todo' };
 const HEADER_HEIGHT = 82;
 const CELL_CLIPBOARD_TYPE = 'application/x-postplanner-cell';
+const DEFAULT_PLANNING_WHAT_LABELS = [
+  'Offline V1',
+  'Offline V2',
+  'Offline Final',
+  'Offline Lock',
+  'Prefinal V1',
+  'Prefinal V2',
+  'Finals',
+  'Final Delivery',
+];
+const DEFAULT_PLANNING_ALIASES = {
+  finals: ['finals', 'final'],
+};
 
 function readJson(key, fallback) {
   try {
@@ -53,8 +68,8 @@ function readJson(key, fallback) {
 }
 
 function visibleColumnKeys(visibility, optionsVisible = true) {
-  const utilityColumns = optionsVisible ? ['focus', 'actions', 'select'] : [];
-  return ['duplicate', 'handle', ...OPTIONAL_COLUMNS.filter((key) => visibility[key]), ...utilityColumns];
+  const utilityColumns = optionsVisible ? ['focus', 'select'] : [];
+  return ['duplicate', 'actions', 'handle', ...OPTIONAL_COLUMNS.filter((key) => visibility[key]), ...utilityColumns];
 }
 
 function sumColumns(columns, visibility, optionsVisible) {
@@ -124,12 +139,24 @@ function HeaderCell({ children, columnKey, onResizeStart }) {
   );
 }
 
-function ToolbarMenu({ icon, label, active = false, children }) {
-  const [open, setOpen] = useState(false);
+function ToolbarMenu({ id, openMenu, setOpenMenu, icon, label, active = false, children }) {
+  const menuRef = useRef(null);
+  const open = openMenu === id;
   const MenuIcon = icon;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (menuRef.current?.contains(event.target)) return;
+      setOpenMenu(null);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [open, setOpenMenu]);
+
   return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen((next) => !next)} className={`timeline-header-chip ${open || active ? 'is-active' : ''}`}>
+    <div ref={menuRef} className="relative">
+      <button type="button" onClick={() => setOpenMenu(open ? null : id)} className={`timeline-header-chip ${open || active ? 'is-active' : ''}`}>
         {MenuIcon && <MenuIcon size={13} />} {label}
       </button>
       {open && (
@@ -274,10 +301,17 @@ function SortableLine({
       onCellSelect(item.id, column, event);
     },
     onKeyDown: (event) => {
-      if (event.key !== 'Enter') return;
       if (event.target !== event.currentTarget) return;
       const control = event.currentTarget.querySelector('input, button');
       if (!control) return;
+      if (event.key.length === 1 && column !== 'asset' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        control.focus();
+        control.dispatchEvent(new KeyboardEvent('keydown', { key: event.key, bubbles: true }));
+        return;
+      }
+      if (event.key !== 'Enter') return;
       event.preventDefault();
       event.stopPropagation();
       control.focus();
@@ -312,6 +346,7 @@ function SortableLine({
       {tableVisible && (
         <div className={`timeline-table-panel sticky left-0 z-20 grid h-full items-center border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-950 ${duplicated ? 'timeline-table-row-new' : ''}`} style={{ width: leftWidth, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
           <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
+          <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
           {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); updateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} />{fillHandle('who')}</div>}
           {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); updateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
@@ -320,8 +355,15 @@ function SortableLine({
           {optionsVisible && (
             <>
               <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button mx-auto" aria-label="Focus booking on timeline">F</button>
-              <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
-              <label className="grid place-items-center"><input type="checkbox" checked={selected} onChange={(event) => onSelect(item.id, event.target.checked)} aria-label="Select row" /></label>
+              <button
+                type="button"
+                onClick={() => onSelect(item.id, !selected)}
+                className={`icon-button mx-auto ${selected ? 'is-active' : ''}`}
+                aria-pressed={selected}
+                aria-label={selected ? 'Unlink row from selected rows' : 'Link row to selected rows'}
+              >
+                {selected ? <Link2 size={16} /> : <Link2Off size={16} />}
+              </button>
             </>
           )}
         </div>
@@ -543,6 +585,7 @@ export default function TimelineView({ project }) {
   const [selectedCells, setSelectedCells] = useState([]);
   const [fillCells, setFillCells] = useState([]);
   const [detailsItemId, setDetailsItemId] = useState(null);
+  const [openTableMenu, setOpenTableMenu] = useState(null);
   const scrollRef = useRef(null);
   const didInitialFocus = useRef(false);
   const suppressDetailsOpen = useRef(false);
@@ -553,7 +596,12 @@ export default function TimelineView({ project }) {
   const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id).sort((a, b) => a.sort_order - b.sort_order), [categories, project.id]);
   const projectLabels = useMemo(() => labels.filter((label) => !label.project_id || label.project_id === project.id), [labels, project.id]);
   const labelsById = useMemo(() => Object.fromEntries(projectLabels.map((label) => [label.id, label])), [projectLabels]);
-  const sortLabels = (items) => items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const sortLabels = (items) => items.sort((a, b) => {
+    const order = (a.sort_order ?? 9999) - (b.sort_order ?? 9999);
+    if (order !== 0) return order;
+    if ((a.scope ?? 'project') !== (b.scope ?? 'project')) return (a.scope ?? 'project') === 'global' ? -1 : 1;
+    return (a.value ?? '').localeCompare(b.value ?? '');
+  });
   const labelsByType = useMemo(() => ({
     who: sortLabels(projectLabels.filter((label) => label.column_type === 'who' && !label.is_divider)),
     what: sortLabels(projectLabels.filter((label) => label.column_type === 'what')),
@@ -640,6 +688,26 @@ export default function TimelineView({ project }) {
 
   const addItemToday = (projectId, categoryId) => {
     addLineItem(projectId, categoryId, iso(new Date()));
+  };
+
+  const findWhatLabel = (value) => {
+    const names = DEFAULT_PLANNING_ALIASES[value.toLowerCase()] ?? [value.toLowerCase()];
+    return labelsByType.what.find((label) => names.includes(label.value.toLowerCase()));
+  };
+
+  const addDefaultPlanning = () => {
+    const targetCategory = projectCategories[0]?.id ?? null;
+    const today = iso(new Date());
+    const createdIds = DEFAULT_PLANNING_WHAT_LABELS.map((labelName) => {
+      const whatLabel = findWhatLabel(labelName);
+      if (!whatLabel) return null;
+      const itemId = addLineItem(project.id, targetCategory, today);
+      if (itemId) updateLineItem(itemId, { what: whatLabel.id });
+      return itemId;
+    }).filter(Boolean);
+    if (!createdIds.length) return;
+    setDuplicatedIds((current) => [...current, ...createdIds]);
+    window.setTimeout(() => setDuplicatedIds((current) => current.filter((id) => !createdIds.includes(id))), 5000);
   };
 
   const shiftPlanning = (days) => {
@@ -961,15 +1029,15 @@ export default function TimelineView({ project }) {
             <p className="text-sm text-ink-500">{project.client || 'Internal project'}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <button type="button" onClick={() => focusToday()} className="secondary-button"><CalendarClock size={16} /> Today</button>
-            <button type="button" onClick={() => setInfoVisible((next) => !next)} className="secondary-button"><FileText size={16} /> {infoVisible ? 'Hide info' : 'Show info'}</button>
             <button type="button" onClick={() => setTableVisible((next) => !next)} className="secondary-button">
               {tableVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               {tableVisible ? 'Hide table' : 'Show table'}
             </button>
+            <button type="button" onClick={() => setInfoVisible((next) => !next)} className="secondary-button"><FileText size={16} /> {infoVisible ? 'Hide info' : 'Show info'}</button>
             <div className="segmented">
               {['day', 'week', 'month'].map((item) => <button key={item} type="button" onClick={() => setZoom(item)} className={zoom === item ? 'selected' : ''}>{item}</button>)}
             </div>
+            <button type="button" onClick={addDefaultPlanning} className="secondary-button"><Plus size={16} /> Default planning</button>
             <button type="button" onClick={() => addCategory(project.id)} className="secondary-button"><Plus size={16} /> Category</button>
           </div>
         </div>
@@ -988,9 +1056,7 @@ export default function TimelineView({ project }) {
               {tableVisible && (
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
                   <div className="absolute right-2 top-2 flex items-center gap-1 normal-case">
-                    <button type="button" onClick={() => shiftPlanning(7)} className="timeline-header-chip">Move +1</button>
-                    <button type="button" onClick={() => shiftPlanning(-7)} className="timeline-header-chip">Move -1</button>
-                    <ToolbarMenu icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key])}>
+                    <ToolbarMenu id="columns" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key])}>
                       {OPTIONAL_COLUMNS.map((key) => (
                         <label key={key} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
                           <input type="checkbox" checked={columnVisibility[key]} onChange={() => setColumnVisibility((current) => ({ ...current, [key]: !current[key] }))} />
@@ -998,7 +1064,7 @@ export default function TimelineView({ project }) {
                         </label>
                       ))}
                     </ToolbarMenu>
-                    <ToolbarMenu label="Who" active={hiddenWhoIds.length > 0}>
+                    <ToolbarMenu id="who" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} label="Who" active={hiddenWhoIds.length > 0}>
                       {labelsByType.who.map((label) => (
                         <label key={label.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-white/5">
                           <span className="flex items-center gap-2">
@@ -1008,7 +1074,7 @@ export default function TimelineView({ project }) {
                         </label>
                       ))}
                     </ToolbarMenu>
-                    <ToolbarMenu label="Clients">
+                    <ToolbarMenu id="clients" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} label="Clients">
                       <button type="button" onClick={() => addClientReviewRows(1)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 24h</button>
                       <button type="button" onClick={() => addClientReviewRows(2)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 48h</button>
                       <button type="button" onClick={removeClientReviewRows} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
@@ -1017,6 +1083,9 @@ export default function TimelineView({ project }) {
                   </div>
                   <span />
                   <span />
+                  <span className="grid h-full place-items-end justify-items-center pb-2">
+                    <button type="button" onClick={deleteSelectedRows} disabled={!selectedIds.length} className="icon-button" aria-label="Delete selected rows"><Trash2 size={16} /></button>
+                  </span>
                   {columnVisibility.who && <HeaderCell columnKey="who" onResizeStart={onColumnResizeStart}>Who</HeaderCell>}
                   {columnVisibility.asset && <HeaderCell columnKey="asset" onResizeStart={onColumnResizeStart}>Asset</HeaderCell>}
                   {columnVisibility.what && <HeaderCell columnKey="what" onResizeStart={onColumnResizeStart}>What</HeaderCell>}
@@ -1027,9 +1096,17 @@ export default function TimelineView({ project }) {
                         <span className="focus-button timeline-header-focus">F</span>
                       </span>
                       <span className="grid h-full place-items-end justify-items-center pb-2">
-                        <button type="button" onClick={deleteSelectedRows} disabled={!selectedIds.length} className="icon-button" aria-label="Delete selected rows"><Trash2 size={16} /></button>
+                        <button
+                          type="button"
+                          onClick={() => toggleSelectAll(selectedVisibleCount !== rows.length)}
+                          disabled={!rows.length}
+                          className={`icon-button ${rows.length > 0 && selectedVisibleCount === rows.length ? 'is-active' : ''}`}
+                          aria-pressed={rows.length > 0 && selectedVisibleCount === rows.length}
+                          aria-label={rows.length > 0 && selectedVisibleCount === rows.length ? 'Unlink all rows' : 'Link all rows'}
+                        >
+                          {rows.length > 0 && selectedVisibleCount === rows.length ? <Link2 size={16} /> : <Link2Off size={16} />}
+                        </button>
                       </span>
-                      <label className="grid h-full place-items-end justify-items-center pb-4"><input type="checkbox" checked={rows.length > 0 && selectedVisibleCount === rows.length} onChange={(event) => toggleSelectAll(event.target.checked)} aria-label="Select all rows" /></label>
                     </>
                   )}
                 </div>
@@ -1037,7 +1114,12 @@ export default function TimelineView({ project }) {
               <div className="bg-zinc-50 dark:bg-ink-900" style={timelineColumnStyle(tableVisible)}>
                 <div className="flex h-7 border-b border-black/10 text-xs font-semibold text-ink-500 dark:border-white/10">
                   <div className="sticky z-20 grid place-items-center px-2" style={{ left: tableVisible ? leftWidth + 8 : 8 }}>
-                    <span className="timeline-month-label">{visibleMonth || months[0]?.label}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="timeline-month-label">{visibleMonth || months[0]?.label}</span>
+                      <button type="button" onClick={() => focusToday()} className="timeline-header-chip"><CalendarClock size={13} /> Today</button>
+                      <button type="button" onClick={() => shiftPlanning(7)} className="timeline-header-chip">Move +1</button>
+                      <button type="button" onClick={() => shiftPlanning(-7)} className="timeline-header-chip">Move -1</button>
+                    </div>
                   </div>
                   {months.map((month) => <div key={month.key} className="px-3 py-2" style={{ width: month.span * dayWidth }} />)}
                 </div>
