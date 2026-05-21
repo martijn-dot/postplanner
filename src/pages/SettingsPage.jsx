@@ -32,6 +32,26 @@ function SortableLabelRow({ label, onUpdate, onDelete }) {
   );
 }
 
+function SortableDefaultPlanningRow({ label, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: label.id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className="flex items-center gap-2 rounded-md border border-black/10 bg-white p-2 dark:border-white/10 dark:bg-ink-900"
+    >
+      <button type="button" className="drag-handle" aria-label="Drag default planning item" {...attributes} {...listeners}>
+        <GripVertical size={15} />
+      </button>
+      <Pill label={label} />
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{label.value}</span>
+      <button type="button" onClick={() => onRemove(label.id)} className="icon-button" aria-label={`Remove ${label.value}`}>
+        <Trash2 size={15} />
+      </button>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const {
@@ -40,11 +60,13 @@ export default function SettingsPage() {
     clients,
     producers,
     labels,
+    appSettings,
     projects,
     addGlobalLabel,
     reorderLabels,
     updateLabel,
     deleteLabel,
+    updateDefaultPlanning,
     inviteUser,
     resetUserPassword,
     revokeInvite,
@@ -67,6 +89,7 @@ export default function SettingsPage() {
   const [userNotice, setUserNotice] = useState('');
   const [userError, setUserError] = useState('');
   const [settingsNotice, setSettingsNotice] = useState('');
+  const [defaultPlanningLabelId, setDefaultPlanningLabelId] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
   const [confirmUserDelete, setConfirmUserDelete] = useState('');
   const labelSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -85,6 +108,13 @@ export default function SettingsPage() {
       });
     return [...byKey.values()].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [labels]);
+  const whatLabels = useMemo(() => globalLabels.filter((label) => label.column_type === 'what' && !label.is_divider), [globalLabels]);
+  const defaultPlanningLabels = useMemo(
+    () => (appSettings?.defaultPlanning ?? [])
+      .map((labelId) => whatLabels.find((label) => label.id === labelId))
+      .filter(Boolean),
+    [appSettings?.defaultPlanning, whatLabels],
+  );
 
   if (profile?.role !== 'admin') return <Navigate to="/" replace />;
 
@@ -189,6 +219,33 @@ export default function SettingsPage() {
     setProducerName('');
   };
 
+  const addDefaultPlanningLabel = (event) => {
+    event.preventDefault();
+    if (!defaultPlanningLabelId) return;
+    if (defaultPlanningLabels.some((label) => label.id === defaultPlanningLabelId)) {
+      setSettingsNotice('already exist');
+      window.setTimeout(() => setSettingsNotice(''), 2500);
+      return;
+    }
+    updateDefaultPlanning([...defaultPlanningLabels.map((label) => label.id), defaultPlanningLabelId]);
+    setDefaultPlanningLabelId('');
+  };
+
+  const removeDefaultPlanningLabel = (labelId) => {
+    updateDefaultPlanning(defaultPlanningLabels.map((label) => label.id).filter((id) => id !== labelId));
+  };
+
+  const reorderDefaultPlanning = (activeId, overId) => {
+    if (!overId || activeId === overId) return;
+    const rows = defaultPlanningLabels.map((label) => label.id);
+    const oldIndex = rows.indexOf(activeId);
+    const newIndex = rows.indexOf(overId);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const [moved] = rows.splice(oldIndex, 1);
+    rows.splice(newIndex, 0, moved);
+    updateDefaultPlanning(rows);
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar />
@@ -206,6 +263,7 @@ export default function SettingsPage() {
         <div className="mb-6 flex gap-2">
           {[
             ['labels', 'Default Labels'],
+            ['planning', 'Default Planning'],
             ['users', 'User Management'],
             ['clients', 'Clients'],
             ['producers', 'Producers'],
@@ -259,6 +317,30 @@ export default function SettingsPage() {
               </section>
             ))}
           </div>
+        )}
+
+        {tab === 'planning' && (
+          <section className="max-w-2xl rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
+            <h2 className="text-lg font-semibold">Default Planning</h2>
+            <p className="mt-1 text-sm text-ink-500">These What labels are added, in this order, when the default planning button is used in a category row.</p>
+            <form onSubmit={addDefaultPlanningLabel} className="mt-4 flex gap-2">
+              <select className="field !py-2" value={defaultPlanningLabelId} onChange={(event) => setDefaultPlanningLabelId(event.target.value)}>
+                <option value="">Add What label</option>
+                {whatLabels.map((label) => <option key={label.id} value={label.id}>{label.value}</option>)}
+              </select>
+              <button type="submit" className="primary-button shrink-0 whitespace-nowrap"><Plus size={16} /> Add</button>
+            </form>
+            <DndContext sensors={labelSensors} onDragEnd={({ active, over }) => reorderDefaultPlanning(active.id, over?.id)}>
+              <SortableContext items={defaultPlanningLabels.map((label) => label.id)} strategy={verticalListSortingStrategy}>
+                <div className="mt-4 space-y-2">
+                  {defaultPlanningLabels.map((label) => (
+                    <SortableDefaultPlanningRow key={label.id} label={label} onRemove={removeDefaultPlanningLabel} />
+                  ))}
+                  {!defaultPlanningLabels.length && <p className="rounded-md border border-white/10 p-3 text-sm text-ink-500">No default planning rows yet.</p>}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </section>
         )}
 
         {tab === 'users' && (

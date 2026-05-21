@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, parseISO } from 'date-fns';
-import { DEFAULT_LABELS, DEFAULT_PROJECT } from '../lib/defaults.js';
+import { DEFAULT_LABELS, DEFAULT_PLANNING_ALIASES, DEFAULT_PLANNING_WHAT_LABELS, DEFAULT_PROJECT } from '../lib/defaults.js';
 import { supabase } from '../lib/supabase.js';
 import { iso } from '../lib/dates.js';
 import { useAuth } from './AuthContext.jsx';
@@ -8,6 +8,9 @@ import { useAuth } from './AuthContext.jsx';
 const PlannerContext = createContext(null);
 const STORAGE_KEY = 'post-production-planner:v1';
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
+const DEFAULT_APP_SETTINGS = {
+  defaultPlanning: DEFAULT_PLANNING_WHAT_LABELS,
+};
 
 function id() {
   return crypto.randomUUID();
@@ -108,7 +111,21 @@ function hydrateDefaults(userId) {
     producers: [{ id: id(), name: profile.display_name, created_by: userId, created_at: new Date().toISOString() }],
     presence: [],
     invitations: [],
+    appSettings: { ...DEFAULT_APP_SETTINGS, defaultPlanning: resolveDefaultPlanning(DEFAULT_APP_SETTINGS, labels) },
   };
+}
+
+function resolveDefaultPlanning(settings, labels = []) {
+  const whatLabels = labels.filter((label) => !label.project_id && label.column_type === 'what' && !label.is_divider);
+  const configured = settings?.defaultPlanning;
+  const values = Array.isArray(configured) && configured.length ? configured : DEFAULT_PLANNING_WHAT_LABELS;
+  return values
+    .map((value) => {
+      if (whatLabels.some((label) => label.id === value)) return value;
+      const aliases = DEFAULT_PLANNING_ALIASES[value?.toLowerCase?.()] ?? [value?.toLowerCase?.()];
+      return whatLabels.find((label) => aliases.includes(label.value.toLowerCase()))?.id;
+    })
+    .filter(Boolean);
 }
 
 function normalizeLocalData(data, userId) {
@@ -168,6 +185,11 @@ function normalizeLocalData(data, userId) {
     producers: data.producers ?? [...new Set(profiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: id(), name, created_by: userId, created_at: now })),
     presence: data.presence ?? [],
     invitations: data.invitations ?? [],
+    appSettings: {
+      ...DEFAULT_APP_SETTINGS,
+      ...(data.appSettings ?? {}),
+      defaultPlanning: resolveDefaultPlanning(data.appSettings, labels),
+    },
   };
 }
 
@@ -184,7 +206,7 @@ function readLocal(userId) {
 }
 
 async function loadSupabaseData() {
-  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers] = await Promise.all([
+  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers, appSettings] = await Promise.all([
     supabase.from('projects').select('*').order('created_at', { ascending: false }),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('line_items').select('*').order('sort_order'),
@@ -194,6 +216,7 @@ async function loadSupabaseData() {
     supabase.from('invitations').select('*').order('created_at', { ascending: false }),
     supabase.from('clients').select('*').order('name'),
     supabase.from('producers').select('*').order('name'),
+    supabase.from('app_settings').select('*').eq('key', 'default_planning').maybeSingle(),
   ]);
   for (const result of [projects, categories, lineItems, labels, profiles, presence]) {
     if (result.error) throw result.error;
@@ -201,6 +224,7 @@ async function loadSupabaseData() {
   if (invitations.error && invitations.error.code !== '42501') throw invitations.error;
   if (clients.error && clients.error.code !== '42P01' && clients.error.code !== '42501') throw clients.error;
   if (producers.error && producers.error.code !== '42P01' && producers.error.code !== '42501') throw producers.error;
+  if (appSettings.error && appSettings.error.code !== '42P01' && appSettings.error.code !== '42501' && appSettings.error.code !== 'PGRST205') throw appSettings.error;
   const loadedProfiles = profiles.data ?? [];
   const loadedClients = clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name }));
   const loadedProjects = projects.data.map((project) => ({
@@ -218,12 +242,16 @@ async function loadSupabaseData() {
     producers: producers.data ?? [...new Set(loadedProfiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: name, name })),
     presence: presence.data ?? [],
     invitations: invitations.data ?? [],
+    appSettings: {
+      ...DEFAULT_APP_SETTINGS,
+      defaultPlanning: resolveDefaultPlanning({ defaultPlanning: appSettings.data?.value }, labels.data),
+    },
   };
 }
 
 export function PlannerProvider({ children }) {
   const { user, demoMode, hasSupabaseConfig } = useAuth();
-  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [] });
+  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [], appSettings: DEFAULT_APP_SETTINGS });
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
   const [dirtyProjectIds, setDirtyProjectIds] = useState([]);
@@ -450,6 +478,13 @@ export function PlannerProvider({ children }) {
         if (useSupabase) {
           void saveSupabase('uncategorized rows', supabase.from('line_items').update({ category_id: null }).eq('category_id', categoryId));
           void saveSupabase('category delete', supabase.from('categories').delete().eq('id', categoryId));
+        }
+      }),
+      updateDefaultPlanning: (labelIds) => mutate((draft) => {
+        const uniqueIds = [...new Set(labelIds)].filter((labelId) => draft.labels.some((label) => label.id === labelId && !label.project_id && label.column_type === 'what' && !label.is_divider));
+        draft.appSettings = { ...(draft.appSettings ?? DEFAULT_APP_SETTINGS), defaultPlanning: uniqueIds };
+        if (useSupabase) {
+          void saveSupabase('default planning', supabase.from('app_settings').upsert({ key: 'default_planning', value: uniqueIds }, { onConflict: 'key' }));
         }
       }),
       addLineItem: (projectId, categoryId, startDate = null, values = {}) => mutate((draft) => {

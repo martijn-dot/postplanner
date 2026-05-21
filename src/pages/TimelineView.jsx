@@ -23,6 +23,7 @@ import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { buildTimelineDays, daysBetween, isToday, iso, monthSegments } from '../lib/dates.js';
+import { DEFAULT_PLANNING_WHAT_LABELS } from '../lib/defaults.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import { buildProjectSummary } from '../lib/projectSummary.js';
 
@@ -41,20 +42,8 @@ const DEFAULT_COLUMNS = {
 };
 const OPTIONAL_COLUMNS = ['who', 'asset'];
 const COLUMN_LABELS = { who: 'Who', asset: 'Asset', what: 'What', todo: 'Todo' };
-const HEADER_HEIGHT = 82;
+const HEADER_HEIGHT = 92;
 const CELL_CLIPBOARD_TYPE = 'application/x-postplanner-cell';
-const DEFAULT_PLANNING_WHAT_LABELS = [
-  'Offline V1',
-  'Offline V2',
-  'Offline Final',
-  'Prefinal V1',
-  'Prefinal V2',
-  'Finals',
-  'Final Delivery',
-];
-const DEFAULT_PLANNING_ALIASES = {
-  finals: ['finals', 'final'],
-};
 
 function readJson(key, fallback) {
   try {
@@ -223,6 +212,7 @@ function SortableLine({
   onFillStart,
   onSpreadsheetUpdate,
   showMetaLabels,
+  showAssetLabels,
 }) {
   const { updateLineItem, deleteLineItem, addLabel } = usePlanner();
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
@@ -412,7 +402,8 @@ function SortableLine({
                 </>
               )}
             </div>
-            {!tableVisible && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
+            <span className="timeline-end-marker" aria-hidden="true">///</span>
+            {showAssetLabels && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
             <button className="resize-grip right-0" onPointerDown={(event) => onResizeStart(event, item, 'end')} aria-label="Resize end" />
           </div>
         ) : (
@@ -456,8 +447,10 @@ function CategoryBlock({
   onRenameUncategorized,
   onAddDefaultPlanning,
   showMetaLabels,
+  showAssetLabels,
+  categoryCount,
 }) {
-  const { updateCategory } = usePlanner();
+  const { updateCategory, deleteCategory } = usePlanner();
   const sortableId = `category:${category.id}`;
   const sortableEnabled = category.id !== 'uncategorized';
   const { attributes: categoryAttributes, listeners: categoryListeners, setNodeRef: setCategoryNodeRef, transform: categoryTransform, transition: categoryTransition } = useSortable({
@@ -512,7 +505,7 @@ function CategoryBlock({
     >
       <div className="timeline-category" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
         {tableVisible && (
-          <div className="timeline-table-panel sticky left-0 z-30 grid grid-cols-[34px_28px_1fr_44px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
+          <div className="timeline-table-panel sticky left-0 z-30 grid grid-cols-[34px_28px_1fr_34px_34px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
             <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button mx-auto" disabled={isUncategorized}>
               {category.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             </button>
@@ -522,6 +515,9 @@ function CategoryBlock({
             {categoryNameInput()}
             {!isUncategorized && (
               <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button mx-auto" aria-label="Add default bookings to category"><ListPlus size={16} /></button>
+            )}
+            {!isUncategorized && categoryCount > 1 && (
+              <button type="button" onClick={() => window.confirm('Delete this category? Items will move to Uncategorized.') && deleteCategory(category.id)} className="icon-button mx-auto text-red-300" aria-label="Delete category"><Trash2 size={15} /></button>
             )}
           </div>
         )}
@@ -575,6 +571,7 @@ function CategoryBlock({
                 onFillStart={onFillStart}
                 onSpreadsheetUpdate={onSpreadsheetUpdate}
                 showMetaLabels={showMetaLabels}
+                showAssetLabels={showAssetLabels}
               />
             ))}
           </SortableContext>
@@ -590,7 +587,7 @@ function CategoryBlock({
 }
 
 export default function TimelineView({ project }) {
-  const { categories, lineItems, labels, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, deleteLineItem, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem } = usePlanner();
+  const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem } = usePlanner();
   const [zoom, setZoom] = useState('month');
   const [tableVisible, setTableVisible] = useState(true);
   const [columns, setColumns] = useState(() => readJson(COLUMN_STORAGE_KEY, DEFAULT_COLUMNS));
@@ -603,6 +600,7 @@ export default function TimelineView({ project }) {
   const [optionsVisible, setOptionsVisible] = useState(true);
   const [infoVisible, setInfoVisible] = useState(true);
   const [showMetaLabels, setShowMetaLabels] = useState(true);
+  const [showAssetLabels, setShowAssetLabels] = useState(false);
   const [dragPreview, setDragPreview] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [selectedCells, setSelectedCells] = useState([]);
@@ -713,16 +711,15 @@ export default function TimelineView({ project }) {
     addLineItem(projectId, categoryId, iso(new Date()));
   };
 
-  const findWhatLabel = (value) => {
-    const names = DEFAULT_PLANNING_ALIASES[value.toLowerCase()] ?? [value.toLowerCase()];
-    return labelsByType.what.find((label) => names.includes(label.value.toLowerCase()));
-  };
-
   const addDefaultPlanning = (categoryId = projectCategories[0]?.id ?? null) => {
     const today = iso(new Date());
     const wenneker = labelsByType.who.find((label) => label.value.toLowerCase() === 'wenneker');
-    const createdIds = DEFAULT_PLANNING_WHAT_LABELS.map((labelName) => {
-      const whatLabel = findWhatLabel(labelName);
+    const fallbackIds = DEFAULT_PLANNING_WHAT_LABELS
+      .map((labelName) => labelsByType.what.find((label) => label.value.toLowerCase() === labelName.toLowerCase())?.id)
+      .filter(Boolean);
+    const defaultPlanningIds = appSettings?.defaultPlanning?.length ? appSettings.defaultPlanning : fallbackIds;
+    const createdIds = defaultPlanningIds.map((labelId) => {
+      const whatLabel = labelsByType.what.find((label) => label.id === labelId && !label.is_divider);
       if (!whatLabel) return null;
       const itemId = addLineItem(project.id, categoryId, today, {
         who: wenneker ? [wenneker.id] : [],
@@ -904,11 +901,6 @@ export default function TimelineView({ project }) {
     setSelectedIds(checked ? rows.map((item) => item.id) : []);
   };
 
-  const deleteSelectedRows = () => {
-    selectedIds.forEach((id) => deleteLineItem(id));
-    setSelectedIds([]);
-  };
-
   const duplicateRow = (itemId) => {
     const duplicatedId = duplicateLineItem(itemId);
     if (!duplicatedId) return;
@@ -1079,19 +1071,15 @@ export default function TimelineView({ project }) {
             <div className="sticky top-0 z-40 grid" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
               {tableVisible && (
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
-                  <div className="absolute left-2 top-2 flex items-center gap-1 normal-case">
+                  <div className="absolute left-2 right-2 top-2 flex flex-wrap items-center gap-1 normal-case">
                     <button type="button" onClick={() => addCategory(project.id)} className="timeline-header-chip"><Plus size={13} /> Category</button>
-                    <ToolbarMenu id="columns" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key]) || !showMetaLabels}>
+                    <ToolbarMenu id="columns" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key])}>
                       {OPTIONAL_COLUMNS.map((key) => (
                         <label key={key} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
                           <input type="checkbox" checked={columnVisibility[key]} onChange={() => setColumnVisibility((current) => ({ ...current, [key]: !current[key] }))} />
                           {COLUMN_LABELS[key]}
                         </label>
                       ))}
-                      <label className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
-                        <input type="checkbox" checked={showMetaLabels} onChange={() => setShowMetaLabels((current) => !current)} />
-                        Notes and time labels
-                      </label>
                     </ToolbarMenu>
                     <ToolbarMenu id="who" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} label="Who" active={hiddenWhoIds.length > 0}>
                       {labelsByType.who.map((label) => (
@@ -1108,13 +1096,13 @@ export default function TimelineView({ project }) {
                       <button type="button" onClick={() => addClientReviewRows(2)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 48h</button>
                       <button type="button" onClick={removeClientReviewRows} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
                     </ToolbarMenu>
+                    <button type="button" onClick={() => setShowMetaLabels((next) => !next)} className={`timeline-header-chip ${showMetaLabels ? 'is-active' : ''}`} aria-pressed={showMetaLabels}>{showMetaLabels ? 'Hide notes' : 'Show notes'}</button>
+                    <button type="button" onClick={() => setShowAssetLabels((next) => !next)} className={`timeline-header-chip ${showAssetLabels ? 'is-active' : ''}`} aria-pressed={showAssetLabels}>{showAssetLabels ? 'Hide assets' : 'Show assets'}</button>
                     <button type="button" onClick={() => setOptionsVisible((next) => !next)} className={`timeline-header-chip ${optionsVisible ? 'is-active' : ''}`} aria-pressed={optionsVisible}>{optionsVisible ? 'Hide options' : 'Show options'}</button>
                   </div>
                   <span />
                   <span />
-                  <span className="grid h-full place-items-end justify-items-center pb-2">
-                    <button type="button" onClick={deleteSelectedRows} disabled={!selectedIds.length} className="icon-button" aria-label="Delete selected rows"><Trash2 size={16} /></button>
-                  </span>
+                  <span />
                   {columnVisibility.who && <HeaderCell columnKey="who" onResizeStart={onColumnResizeStart}>Who</HeaderCell>}
                   {columnVisibility.asset && <HeaderCell columnKey="asset" onResizeStart={onColumnResizeStart}>Asset</HeaderCell>}
                   {optionsVisible && (
@@ -1137,7 +1125,7 @@ export default function TimelineView({ project }) {
                 </div>
               )}
               <div className="bg-zinc-50 dark:bg-ink-900" style={timelineColumnStyle(tableVisible)}>
-                <div className="flex h-7 border-b border-black/10 text-xs font-semibold text-ink-500 dark:border-white/10">
+                <div className="flex h-10 border-b border-black/10 text-xs font-semibold text-ink-500 dark:border-white/10">
                   <div className="sticky z-20 grid place-items-center px-2" style={{ left: tableVisible ? leftWidth + 8 : 8 }}>
                     <div className="flex items-center gap-1">
                       <span className="timeline-month-label">{visibleMonth || months[0]?.label}</span>
@@ -1215,6 +1203,8 @@ export default function TimelineView({ project }) {
                       onSpreadsheetUpdate={applySpreadsheetUpdate}
                       onAddDefaultPlanning={addDefaultPlanning}
                       showMetaLabels={showMetaLabels}
+                      showAssetLabels={showAssetLabels}
+                      categoryCount={projectCategories.length}
                     />
                   );
                 })}
@@ -1253,6 +1243,8 @@ export default function TimelineView({ project }) {
                   onRenameUncategorized={renameUncategorized}
                   onAddDefaultPlanning={addDefaultPlanning}
                   showMetaLabels={showMetaLabels}
+                  showAssetLabels={showAssetLabels}
+                  categoryCount={projectCategories.length}
                 />
               )}
             </DndContext>

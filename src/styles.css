@@ -377,7 +377,7 @@ input {
   height: 32px;
   min-width: 34px;
   overflow: visible;
-  padding: 0 6px;
+  padding: 0 28px 0 6px;
   position: absolute;
   top: 10px;
   user-select: none;
@@ -391,6 +391,29 @@ input {
 
 .timeline-bar:active {
   cursor: grabbing;
+}
+
+.timeline-end-marker {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  color: rgba(243, 240, 255, 0.58);
+  display: inline-flex;
+  font-family: JetBrains Mono, SFMono-Regular, Menlo, monospace;
+  font-size: 0.5rem;
+  font-weight: 800;
+  height: 18px;
+  justify-content: center;
+  letter-spacing: -0.08em;
+  line-height: 1;
+  padding-right: 1px;
+  pointer-events: none;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
 }
 
 .timeline-who-badges {

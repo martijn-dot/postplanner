@@ -46,3 +46,17 @@ export const DEFAULT_PROJECT = {
   name: 'Timeline Planning',
   client: 'Demo client',
 };
+
+export const DEFAULT_PLANNING_WHAT_LABELS = [
+  'Offline V1',
+  'Offline V2',
+  'Offline Final',
+  'PreFinal V1',
+  'PreFinal V2',
+  'Final',
+  'Final Delivery',
+];
+
+export const DEFAULT_PLANNING_ALIASES = {
+  finals: ['finals', 'final'],
+};
