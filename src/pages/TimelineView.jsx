@@ -123,7 +123,7 @@ function HeaderCell({ children, columnKey, onResizeStart }) {
   );
 }
 
-function ToolbarMenu({ id, openMenu, setOpenMenu, icon, label, active = false, children }) {
+function ToolbarMenu({ id, openMenu, setOpenMenu, icon, label, children, buttonClassName = 'timeline-header-chip' }) {
   const menuRef = useRef(null);
   const open = openMenu === id;
   const MenuIcon = icon;
@@ -140,7 +140,7 @@ function ToolbarMenu({ id, openMenu, setOpenMenu, icon, label, active = false, c
 
   return (
     <div ref={menuRef} className="relative">
-      <button type="button" onClick={() => setOpenMenu(open ? null : id)} className={`timeline-header-chip ${open || active ? 'is-active' : ''}`}>
+      <button type="button" onClick={() => setOpenMenu(open ? null : id)} className={buttonClassName}>
         {MenuIcon && <MenuIcon size={13} />} {label}
       </button>
       {open && (
@@ -362,6 +362,7 @@ function SortableLine({
               width: Math.max(34, duration * dayWidth - 8),
               transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
               borderColor: transparentColor(whoLabels[0]?.color ?? labelsById[item.what]?.color, '80'),
+              '--marker-left': `${Math.max(14, (duration - 0.5) * dayWidth - 4)}px`,
             }}
             onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
             onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}
@@ -391,14 +392,9 @@ function SortableLine({
                 />
               </span>
               {showMetaLabels && (
-                <>
-                  <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
-                    {item.time || 'Time'}
-                  </button>
-                  <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
-                    Note
-                  </button>
-                </>
+                <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
+                  {item.time || 'Time'}
+                </button>
               )}
             </div>
             <span className="timeline-end-marker" aria-hidden="true">///</span>
@@ -520,14 +516,14 @@ function CategoryBlock({
               <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button mx-auto" aria-label="Add default bookings to category"><ListPlus size={16} /></button>
             )}
             {!isUncategorized && (
-              <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" active={false}>
+              <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" buttonClassName="icon-button mx-auto">
                 <button type="button" onClick={() => { onAddClientReviewRows(category.id, 1); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 24h</button>
                 <button type="button" onClick={() => { onAddClientReviewRows(category.id, 2); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 48h</button>
                 <button type="button" onClick={() => { onRemoveClientReviewRows(category.id); setOpenCategoryMenu(null); }} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
               </ToolbarMenu>
             )}
             {!isUncategorized && categoryCount > 1 && (
-              <button type="button" onClick={() => window.confirm('Delete this category? Items will move to Uncategorized.') && deleteCategory(category.id)} className="icon-button mx-auto text-red-300" aria-label="Delete category"><Trash2 size={15} /></button>
+              <button type="button" onClick={() => window.confirm('Delete this category? Items will move to Uncategorized.') && deleteCategory(category.id)} className="icon-button mx-auto" aria-label="Delete category"><Trash2 size={15} /></button>
             )}
           </div>
         )}
@@ -1079,7 +1075,7 @@ export default function TimelineView({ project }) {
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
                   <div className="absolute left-2 right-2 top-2 flex flex-wrap items-center gap-1 normal-case">
                     <button type="button" onClick={() => addCategory(project.id)} className="timeline-header-chip"><Plus size={13} /> Category</button>
-                    <ToolbarMenu id="who" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Eye} label="Who" active={hiddenWhoIds.length > 0}>
+                    <ToolbarMenu id="who" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Eye} label="Who">
                       {labelsByType.who.map((label) => (
                         <label key={label.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-white/5">
                           <span className="flex items-center gap-2">
@@ -1089,9 +1085,9 @@ export default function TimelineView({ project }) {
                         </label>
                       ))}
                     </ToolbarMenu>
-                    <button type="button" onClick={() => setShowMetaLabels((next) => !next)} className={`timeline-header-chip ${showMetaLabels ? 'is-active' : ''}`} aria-pressed={showMetaLabels}>{showMetaLabels ? 'Hide time' : 'Show time'}</button>
-                    <button type="button" onClick={() => setShowAssetLabels((next) => !next)} className={`timeline-header-chip ${showAssetLabels ? 'is-active' : ''}`} aria-pressed={showAssetLabels}>{showAssetLabels ? 'Hide assets' : 'Show assets'}</button>
-                    <button type="button" onClick={() => setOptionsVisible((next) => !next)} className={`timeline-header-chip ${optionsVisible ? 'is-active' : ''}`} aria-pressed={optionsVisible}>{optionsVisible ? 'Hide options' : 'Show options'}</button>
+                    <button type="button" onClick={() => setShowMetaLabels((next) => !next)} className="timeline-header-chip" aria-pressed={showMetaLabels}>{showMetaLabels ? 'Hide time' : 'Show time'}</button>
+                    <button type="button" onClick={() => setShowAssetLabels((next) => !next)} className="timeline-header-chip" aria-pressed={showAssetLabels}>{showAssetLabels ? 'Hide assets' : 'Show assets'}</button>
+                    <button type="button" onClick={() => setOptionsVisible((next) => !next)} className="timeline-header-chip" aria-pressed={optionsVisible}>{optionsVisible ? 'Hide options' : 'Show options'}</button>
                   </div>
                   <span />
                   <span />

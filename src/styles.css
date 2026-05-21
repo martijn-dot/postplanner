@@ -410,9 +410,9 @@ input {
   padding-right: 1px;
   pointer-events: none;
   position: absolute;
-  right: 5px;
+  left: var(--marker-left, calc(100% - 15px));
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
   width: 20px;
 }
 
@@ -553,7 +553,7 @@ input {
   display: inline-flex;
   gap: 6px;
   line-height: 1;
-  min-height: 26px;
+  min-height: 29px;
   padding: 0 8px;
   white-space: nowrap;
 }
@@ -605,13 +605,13 @@ input {
   border-radius: 5px;
   color: #c7c0ff;
   display: inline-flex;
-  font-size: 0.54rem;
+  font-size: 0.6rem;
   font-weight: 700;
   gap: 0.2rem;
-  min-height: 26px;
+  min-height: 29px;
   justify-content: center;
   line-height: 1;
-  padding: 0 6px;
+  padding: 0 7px;
   text-transform: none;
   transition: background 0.15s ease, border-color 0.15s ease;
   white-space: nowrap;
