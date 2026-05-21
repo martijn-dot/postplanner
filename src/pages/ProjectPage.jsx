@@ -39,7 +39,7 @@ export default function ProjectPage() {
       <TopBar project={project} />
       <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
         <NavLink end to={`/projects/${projectId}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
-        <NavLink to={`/projects/${projectId}/client`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client Table</NavLink>
+        <NavLink to={`/projects/${projectId}/client`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
       </nav>
       <Routes>
         <Route index element={<TimelineView project={project} />} />

@@ -772,6 +772,64 @@ input {
   display: block;
 }
 
+.client-gantt-scroll {
+  max-height: calc(100vh - 17rem);
+}
+
+.client-gantt-row {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.dark .client-gantt-row {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+.client-gantt-day {
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  bottom: 0;
+  display: inline-block;
+  min-height: 56px;
+  position: relative;
+  top: 0;
+}
+
+.dark .client-gantt-day {
+  border-right-color: rgba(255, 255, 255, 0.06);
+}
+
+.client-gantt-day.is-weekend {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.dark .client-gantt-day.is-weekend {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.client-gantt-dot-wrap {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.client-gantt-dot {
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgba(109, 93, 252, 0.18), 0 8px 18px rgba(0, 0, 0, 0.22);
+  height: 12px;
+  width: 12px;
+}
+
+.client-gantt-labels {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
 .dark header,
 .dark nav {
   background: rgba(23, 19, 37, 0.78) !important;

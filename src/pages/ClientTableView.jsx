@@ -1,4 +1,4 @@
-import { eachDayOfInterval, endOfWeek, format, getISODay, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
+import { differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
 import { Check, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Pill from '../components/Pill.jsx';
@@ -139,7 +139,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     <>
       <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
         <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
-          <table className="client-planning-table w-full min-w-[1500px] border-collapse text-sm">
+          <table className="client-planning-table w-full min-w-[1300px] border-collapse text-sm">
             <colgroup>
               <col className="w-[48px]" />
               <col className="w-[78px]" />
@@ -147,7 +147,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
               <col className="w-[150px]" />
               <col className="w-[74px]" />
               <col className="w-[118px]" />
-              <col className="w-[400px]" />
+              <col className="w-[200px]" />
               <col className="w-[180px]" />
               <col className="w-[190px]" />
               <col className="w-[160px]" />
@@ -204,7 +204,16 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       <span className="text-ink-500">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">{row.Asset || <span className="text-ink-500">-</span>}</td>
+                  <td className="max-w-[200px] overflow-visible px-4 py-3">
+                    {row.Asset ? (
+                      <span className="note-preview group relative inline-flex w-full min-w-0 text-left">
+                        <span className="truncate font-semibold">{row.Asset}</span>
+                        <span className="note-tooltip">{row.Asset}</span>
+                      </span>
+                    ) : (
+                      <span className="text-ink-500">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : <span className="text-ink-500">-</span>}</td>
                   <td className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : <span className="text-ink-500">-</span>}</td>
                   <td className="max-w-[160px] overflow-visible px-4 py-3">
@@ -270,11 +279,93 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   );
 }
 
+function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized' }) {
+  const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
+  const milestones = useMemo(() => projectMilestones(project, lineItems), [project, lineItems]);
+  const days = useMemo(() => dateRangeFromMilestones(milestones), [milestones]);
+  const categoriesById = useMemo(() => Object.fromEntries(categories.filter((category) => category.project_id === project.id).map((category) => [category.id, category])), [categories, project.id]);
+  const dayWidth = 58;
+  const leftWidth = 320;
+  const weeks = useMemo(() => {
+    const segments = [];
+    days.forEach((day) => {
+      const key = `${format(day, 'RRRR')}-${getISOWeek(day)}`;
+      const last = segments.at(-1);
+      if (last?.key === key) {
+        last.span += 1;
+      } else {
+        segments.push({ key, label: `W${getISOWeek(day)}`, span: 1 });
+      }
+    });
+    return segments;
+  }, [days]);
+
+  if (!days.length) {
+    return <div className="rounded-lg border border-black/10 bg-white px-4 py-10 text-center text-ink-500 dark:border-white/10 dark:bg-ink-900">No milestones yet.</div>;
+  }
+
+  return (
+    <div className="client-gantt overflow-hidden rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
+      <div className="client-gantt-scroll overflow-auto">
+        <div style={{ minWidth: leftWidth + days.length * dayWidth }}>
+          <div className="sticky top-0 z-20 grid bg-zinc-100 dark:bg-ink-850" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
+            <div className="grid grid-cols-[110px_1fr] border-b border-r border-black/10 text-xs font-semibold uppercase text-ink-500 dark:border-white/10">
+              <span className="px-4 py-5">Who</span>
+              <span className="px-4 py-5">Asset</span>
+            </div>
+            <div>
+              <div className="flex h-5 border-b border-black/10 text-center font-mono text-[0.55rem] font-semibold text-ink-500 dark:border-white/10">
+                {weeks.map((week) => <div key={week.key} className="grid place-items-center border-r border-black/5 dark:border-white/5" style={{ width: week.span * dayWidth }}>{week.label}</div>)}
+              </div>
+              <div className="flex h-9 border-b border-black/10 text-center font-mono text-xs text-ink-500 dark:border-white/10">
+                {days.map((day) => (
+                  <div key={day.toISOString()} className={`grid place-items-center border-r border-black/5 dark:border-white/5 ${isWeekend(day) ? 'bg-black/[0.04] dark:bg-white/[0.055]' : ''}`} style={{ width: dayWidth }}>
+                    {format(day, 'd')}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {milestones.map((item) => {
+            const offset = differenceInCalendarDays(parseISO(item.end_date), days[0]);
+            const what = labelsById[item.what];
+            const todo = labelsById[item.todo];
+            const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
+            return (
+              <div key={item.id} className="client-gantt-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
+                <div className="grid grid-cols-[110px_1fr] border-r border-black/10 dark:border-white/10">
+                  <div className="flex flex-wrap content-center gap-1 px-3 py-3">{item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>
+                  <div className="min-w-0 px-3 py-3">
+                    <div className="truncate text-sm font-semibold">{item.asset || '-'}</div>
+                    <div className="truncate text-[0.65rem] text-ink-500">{category}</div>
+                  </div>
+                </div>
+                <div className="relative min-h-14">
+                  {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
+                  <div className="client-gantt-dot-wrap" style={{ left: offset * dayWidth + dayWidth / 2 }}>
+                    <span className="client-gantt-dot" style={{ backgroundColor: what?.color ?? '#6d5dfc' }} />
+                    <span className="client-gantt-labels">
+                      {what && <Pill label={what} />}
+                      {todo && <Pill label={todo} subtle />}
+                      {item.time && <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-300">{item.time}</span>}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientTableView({ project }) {
   const { lineItems, labels, categories, createShareLink, updateLineItem } = usePlanner();
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
+  const [viewMode, setViewMode] = useState('table');
   const uncategorizedNames = useMemo(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}), []);
   const [publishedUrl, setPublishedUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -349,6 +440,10 @@ export default function ClientTableView({ project }) {
           <button type="button" onClick={setAllTimesEod} className="secondary-button">
             Set all EOD
           </button>
+          <div className="segmented">
+            <button type="button" onClick={() => setViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
+            <button type="button" onClick={() => setViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gant Chart</button>
+          </div>
           <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="primary-button" disabled={!exportRows.length}>
             <Download size={17} /> Download Excel
           </button>
@@ -373,15 +468,19 @@ export default function ClientTableView({ project }) {
         </div>
       )}
 
-      <ClientPlanningTable
-        project={project}
-        lineItems={filteredLineItems}
-        labels={labels}
-        categories={categories}
-        showEmptyDates={showEmptyDates}
-        onUpdateLineItem={updateLineItem}
-        uncategorizedName={uncategorizedName}
-      />
+      {viewMode === 'table' ? (
+        <ClientPlanningTable
+          project={project}
+          lineItems={filteredLineItems}
+          labels={labels}
+          categories={categories}
+          showEmptyDates={showEmptyDates}
+          onUpdateLineItem={updateLineItem}
+          uncategorizedName={uncategorizedName}
+        />
+      ) : (
+        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={categories} uncategorizedName={uncategorizedName} />
+      )}
     </main>
   );
 }

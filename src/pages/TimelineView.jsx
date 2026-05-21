@@ -11,6 +11,7 @@ import {
   Copy,
   FileText,
   GripVertical,
+  ListPlus,
   Link2,
   Link2Off,
   PanelLeftClose,
@@ -49,7 +50,6 @@ const DEFAULT_PLANNING_WHAT_LABELS = [
   'Offline V1',
   'Offline V2',
   'Offline Final',
-  'Offline Lock',
   'Prefinal V1',
   'Prefinal V2',
   'Finals',
@@ -432,15 +432,15 @@ function CategoryBlock({
   onFillStart,
   onSpreadsheetUpdate,
   onRenameUncategorized,
+  onAddDefaultPlanning,
 }) {
-  const { updateCategory, deleteCategory } = usePlanner();
+  const { updateCategory } = usePlanner();
   const sortableId = `category:${category.id}`;
   const sortableEnabled = category.id !== 'uncategorized';
   const { attributes: categoryAttributes, listeners: categoryListeners, setNodeRef: setCategoryNodeRef, transform: categoryTransform, transition: categoryTransition } = useSortable({
     id: sortableId,
     disabled: !sortableEnabled,
   });
-  const [confirming, setConfirming] = useState(false);
   const [draftName, setDraftName] = useState(category.name);
   const isUncategorized = category.id === 'uncategorized';
   const editable = Boolean(category.id);
@@ -497,11 +497,9 @@ function CategoryBlock({
               <GripVertical size={15} />
             </button>
             {categoryNameInput()}
-            {!isUncategorized && (confirming ? (
-              <button type="button" onClick={() => deleteCategory(category.id)} className="text-xs font-semibold text-red-300">Confirm</button>
-            ) : (
-              <button type="button" onClick={() => setConfirming(true)} className="icon-button mx-auto" aria-label="Delete category"><Trash2 size={15} /></button>
-            ))}
+            {!isUncategorized && (
+              <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button mx-auto" aria-label="Add default bookings to category"><ListPlus size={16} /></button>
+            )}
           </div>
         )}
         <div className="timeline-category-band" style={timelineColumnStyle(tableVisible)}>
@@ -695,14 +693,17 @@ export default function TimelineView({ project }) {
     return labelsByType.what.find((label) => names.includes(label.value.toLowerCase()));
   };
 
-  const addDefaultPlanning = () => {
-    const targetCategory = projectCategories[0]?.id ?? null;
+  const addDefaultPlanning = (categoryId = projectCategories[0]?.id ?? null) => {
     const today = iso(new Date());
+    const wenneker = labelsByType.who.find((label) => label.value.toLowerCase() === 'wenneker');
     const createdIds = DEFAULT_PLANNING_WHAT_LABELS.map((labelName) => {
       const whatLabel = findWhatLabel(labelName);
       if (!whatLabel) return null;
-      const itemId = addLineItem(project.id, targetCategory, today);
-      if (itemId) updateLineItem(itemId, { what: whatLabel.id });
+      const itemId = addLineItem(project.id, categoryId, today, {
+        who: wenneker ? [wenneker.id] : [],
+        what: whatLabel.id,
+        time: 'EOD',
+      });
       return itemId;
     }).filter(Boolean);
     if (!createdIds.length) return;
@@ -1037,8 +1038,6 @@ export default function TimelineView({ project }) {
             <div className="segmented">
               {['day', 'week', 'month'].map((item) => <button key={item} type="button" onClick={() => setZoom(item)} className={zoom === item ? 'selected' : ''}>{item}</button>)}
             </div>
-            <button type="button" onClick={addDefaultPlanning} className="secondary-button"><Plus size={16} /> Default planning</button>
-            <button type="button" onClick={() => addCategory(project.id)} className="secondary-button"><Plus size={16} /> Category</button>
           </div>
         </div>
 
@@ -1056,6 +1055,7 @@ export default function TimelineView({ project }) {
               {tableVisible && (
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
                   <div className="absolute right-2 top-2 flex items-center gap-1 normal-case">
+                    <button type="button" onClick={() => addCategory(project.id)} className="timeline-header-chip"><Plus size={13} /> Category</button>
                     <ToolbarMenu id="columns" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key])}>
                       {OPTIONAL_COLUMNS.map((key) => (
                         <label key={key} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
@@ -1074,7 +1074,7 @@ export default function TimelineView({ project }) {
                         </label>
                       ))}
                     </ToolbarMenu>
-                    <ToolbarMenu id="clients" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} label="Clients">
+                    <ToolbarMenu id="clients" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} label="Reviews">
                       <button type="button" onClick={() => addClientReviewRows(1)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 24h</button>
                       <button type="button" onClick={() => addClientReviewRows(2)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 48h</button>
                       <button type="button" onClick={removeClientReviewRows} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
@@ -1092,9 +1092,7 @@ export default function TimelineView({ project }) {
                   {columnVisibility.todo && <HeaderCell columnKey="todo" onResizeStart={onColumnResizeStart}>Todo</HeaderCell>}
                   {optionsVisible && (
                     <>
-                      <span className="grid h-full place-items-end justify-items-center pb-3">
-                        <span className="focus-button timeline-header-focus">F</span>
-                      </span>
+                      <span />
                       <span className="grid h-full place-items-end justify-items-center pb-2">
                         <button
                           type="button"
@@ -1188,6 +1186,7 @@ export default function TimelineView({ project }) {
                       fillCells={fillCells}
                       onFillStart={startFillDrag}
                       onSpreadsheetUpdate={applySpreadsheetUpdate}
+                      onAddDefaultPlanning={addDefaultPlanning}
                     />
                   );
                 })}
@@ -1224,6 +1223,7 @@ export default function TimelineView({ project }) {
                   onFillStart={startFillDrag}
                   onSpreadsheetUpdate={applySpreadsheetUpdate}
                   onRenameUncategorized={renameUncategorized}
+                  onAddDefaultPlanning={addDefaultPlanning}
                 />
               )}
             </DndContext>

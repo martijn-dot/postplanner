@@ -452,7 +452,7 @@ export function PlannerProvider({ children }) {
           void saveSupabase('category delete', supabase.from('categories').delete().eq('id', categoryId));
         }
       }),
-      addLineItem: (projectId, categoryId, startDate = null) => mutate((draft) => {
+      addLineItem: (projectId, categoryId, startDate = null, values = {}) => mutate((draft) => {
         const count = draft.lineItems.filter((item) => item.project_id === projectId).length;
         const what = draft.labels.find((item) => item.column_type === 'what')?.id ?? '';
         const todo = draft.labels.find((item) => item.column_type === 'todo')?.id ?? '';
@@ -469,6 +469,7 @@ export function PlannerProvider({ children }) {
           start_date: startDate,
           end_date: startDate,
           sort_order: count,
+          ...values,
         };
         draft.lineItems.push(item);
         markDirty(projectId);
