@@ -433,17 +433,22 @@ input {
 }
 
 .timeline-labels {
+  align-items: center;
   display: flex;
-  gap: 4px;
-  min-width: 0;
+  gap: 5px;
+  left: calc(100% + 5px);
+  min-width: max-content;
   overflow: visible;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   white-space: nowrap;
-  width: 100%;
+  width: max-content;
+  z-index: 6;
 }
 
 .timeline-block-select {
   display: inline-flex;
-  max-width: 92px;
   min-width: 58px;
 }
 
@@ -458,9 +463,8 @@ input {
 
 .timeline-block-select span.inline-flex {
   font-size: 0.58rem;
-  max-width: 82px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: none;
+  overflow: visible;
   white-space: nowrap;
 }
 
@@ -526,7 +530,8 @@ input {
   display: inline-flex;
   gap: 6px;
   line-height: 1;
-  padding: 4px 8px;
+  min-height: 32px;
+  padding: 0 8px;
   white-space: nowrap;
 }
 
@@ -580,9 +585,10 @@ input {
   font-size: 0.68rem;
   font-weight: 700;
   gap: 0.25rem;
+  min-height: 32px;
   justify-content: center;
   line-height: 1;
-  padding: 5px 7px;
+  padding: 0 8px;
   text-transform: none;
   transition: background 0.15s ease, border-color 0.15s ease;
   white-space: nowrap;

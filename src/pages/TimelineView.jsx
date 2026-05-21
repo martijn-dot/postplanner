@@ -222,9 +222,11 @@ function SortableLine({
   fillCells,
   onFillStart,
   onSpreadsheetUpdate,
+  showMetaLabels,
 }) {
   const { updateLineItem, deleteLineItem, addLabel } = usePlanner();
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
+  const [openBlockMenu, setOpenBlockMenu] = useState(null);
   const block = hasBlock(item);
   const startOffset = block ? Math.max(0, differenceInCalendarDays(parseISO(item.start_date), timelineStart)) : 0;
   const duration = block ? Math.max(1, daysBetween(item.start_date, item.end_date) + 1) : 1;
@@ -378,14 +380,37 @@ function SortableLine({
             <button className="resize-grip left-0" onPointerDown={(event) => onResizeStart(event, item, 'start')} aria-label="Resize start" />
             <div className="timeline-labels">
               <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
-                <LabelSelect labels={labelsByType.what} value={item.what} placeholder="What" onChange={(what) => { onInteract(item.id); updateLineItem(item.id, { what }); }} onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)} />
+                <LabelSelect
+                  labels={labelsByType.what}
+                  value={item.what}
+                  placeholder="What"
+                  open={openBlockMenu === 'what'}
+                  onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'what' : null)}
+                  onChange={(what) => { onInteract(item.id); updateLineItem(item.id, { what }); }}
+                  onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)}
+                />
               </span>
               <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
-                <LabelSelect labels={labelsByType.todo} value={item.todo} placeholder="Todo" onChange={(todo) => { onInteract(item.id); updateLineItem(item.id, { todo }); }} onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)} />
+                <LabelSelect
+                  labels={labelsByType.todo}
+                  value={item.todo}
+                  placeholder="Todo"
+                  open={openBlockMenu === 'todo'}
+                  onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'todo' : null)}
+                  onChange={(todo) => { onInteract(item.id); updateLineItem(item.id, { todo }); }}
+                  onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)}
+                />
               </span>
-              <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
-                {item.notes ? 'Note' : 'Note'}{item.time ? ` / ${item.time}` : ' / Time'}
-              </button>
+              {showMetaLabels && (
+                <>
+                  <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
+                    {item.time || 'Time'}
+                  </button>
+                  <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
+                    Note
+                  </button>
+                </>
+              )}
             </div>
             {!tableVisible && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
             <button className="resize-grip right-0" onPointerDown={(event) => onResizeStart(event, item, 'end')} aria-label="Resize end" />
@@ -430,6 +455,7 @@ function CategoryBlock({
   onSpreadsheetUpdate,
   onRenameUncategorized,
   onAddDefaultPlanning,
+  showMetaLabels,
 }) {
   const { updateCategory } = usePlanner();
   const sortableId = `category:${category.id}`;
@@ -548,6 +574,7 @@ function CategoryBlock({
                 fillCells={fillCells}
                 onFillStart={onFillStart}
                 onSpreadsheetUpdate={onSpreadsheetUpdate}
+                showMetaLabels={showMetaLabels}
               />
             ))}
           </SortableContext>
@@ -575,6 +602,7 @@ export default function TimelineView({ project }) {
   const [visibleMonth, setVisibleMonth] = useState('');
   const [optionsVisible, setOptionsVisible] = useState(true);
   const [infoVisible, setInfoVisible] = useState(true);
+  const [showMetaLabels, setShowMetaLabels] = useState(true);
   const [dragPreview, setDragPreview] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [selectedCells, setSelectedCells] = useState([]);
@@ -1053,13 +1081,17 @@ export default function TimelineView({ project }) {
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
                   <div className="absolute left-2 top-2 flex items-center gap-1 normal-case">
                     <button type="button" onClick={() => addCategory(project.id)} className="timeline-header-chip"><Plus size={13} /> Category</button>
-                    <ToolbarMenu id="columns" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key])}>
+                    <ToolbarMenu id="columns" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key]) || !showMetaLabels}>
                       {OPTIONAL_COLUMNS.map((key) => (
                         <label key={key} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
                           <input type="checkbox" checked={columnVisibility[key]} onChange={() => setColumnVisibility((current) => ({ ...current, [key]: !current[key] }))} />
                           {COLUMN_LABELS[key]}
                         </label>
                       ))}
+                      <label className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
+                        <input type="checkbox" checked={showMetaLabels} onChange={() => setShowMetaLabels((current) => !current)} />
+                        Notes and time labels
+                      </label>
                     </ToolbarMenu>
                     <ToolbarMenu id="who" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} label="Who" active={hiddenWhoIds.length > 0}>
                       {labelsByType.who.map((label) => (
@@ -1182,6 +1214,7 @@ export default function TimelineView({ project }) {
                       onFillStart={startFillDrag}
                       onSpreadsheetUpdate={applySpreadsheetUpdate}
                       onAddDefaultPlanning={addDefaultPlanning}
+                      showMetaLabels={showMetaLabels}
                     />
                   );
                 })}
@@ -1219,6 +1252,7 @@ export default function TimelineView({ project }) {
                   onSpreadsheetUpdate={applySpreadsheetUpdate}
                   onRenameUncategorized={renameUncategorized}
                   onAddDefaultPlanning={addDefaultPlanning}
+                  showMetaLabels={showMetaLabels}
                 />
               )}
             </DndContext>

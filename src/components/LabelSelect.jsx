@@ -26,8 +26,10 @@ export default function LabelSelect({
   placeholder = 'Select',
   onChange,
   onAddLabel,
+  open: controlledOpen,
+  onOpenChange,
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [multiEnabled, setMultiEnabled] = useState(false);
   const [newValue, setNewValue] = useState('');
@@ -38,6 +40,12 @@ export default function LabelSelect({
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
   const typeaheadRef = useRef({ value: '', timer: null });
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = useCallback((next) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    if (controlledOpen === undefined) setInternalOpen(value);
+    onOpenChange?.(value);
+  }, [controlledOpen, onOpenChange, open]);
 
   const selected = useMemo(() => {
     const values = multiple ? value : [value];
@@ -148,7 +156,7 @@ export default function LabelSelect({
       window.removeEventListener('scroll', placeMenu, true);
       window.removeEventListener('pointerdown', onPointerDown);
     };
-  }, [open, placeMenu]);
+  }, [open, placeMenu, setOpen]);
 
   useEffect(() => {
     if (!multipleModeToggle || !multiple) return;
