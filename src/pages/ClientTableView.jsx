@@ -126,7 +126,7 @@ export function clientPlanningExportRows(project, lineItems, labels, categories,
   }));
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, uncategorizedName = 'Uncategorized' }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, showCategories = true, onUpdateLineItem, uncategorizedName = 'Uncategorized' }) {
   const [editingField, setEditingField] = useState(null);
   const editingItem = editingField?.itemId ? lineItems.find((item) => item.id === editingField.itemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
@@ -139,12 +139,12 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     <>
       <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
         <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
-          <table className="client-planning-table w-full min-w-[1300px] border-collapse text-sm">
+          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: showCategories ? 1300 : 1150 }}>
             <colgroup>
               <col className="w-[48px]" />
               <col className="w-[78px]" />
               <col className="w-[72px]" />
-              <col className="w-[150px]" />
+              {showCategories && <col className="w-[150px]" />}
               <col className="w-[74px]" />
               <col className="w-[118px]" />
               <col className="w-[200px]" />
@@ -157,7 +157,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                 <th className="sticky-week px-2 py-3 text-center font-semibold">Week</th>
                 <th className="px-2 py-3 font-semibold">Day</th>
                 <th className="px-2 py-3 font-semibold">Date</th>
-                <th className="px-4 py-3 font-semibold">Category</th>
+                {showCategories && <th className="px-4 py-3 font-semibold">Category</th>}
                 <th className="px-3 py-3 font-semibold">Time</th>
                 <th className="px-4 py-3 font-semibold">Who</th>
                 <th className="px-4 py-3 font-semibold">Asset</th>
@@ -174,7 +174,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                 >
                   {row._showWeek && (
                     <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono">
-                      <span><em>W</em>{row.Week}</span>
+                      <span><em>WEEK</em>{row.Week}</span>
                     </td>
                   )}
                   {row._showDateGroup && (
@@ -187,7 +187,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       </td>
                     </>
                   )}
-                  <td className="px-4 py-3 text-sm font-semibold text-ink-400">{row.Category || <span className="text-ink-500">-</span>}</td>
+                  {showCategories && <td className="px-4 py-3 text-sm font-semibold text-ink-400">{row.Category || <span className="text-ink-500">-</span>}</td>}
                   <td className="px-3 py-3 font-mono">
                     {row._item && onUpdateLineItem ? (
                       <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">
@@ -231,7 +231,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan="10" className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
+                  <td colSpan={showCategories ? 10 : 9} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
                 </tr>
               )}
             </tbody>
@@ -365,6 +365,7 @@ export default function ClientTableView({ project }) {
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
+  const [showCategories, setShowCategories] = useState(true);
   const [viewMode, setViewMode] = useState('table');
   const uncategorizedNames = useMemo(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}), []);
   const [publishedUrl, setPublishedUrl] = useState('');
@@ -437,6 +438,11 @@ export default function ClientTableView({ project }) {
               </button>
             </>
           )}
+          {viewMode === 'table' && (
+            <button type="button" onClick={() => setShowCategories((next) => !next)} className={`secondary-button ${showCategories ? 'text-accent-300' : 'opacity-60'}`}>
+              {showCategories ? 'Hide categories' : 'Show categories'}
+            </button>
+          )}
           <button type="button" onClick={setAllTimesEod} className="secondary-button">
             Set all EOD
           </button>
@@ -475,6 +481,7 @@ export default function ClientTableView({ project }) {
           labels={labels}
           categories={categories}
           showEmptyDates={showEmptyDates}
+          showCategories={showCategories}
           onUpdateLineItem={updateLineItem}
           uncategorizedName={uncategorizedName}
         />

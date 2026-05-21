@@ -368,7 +368,7 @@ input {
 .timeline-bar {
   align-items: center;
   background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 2px solid rgba(0, 0, 0, 0.08);
   border-radius: 8px;
   box-shadow: 0 10px 24px rgba(20, 16, 42, 0.14);
   cursor: grab;
@@ -386,7 +386,6 @@ input {
 
 .dark .timeline-bar {
   background: linear-gradient(180deg, rgba(46, 40, 70, 0.96), rgba(31, 26, 49, 0.96));
-  border-color: rgba(255, 255, 255, 0.16);
   box-shadow: 0 12px 26px rgba(4, 3, 12, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.055);
 }
 
@@ -438,8 +437,52 @@ input {
   gap: 4px;
   min-width: 0;
   overflow: visible;
-  pointer-events: none;
   white-space: nowrap;
+  width: 100%;
+}
+
+.timeline-block-select {
+  display: inline-flex;
+  max-width: 92px;
+  min-width: 58px;
+}
+
+.timeline-block-select > .relative > button {
+  background: rgba(128, 128, 140, 0.16);
+  border: 0;
+  border-radius: 6px;
+  min-height: 20px;
+  padding: 1px 5px;
+  width: auto;
+}
+
+.timeline-block-select span.inline-flex {
+  font-size: 0.58rem;
+  max-width: 82px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-block-select > .relative > button span.text-ink-500 {
+  background: rgba(128, 128, 140, 0.24);
+  border-radius: 5px;
+  color: #b7b7b7;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 2px 6px;
+}
+
+.timeline-meta-chip {
+  background: rgba(128, 128, 140, 0.18);
+  border: 0;
+  border-radius: 5px;
+  color: #c9c5d6;
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 6px;
 }
 
 .timeline-empty-hint {
@@ -701,7 +744,7 @@ input {
   background: #d7d2ed;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   color: #252038;
-  font-size: 0.66rem;
+  font-size: 0.99rem;
   text-align: center;
   width: 48px;
 }
@@ -725,7 +768,7 @@ input {
 
 .client-planning-table .week-cell em {
   color: inherit;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-style: normal;
   opacity: 0.72;
 }

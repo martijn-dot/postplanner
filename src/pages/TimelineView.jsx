@@ -6,7 +6,6 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronRight,
-  Clock3,
   Columns3,
   Copy,
   FileText,
@@ -37,12 +36,10 @@ const DEFAULT_COLUMNS = {
   handle: 34,
   who: 170,
   asset: 250,
-  what: 150,
-  todo: 160,
   focus: 34,
   actions: 44,
 };
-const OPTIONAL_COLUMNS = ['who', 'asset', 'what', 'todo'];
+const OPTIONAL_COLUMNS = ['who', 'asset'];
 const COLUMN_LABELS = { who: 'Who', asset: 'Asset', what: 'What', todo: 'Todo' };
 const HEADER_HEIGHT = 82;
 const CELL_CLIPBOARD_TYPE = 'application/x-postplanner-cell';
@@ -121,13 +118,12 @@ function hasBlock(item) {
   return Boolean(item.start_date && item.end_date);
 }
 
-function TimelinePill({ label, subtle = false }) {
-  if (!label) return null;
-  return (
-    <span className="timeline-pill" style={{ backgroundColor: subtle ? `${label.color}cc` : label.color }} title={label.value}>
-      {label.value}
-    </span>
-  );
+function transparentColor(hex, alpha = '80') {
+  if (!hex?.startsWith('#')) return 'rgba(109, 93, 252, 0.5)';
+  const normalized = hex.length === 4
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    : hex;
+  return `${normalized}${alpha}`;
 }
 
 function HeaderCell({ children, columnKey, onResizeStart }) {
@@ -348,10 +344,8 @@ function SortableLine({
           <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
           <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
-          {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); updateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} />{fillHandle('who')}</div>}
+          {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); updateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} /></div>}
           {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); updateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
-          {columnVisibility.what && <div {...cellProps('what')}><LabelSelect labels={labelsByType.what} value={item.what} placeholder="What" onChange={(what) => { onInteract(item.id); updateLineItem(item.id, { what }); }} onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)} />{fillHandle('what')}</div>}
-          {columnVisibility.todo && <div {...cellProps('todo')}><LabelSelect labels={labelsByType.todo} value={item.todo} placeholder="Todo" onChange={(todo) => { onInteract(item.id); updateLineItem(item.id, { todo }); }} onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)} />{fillHandle('todo')}</div>}
           {optionsVisible && (
             <>
               <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button mx-auto" aria-label="Focus booking on timeline">F</button>
@@ -372,23 +366,26 @@ function SortableLine({
         {block ? (
           <div
             className="timeline-bar"
-            style={{ left: startOffset * dayWidth + 4, width: Math.max(34, duration * dayWidth - 8), transform: dragOffset ? `translateX(${dragOffset}px)` : undefined }}
+            style={{
+              left: startOffset * dayWidth + 4,
+              width: Math.max(34, duration * dayWidth - 8),
+              transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
+              borderColor: transparentColor(whoLabels[0]?.color ?? labelsById[item.what]?.color, '80'),
+            }}
             onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
             onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}
           >
-            {(whoLabels.length > 0 || item.notes || item.time) && (
-              <div className="timeline-who-badges" aria-hidden="true">
-                {whoLabels.map((label) => (
-                  <span key={label.id} className="timeline-who-badge" style={{ backgroundColor: label.color }} />
-                ))}
-                {item.notes && <span className="timeline-meta-badge"><FileText size={8} /></span>}
-                {item.time && <span className="timeline-meta-badge"><Clock3 size={8} /></span>}
-              </div>
-            )}
             <button className="resize-grip left-0" onPointerDown={(event) => onResizeStart(event, item, 'start')} aria-label="Resize start" />
             <div className="timeline-labels">
-              <TimelinePill label={labelsById[item.what]} />
-              <TimelinePill label={labelsById[item.todo]} subtle />
+              <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+                <LabelSelect labels={labelsByType.what} value={item.what} placeholder="What" onChange={(what) => { onInteract(item.id); updateLineItem(item.id, { what }); }} onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)} />
+              </span>
+              <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+                <LabelSelect labels={labelsByType.todo} value={item.todo} placeholder="Todo" onChange={(todo) => { onInteract(item.id); updateLineItem(item.id, { todo }); }} onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)} />
+              </span>
+              <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
+                {item.notes ? 'Note' : 'Note'}{item.time ? ` / ${item.time}` : ' / Time'}
+              </button>
             </div>
             {!tableVisible && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
             <button className="resize-grip right-0" onPointerDown={(event) => onResizeStart(event, item, 'end')} aria-label="Resize end" />
@@ -1054,7 +1051,7 @@ export default function TimelineView({ project }) {
             <div className="sticky top-0 z-40 grid" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
               {tableVisible && (
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
-                  <div className="absolute right-2 top-2 flex items-center gap-1 normal-case">
+                  <div className="absolute left-2 top-2 flex items-center gap-1 normal-case">
                     <button type="button" onClick={() => addCategory(project.id)} className="timeline-header-chip"><Plus size={13} /> Category</button>
                     <ToolbarMenu id="columns" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Columns3} label="Columns" active={OPTIONAL_COLUMNS.some((key) => !columnVisibility[key])}>
                       {OPTIONAL_COLUMNS.map((key) => (
@@ -1075,8 +1072,8 @@ export default function TimelineView({ project }) {
                       ))}
                     </ToolbarMenu>
                     <ToolbarMenu id="clients" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} label="Reviews">
-                      <button type="button" onClick={() => addClientReviewRows(1)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 24h</button>
-                      <button type="button" onClick={() => addClientReviewRows(2)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Client reviews 48h</button>
+                      <button type="button" onClick={() => addClientReviewRows(1)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 24h</button>
+                      <button type="button" onClick={() => addClientReviewRows(2)} disabled={!reviewLabels.wenneker || !reviewLabels.client} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 48h</button>
                       <button type="button" onClick={removeClientReviewRows} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
                     </ToolbarMenu>
                     <button type="button" onClick={() => setOptionsVisible((next) => !next)} className={`timeline-header-chip ${optionsVisible ? 'is-active' : ''}`} aria-pressed={optionsVisible}>{optionsVisible ? 'Hide options' : 'Show options'}</button>
@@ -1088,8 +1085,6 @@ export default function TimelineView({ project }) {
                   </span>
                   {columnVisibility.who && <HeaderCell columnKey="who" onResizeStart={onColumnResizeStart}>Who</HeaderCell>}
                   {columnVisibility.asset && <HeaderCell columnKey="asset" onResizeStart={onColumnResizeStart}>Asset</HeaderCell>}
-                  {columnVisibility.what && <HeaderCell columnKey="what" onResizeStart={onColumnResizeStart}>What</HeaderCell>}
-                  {columnVisibility.todo && <HeaderCell columnKey="todo" onResizeStart={onColumnResizeStart}>Todo</HeaderCell>}
                   {optionsVisible && (
                     <>
                       <span />
