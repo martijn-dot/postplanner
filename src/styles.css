@@ -553,7 +553,7 @@ input {
   display: inline-flex;
   gap: 6px;
   line-height: 1;
-  min-height: 32px;
+  min-height: 26px;
   padding: 0 8px;
   white-space: nowrap;
 }
@@ -605,13 +605,13 @@ input {
   border-radius: 5px;
   color: #c7c0ff;
   display: inline-flex;
-  font-size: 0.68rem;
+  font-size: 0.54rem;
   font-weight: 700;
-  gap: 0.25rem;
-  min-height: 32px;
+  gap: 0.2rem;
+  min-height: 26px;
   justify-content: center;
   line-height: 1;
-  padding: 0 8px;
+  padding: 0 6px;
   text-transform: none;
   transition: background 0.15s ease, border-color 0.15s ease;
   white-space: nowrap;

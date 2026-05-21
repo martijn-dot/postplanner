@@ -532,12 +532,12 @@ export function PlannerProvider({ children }) {
         if (useSupabase) void saveSupabase('duplicated line item', supabase.from('line_items').insert(duplicate));
         return duplicate.id;
       }),
-      addClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelId, offsetDays = 1, existingReviewTodoLabelIds = [reviewTodoLabelId]) => mutate((draft) => {
+      addClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelId, offsetDays = 1, existingReviewTodoLabelIds = [reviewTodoLabelId], categoryId = null) => mutate((draft) => {
         if (!wennekerLabelId || !clientLabelId || !reviewTodoLabelId) return [];
         const reviewTodoIds = existingReviewTodoLabelIds.filter(Boolean);
 
         const rows = draft.lineItems
-          .filter((item) => item.project_id === projectId)
+          .filter((item) => item.project_id === projectId && (!categoryId || item.category_id === categoryId))
           .sort((a, b) => a.sort_order - b.sort_order);
         const nextRows = [];
         const duplicates = [];
@@ -570,30 +570,39 @@ export function PlannerProvider({ children }) {
 
         if (!duplicates.length) return [];
 
-        nextRows.forEach((item, index) => {
-          item.sort_order = index;
-        });
-        draft.lineItems = draft.lineItems
-          .filter((item) => item.project_id !== projectId)
-          .concat(nextRows);
+        if (categoryId) {
+          draft.lineItems = draft.lineItems
+            .filter((item) => !(item.project_id === projectId && item.category_id === categoryId))
+            .concat(nextRows);
+        } else {
+          draft.lineItems = draft.lineItems
+            .filter((item) => item.project_id !== projectId)
+            .concat(nextRows);
+        }
+        draft.lineItems
+          .filter((item) => item.project_id === projectId)
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .forEach((item, index) => {
+            item.sort_order = index;
+          });
         markDirty(projectId);
 
         if (useSupabase) {
           duplicates.forEach((item) => {
             void saveSupabase('client review row', supabase.from('line_items').insert(item));
           });
-          nextRows.forEach((item, index) => {
-            void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: index }).eq('id', item.id));
+          draft.lineItems.filter((item) => item.project_id === projectId).forEach((item) => {
+            void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: item.sort_order }).eq('id', item.id));
           });
         }
 
         return duplicates.map((item) => item.id);
       }),
-      removeClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelIds) => mutate((draft) => {
+      removeClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelIds, categoryId = null) => mutate((draft) => {
         const todoIds = (Array.isArray(reviewTodoLabelIds) ? reviewTodoLabelIds : [reviewTodoLabelIds]).filter(Boolean);
         if (!wennekerLabelId || !clientLabelId || !todoIds.length) return [];
         const rows = draft.lineItems
-          .filter((item) => item.project_id === projectId)
+          .filter((item) => item.project_id === projectId && (!categoryId || item.category_id === categoryId))
           .sort((a, b) => a.sort_order - b.sort_order);
         const reviewIds = rows
           .filter((item, index) => {
