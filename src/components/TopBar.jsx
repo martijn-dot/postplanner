@@ -17,7 +17,7 @@ export function RovalLogo() {
   );
 }
 
-export default function TopBar({ project, planningVersions = [], activePlanningVersion = '' }) {
+export default function TopBar({ project, planningVersions = [] }) {
   const { user, signOut, demoMode } = useAuth();
   const { profiles, saveError, clearSaveError, updateProfile } = usePlanner();
   const [dark, setDark] = useState(() => localStorage.theme !== 'light');
@@ -52,6 +52,7 @@ export default function TopBar({ project, planningVersions = [], activePlanningV
     reader.readAsDataURL(file);
   };
 
+  const orderedPlanningVersions = [...planningVersions].sort((a, b) => Number(String(a).replace(/^V/i, '')) - Number(String(b).replace(/^V/i, '')));
   const avatar = profile.avatar_url ? (
     <img src={profile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
   ) : initials;
@@ -76,13 +77,13 @@ export default function TopBar({ project, planningVersions = [], activePlanningV
           {project && (
             <span className="flex items-center gap-2 text-sm text-ink-500">
               <span>/ {project.name}</span>
-              {planningVersions.length > 1 && (
+              {orderedPlanningVersions.length > 1 && (
                 <span className="flex gap-1">
-                  {planningVersions.map((version) => (
+                  {orderedPlanningVersions.map((version) => (
                     <Link
                       key={version}
                       to={`/projects/${project.id}?version=${version}`}
-                      className={`rounded-md border px-2 py-1 text-xs font-semibold ${version === activePlanningVersion ? 'border-amber-300/40 bg-amber-300/15 text-amber-200' : 'border-white/10 bg-white/5 text-ink-500 hover:text-ink-100'}`}
+                      className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-ink-500 transition hover:border-amber-300/40 hover:bg-amber-300/15 hover:text-amber-200"
                     >
                       {version}
                     </Link>

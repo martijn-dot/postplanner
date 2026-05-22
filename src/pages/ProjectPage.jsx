@@ -12,7 +12,8 @@ function versionsForProject(project, lineItems = [], categories = []) {
     ...lineItems.filter((item) => item.project_id === project?.id).map((item) => item.planning_version ?? 'V1'),
     ...categories.filter((category) => category.project_id === project?.id).map((category) => category.planning_version ?? 'V1'),
   ].filter(Boolean))];
-  return versions.length ? versions : ['V1'];
+  const ordered = versions.sort((a, b) => Number(String(a).replace(/^V/i, '')) - Number(String(b).replace(/^V/i, '')));
+  return ordered.length ? ordered : ['V1'];
 }
 
 export default function ProjectPage() {
@@ -50,7 +51,7 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
-      <TopBar project={project} planningVersions={versions} activePlanningVersion={activeVersion} />
+      <TopBar project={project} planningVersions={versions} />
       <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
         <NavLink end to={`/projects/${projectId}?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
         <NavLink to={`/projects/${projectId}/client?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
@@ -58,7 +59,7 @@ export default function ProjectPage() {
           <span className="ml-auto flex items-center gap-2">
             <span className="rounded-md border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-xs font-semibold uppercase text-amber-200">Working in {activeVersion}</span>
             {versions.map((version) => (
-              <NavLink key={version} to={`/projects/${projectId}?version=${version}`} className={`rounded-md border px-2 py-1 text-xs font-semibold ${version === activeVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 text-ink-500 hover:text-ink-100'}`}>
+              <NavLink key={version} to={`/projects/${projectId}?version=${version}`} className="rounded-md border border-white/10 px-2 py-1 text-xs font-semibold text-ink-500 transition hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100">
                 {version}
               </NavLink>
             ))}

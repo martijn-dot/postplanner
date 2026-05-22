@@ -15,7 +15,7 @@ const DEFAULT_PLANNING_VERSION = 'V1';
 
 function projectVersions(project) {
   const versions = Array.isArray(project?.planning_versions) ? project.planning_versions : [project?.preferred_planning_version, DEFAULT_PLANNING_VERSION];
-  return [...new Set(versions.filter(Boolean))];
+  return [...new Set(versions.filter(Boolean))].sort((a, b) => Number(String(a).replace(/^V/i, '')) - Number(String(b).replace(/^V/i, '')));
 }
 
 function id() {
@@ -462,8 +462,8 @@ export function PlannerProvider({ children }) {
           ...draft.categories.filter((item) => item.project_id === projectId).map((item) => item.planning_version ?? DEFAULT_PLANNING_VERSION),
           ...draft.lineItems.filter((item) => item.project_id === projectId).map((item) => item.planning_version ?? DEFAULT_PLANNING_VERSION),
         ].filter(Boolean))];
-        if (versions.includes('V1') && versions.includes('V2')) return null;
-        const nextVersion = versions.includes('V1') ? 'V2' : 'V1';
+        const nextVersion = Array.from({ length: 5 }, (_, index) => `V${index + 1}`).find((version) => !versions.includes(version));
+        if (!nextVersion) return null;
         const safeSourceVersion = versions.includes(sourceVersion) ? sourceVersion : versions[0] ?? DEFAULT_PLANNING_VERSION;
         const sourceCategories = draft.categories
           .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === safeSourceVersion)

@@ -84,7 +84,8 @@ function versionsForProject(project, lineItems = [], categories = []) {
     ...lineItems.filter((item) => item.project_id === project.id).map((item) => item.planning_version ?? 'V1'),
     ...categories.filter((category) => category.project_id === project.id).map((category) => category.planning_version ?? 'V1'),
   ].filter(Boolean))];
-  return versions.length ? versions : ['V1'];
+  const ordered = versions.sort((a, b) => Number(String(a).replace(/^V/i, '')) - Number(String(b).replace(/^V/i, '')));
+  return ordered.length ? ordered : ['V1'];
 }
 
 export default function Dashboard() {
@@ -260,7 +261,7 @@ export default function Dashboard() {
                               event.stopPropagation();
                               window.location.href = `/projects/${project.id}?version=${version}`;
                             }}
-                            className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${version === preferredVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 bg-white/5 text-ink-400 hover:text-ink-100'}`}
+                            className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-semibold text-ink-400 transition hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100"
                           >
                             {version}
                           </button>
@@ -268,12 +269,12 @@ export default function Dashboard() {
                       </span>
                     )}
                     {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
-                    <span className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[0.55rem] leading-tight">
-                      <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Start</span> <span className="text-ink-500">{summary.start}</span></span>
-                      <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Running</span> <span className="text-ink-500">{summary.running}</span></span>
-                      {summary.offlineLock !== '-' && <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Offline lock</span> <span className="text-ink-500">{summary.offlineLock}</span></span>}
-                      {summary.grading !== '-' && <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Grading</span> <span className="text-ink-500">{summary.grading}</span></span>}
-                      {summary.final !== '-' && <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Final</span> <span className="text-ink-500">{summary.final}</span></span>}
+                    <span className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[0.55rem] leading-tight">
+                      <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Start</span> <span className="text-ink-500">{summary.start}</span></span>
+                      <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Running</span> <span className="text-ink-500">{summary.running}</span></span>
+                      {summary.offlineLock !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Offline lock</span> <span className="text-ink-500">{summary.offlineLock}</span></span>}
+                      {summary.grading !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Grading</span> <span className="text-ink-500">{summary.grading}</span></span>}
+                      {summary.final !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Final</span> <span className="text-ink-500">{summary.final}</span></span>}
                     </span>
                   </span>
                   <span className="flex min-w-0 items-center gap-2 text-sm text-ink-500">
@@ -333,13 +334,13 @@ export default function Dashboard() {
               );
               if (locked) {
                 return (
-                  <div key={project.id} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-3 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]">
+                  <div key={project.id} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-4 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]">
                     {rowContent}
                   </div>
                 );
               }
               return (
-                <Link key={project.id} to={`/projects/${project.id}?version=${preferredVersion}`} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-3 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
+                <Link key={project.id} to={`/projects/${project.id}?version=V1`} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-4 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
                   {rowContent}
                 </Link>
               );
@@ -367,7 +368,7 @@ export default function Dashboard() {
                     onClick={() => {
                       window.location.href = `/projects/${versionMenuProject.id}?version=${version}`;
                     }}
-                    className={`rounded-md border px-3 py-1 text-sm font-semibold ${version === versionMenuPreferred ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 bg-white/5 text-ink-300 hover:text-white'}`}
+                    className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm font-semibold text-ink-300 transition hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100"
                   >
                     {version}
                   </button>
@@ -389,7 +390,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            {versionMenuVersions.length < 2 && (
+            {versionMenuVersions.length < 5 && (
               <button
                 type="button"
                 onClick={() => {
