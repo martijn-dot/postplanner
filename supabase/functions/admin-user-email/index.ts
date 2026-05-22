@@ -6,6 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+async function findAuthUserByEmail(adminClient, email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  let page = 1;
+  const perPage = 1000;
+
+  while (true) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+
+    const match = data.users.find((item) => item.email?.toLowerCase() === normalizedEmail);
+    if (match) return match;
+    if (data.users.length < perPage) return null;
+    page += 1;
+  }
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -57,7 +73,33 @@ Deno.serve(async (request) => {
 
     if (mode === 'invite') {
       if (!email || !String(email).includes('@')) throw new Error('A valid email address is required.');
-      const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, { redirectTo });
+      const inviteEmail = String(email).trim().toLowerCase();
+      const existingUser = await findAuthUserByEmail(adminClient, inviteEmail);
+
+      if (existingUser) {
+        const { data: existingProfile, error: existingProfileError } = await adminClient
+          .from('profiles')
+          .select('id,is_active')
+          .eq('id', existingUser.id)
+          .maybeSingle();
+        if (existingProfileError) throw existingProfileError;
+
+        const isActivePlannerUser = existingProfile?.is_active !== false && Boolean(existingProfile?.id);
+        if (existingUser.email_confirmed_at && isActivePlannerUser) {
+          return Response.json(
+            { error: 'This user already has an active account. Use reset password instead.' },
+            { status: 409, headers: corsHeaders },
+          );
+        }
+
+        const deleted = await adminClient.auth.admin.deleteUser(existingUser.id);
+        if (deleted.error) throw deleted.error;
+        await adminClient.from('profiles').delete().eq('id', existingUser.id);
+      }
+
+      await adminClient.from('invitations').delete().ilike('email', inviteEmail);
+
+      const { data, error } = await adminClient.auth.admin.inviteUserByEmail(inviteEmail, { redirectTo });
       if (error) {
         console.error('admin-user-email invite failed', {
           message: error.message,

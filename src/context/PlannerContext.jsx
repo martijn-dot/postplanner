@@ -740,9 +740,10 @@ export function PlannerProvider({ children }) {
         if (useSupabase) void saveSupabase('label delete', supabase.from('labels').delete().eq('id', labelId));
       }),
       inviteUser: async (email) => {
+        const inviteEmail = email.trim().toLowerCase();
         const invitation = {
           id: id(),
-          email,
+          email: inviteEmail,
           invited_by: user.id,
           token: crypto.randomUUID().replaceAll('-', ''),
           accepted: false,
@@ -750,11 +751,19 @@ export function PlannerProvider({ children }) {
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         };
         mutate((draft) => {
+          draft.invitations = draft.invitations.filter((item) => item.email?.toLowerCase() !== inviteEmail);
           draft.invitations.unshift(invitation);
         });
-        if (useSupabase) await saveSupabase('invitation', supabase.from('invitations').insert(invitation), { throwOnError: true });
         if (useSupabase) {
-          await invokeAdminUserAction({ mode: 'invite', email });
+          try {
+            await invokeAdminUserAction({ mode: 'invite', email: inviteEmail });
+            await saveSupabase('invitation', supabase.from('invitations').insert(invitation), { throwOnError: true });
+          } catch (error) {
+            mutate((draft) => {
+              draft.invitations = draft.invitations.filter((item) => item.id !== invitation.id);
+            });
+            throw error;
+          }
         }
         return invitation;
       },
