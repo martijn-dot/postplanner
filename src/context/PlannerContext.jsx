@@ -457,14 +457,19 @@ export function PlannerProvider({ children }) {
       duplicateProjectPlanning: (projectId, sourceVersion = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);
         if (!project) return null;
-        const versions = projectVersions(project);
-        if (versions.includes('V2')) return 'V2';
-        const nextVersion = 'V2';
+        const versions = [...new Set([
+          ...projectVersions(project),
+          ...draft.categories.filter((item) => item.project_id === projectId).map((item) => item.planning_version ?? DEFAULT_PLANNING_VERSION),
+          ...draft.lineItems.filter((item) => item.project_id === projectId).map((item) => item.planning_version ?? DEFAULT_PLANNING_VERSION),
+        ].filter(Boolean))];
+        if (versions.includes('V1') && versions.includes('V2')) return null;
+        const nextVersion = versions.includes('V1') ? 'V2' : 'V1';
+        const safeSourceVersion = versions.includes(sourceVersion) ? sourceVersion : versions[0] ?? DEFAULT_PLANNING_VERSION;
         const sourceCategories = draft.categories
-          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === sourceVersion)
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === safeSourceVersion)
           .sort((a, b) => a.sort_order - b.sort_order);
         const sourceRows = draft.lineItems
-          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === sourceVersion)
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === safeSourceVersion)
           .sort((a, b) => a.sort_order - b.sort_order);
         const categoryIdMap = Object.fromEntries(sourceCategories.map((category) => [category.id, id()]));
         const newCategories = sourceCategories.map((category) => ({
@@ -489,6 +494,31 @@ export function PlannerProvider({ children }) {
           if (newRows.length) void saveSupabase('planning version line items', supabase.from('line_items').insert(newRows));
         }
         return nextVersion;
+      }),
+      deleteProjectPlanningVersion: (projectId, version) => mutate((draft) => {
+        const project = draft.projects.find((item) => item.id === projectId);
+        if (!project) return;
+        const versions = [...new Set([
+          ...projectVersions(project),
+          ...draft.categories.filter((item) => item.project_id === projectId).map((item) => item.planning_version ?? DEFAULT_PLANNING_VERSION),
+          ...draft.lineItems.filter((item) => item.project_id === projectId).map((item) => item.planning_version ?? DEFAULT_PLANNING_VERSION),
+        ].filter(Boolean))];
+        if (versions.length <= 1) return;
+        const nextVersions = versions.filter((item) => item !== version);
+        const nextPreferred = nextVersions.includes(project.preferred_planning_version) ? project.preferred_planning_version : nextVersions[0];
+        const removedCategoryIds = draft.categories
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version)
+          .map((item) => item.id);
+        draft.categories = draft.categories.filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) !== version);
+        draft.lineItems = draft.lineItems.filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) !== version);
+        project.planning_versions = nextVersions;
+        project.preferred_planning_version = nextPreferred;
+        markDirty(projectId);
+        if (useSupabase) {
+          void saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: nextVersions, preferred_planning_version: nextPreferred }).eq('id', projectId));
+          removedCategoryIds.forEach((categoryId) => void saveSupabase('removed planning category', supabase.from('categories').delete().eq('id', categoryId)));
+          void saveSupabase('removed planning line items', supabase.from('line_items').delete().eq('project_id', projectId).eq('planning_version', version));
+        }
       }),
       keepProjectPlanningVersion: (projectId, version) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);

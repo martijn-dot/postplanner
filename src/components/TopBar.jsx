@@ -17,7 +17,7 @@ export function RovalLogo() {
   );
 }
 
-export default function TopBar({ project }) {
+export default function TopBar({ project, planningVersions = [], activePlanningVersion = '' }) {
   const { user, signOut, demoMode } = useAuth();
   const { profiles, saveError, clearSaveError, updateProfile } = usePlanner();
   const [dark, setDark] = useState(() => localStorage.theme !== 'light');
@@ -73,7 +73,24 @@ export default function TopBar({ project }) {
               <span className="mt-1 text-[10px] font-semibold normal-case tracking-normal text-ink-500">the post production planner without clutter</span>
             </span>
           </Link>
-          {project && <span className="text-sm text-ink-500">/ {project.name}</span>}
+          {project && (
+            <span className="flex items-center gap-2 text-sm text-ink-500">
+              <span>/ {project.name}</span>
+              {planningVersions.length > 1 && (
+                <span className="flex gap-1">
+                  {planningVersions.map((version) => (
+                    <Link
+                      key={version}
+                      to={`/projects/${project.id}?version=${version}`}
+                      className={`rounded-md border px-2 py-1 text-xs font-semibold ${version === activePlanningVersion ? 'border-amber-300/40 bg-amber-300/15 text-amber-200' : 'border-white/10 bg-white/5 text-ink-500 hover:text-ink-100'}`}
+                    >
+                      {version}
+                    </Link>
+                  ))}
+                </span>
+              )}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {demoMode && <span className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold text-amber-300">Demo mode</span>}

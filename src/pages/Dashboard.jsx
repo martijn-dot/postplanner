@@ -1,4 +1,4 @@
-import { Archive, Check, ChevronDown, Copy, Plus, Search, Settings, Trash2 } from 'lucide-react';
+import { Archive, ChevronDown, Plus, Search, Settings, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -77,11 +77,22 @@ function isUuidLike(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
+function versionsForProject(project, lineItems = [], categories = []) {
+  const versions = [...new Set([
+    ...(Array.isArray(project.planning_versions) ? project.planning_versions : []),
+    project.preferred_planning_version,
+    ...lineItems.filter((item) => item.project_id === project.id).map((item) => item.planning_version ?? 'V1'),
+    ...categories.filter((category) => category.project_id === project.id).map((category) => category.planning_version ?? 'V1'),
+  ].filter(Boolean))];
+  return versions.length ? versions : ['V1'];
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, duplicateProjectPlanning, keepProjectPlanningVersion, setPreferredPlanningVersion, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, duplicateProjectPlanning, deleteProjectPlanningVersion, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
+  const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
   const [search, setSearch] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
@@ -95,7 +106,7 @@ export default function Dashboard() {
   const [formError, setFormError] = useState('');
   const clients = [...new Set([...(savedClients ?? []).map((item) => item.name)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const postProducers = [...new Set((profiles ?? []).map((profile) => profile.display_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name), ...profiles.map((profile) => profile.display_name), ...projects.flatMap((project) => [project.post_producer, project.producer])].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
+  const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name)].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
   const profileByName = Object.fromEntries((profiles ?? []).map((profile) => [profile.display_name, profile]));
   const labelsById = Object.fromEntries((labels ?? []).map((label) => [label.id, label]));
   const resetForm = () => {
@@ -144,6 +155,11 @@ export default function Dashboard() {
       resetForm();
       return;
     }
+    const duplicateProject = projects.find((project) => project.project_number && project.project_number === projectNumber);
+    if (duplicateProject && !window.confirm(`Project number ${projectNumber} already exists. Do you want to create this project anyway?`)) {
+      setFormError(`Project number ${projectNumber} already exists.`);
+      return;
+    }
     try {
       await createProject({ projectNumber, name, client, postProducer, producer });
       if (client) addClient(client);
@@ -164,6 +180,11 @@ export default function Dashboard() {
       const matchesClient = !clientFilter || project.client === clientFilter;
       return matchesSearch && matchesUser && matchesClient;
     });
+  const versionMenuProject = projects.find((project) => project.id === versionMenuProjectId);
+  const versionMenuVersions = versionMenuProject ? versionsForProject(versionMenuProject, lineItems, categories) : [];
+  const versionMenuPreferred = versionMenuProject?.preferred_planning_version && versionMenuVersions.includes(versionMenuProject.preferred_planning_version)
+    ? versionMenuProject.preferred_planning_version
+    : versionMenuVersions[0];
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -205,7 +226,7 @@ export default function Dashboard() {
               <span className="text-right">Actions</span>
             </div>
             {visibleProjects.map((project) => {
-              const versions = Array.isArray(project.planning_versions) && project.planning_versions.length ? project.planning_versions : ['V1'];
+              const versions = versionsForProject(project, lineItems, categories);
               const preferredVersion = project.preferred_planning_version && versions.includes(project.preferred_planning_version) ? project.preferred_planning_version : versions[0];
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
@@ -247,12 +268,12 @@ export default function Dashboard() {
                       </span>
                     )}
                     {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
-                    <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                      <span><span className="font-semibold text-accent-300">Start</span> <span className="text-ink-500">{summary.start}</span></span>
-                      <span><span className="font-semibold text-accent-300">Running</span> <span className="text-ink-500">{summary.running}</span></span>
-                      {summary.offlineLock !== '-' && <span><span className="font-semibold text-accent-300">Offline lock</span> <span className="text-ink-500">{summary.offlineLock}</span></span>}
-                      {summary.grading !== '-' && <span><span className="font-semibold text-accent-300">Grading</span> <span className="text-ink-500">{summary.grading}</span></span>}
-                      {summary.final !== '-' && <span><span className="font-semibold text-accent-300">Final</span> <span className="text-ink-500">{summary.final}</span></span>}
+                    <span className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[0.55rem] leading-tight">
+                      <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Start</span> <span className="text-ink-500">{summary.start}</span></span>
+                      <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Running</span> <span className="text-ink-500">{summary.running}</span></span>
+                      {summary.offlineLock !== '-' && <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Offline lock</span> <span className="text-ink-500">{summary.offlineLock}</span></span>}
+                      {summary.grading !== '-' && <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Grading</span> <span className="text-ink-500">{summary.grading}</span></span>}
+                      {summary.final !== '-' && <span><span className="rounded bg-amber-300/20 px-1 py-0.5 font-semibold uppercase text-amber-200">Final</span> <span className="text-ink-500">{summary.final}</span></span>}
                     </span>
                   </span>
                   <span className="flex min-w-0 items-center gap-2 text-sm text-ink-500">
@@ -282,53 +303,19 @@ export default function Dashboard() {
                     >
                       <Settings size={17} />
                     </button>
-                    {versions.length < 2 && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          duplicateProjectPlanning(project.id, preferredVersion);
-                        }}
-                        className="icon-button"
-                        aria-label="Duplicate planning version"
-                        title="Duplicate planning version"
-                      >
-                        <Copy size={17} />
-                      </button>
-                    )}
-                    {versions.length > 1 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setPreferredPlanningVersion(project.id, preferredVersion === versions[0] ? versions[1] : versions[0]);
-                          }}
-                          className="icon-button"
-                          aria-label="Switch preferred planning"
-                          title="Switch preferred planning"
-                        >
-                          <Check size={17} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            if (window.confirm(`Keep ${preferredVersion} and delete the other planning versions?`)) {
-                              keepProjectPlanningVersion(project.id, preferredVersion);
-                            }
-                          }}
-                          className="icon-button"
-                          aria-label="Keep preferred planning only"
-                          title="Keep preferred planning only"
-                        >
-                          <Trash2 size={17} />
-                        </button>
-                      </>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setVersionMenuProjectId(project.id);
+                      }}
+                      className="icon-button font-bold"
+                      aria-label="Planning versions"
+                      title="Planning versions"
+                    >
+                      V
+                    </button>
                       <button
                         type="button"
                         onClick={(event) => {
@@ -361,6 +348,61 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      {versionMenuProject && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/60 p-5">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 text-ink-100 shadow-glow">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Planning versions</h2>
+                <p className="mt-1 text-sm text-ink-500">{versionMenuProject.name}</p>
+              </div>
+              <button type="button" onClick={() => setVersionMenuProjectId(null)} className="secondary-button !px-3 !py-2">Close</button>
+            </div>
+            <div className="mt-5 space-y-2">
+              {versionMenuVersions.map((version) => (
+                <div key={version} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = `/projects/${versionMenuProject.id}?version=${version}`;
+                    }}
+                    className={`rounded-md border px-3 py-1 text-sm font-semibold ${version === versionMenuPreferred ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 bg-white/5 text-ink-300 hover:text-white'}`}
+                  >
+                    {version}
+                  </button>
+                  {versionMenuVersions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Delete ${version}? This cannot be undone.`)) {
+                          deleteProjectPlanningVersion(versionMenuProject.id, version);
+                          setVersionMenuProjectId(null);
+                        }
+                      }}
+                      className="icon-button"
+                      aria-label={`Delete ${version}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {versionMenuVersions.length < 2 && (
+              <button
+                type="button"
+                onClick={() => {
+                  duplicateProjectPlanning(versionMenuProject.id, versionMenuPreferred);
+                }}
+                className="primary-button mt-5 w-full"
+              >
+                <Plus size={16} /> Add duplicated version
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/60 p-5">

@@ -5,12 +5,22 @@ import { usePlanner } from '../context/PlannerContext.jsx';
 import TimelineView from './TimelineView.jsx';
 import ClientTableView from './ClientTableView.jsx';
 
+function versionsForProject(project, lineItems = [], categories = []) {
+  const versions = [...new Set([
+    ...(Array.isArray(project?.planning_versions) ? project.planning_versions : []),
+    project?.preferred_planning_version,
+    ...lineItems.filter((item) => item.project_id === project?.id).map((item) => item.planning_version ?? 'V1'),
+    ...categories.filter((category) => category.project_id === project?.id).map((category) => category.planning_version ?? 'V1'),
+  ].filter(Boolean))];
+  return versions.length ? versions : ['V1'];
+}
+
 export default function ProjectPage() {
   const { projectId } = useParams();
   const [searchParams] = useSearchParams();
-  const { projects, loading, upsertPresence, clearPresence, markProjectEdited } = usePlanner();
+  const { projects, lineItems, categories, loading, upsertPresence, clearPresence, markProjectEdited } = usePlanner();
   const project = projects.find((item) => item.id === projectId);
-  const versions = Array.isArray(project?.planning_versions) && project.planning_versions.length ? project.planning_versions : ['V1'];
+  const versions = versionsForProject(project, lineItems, categories);
   const requestedVersion = searchParams.get('version');
   const activeVersion = versions.includes(requestedVersion) ? requestedVersion : project?.preferred_planning_version ?? versions[0];
   const actionsRef = useRef({ upsertPresence, clearPresence, markProjectEdited });
@@ -40,12 +50,13 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
-      <TopBar project={project} />
+      <TopBar project={project} planningVersions={versions} activePlanningVersion={activeVersion} />
       <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
         <NavLink end to={`/projects/${projectId}?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
         <NavLink to={`/projects/${projectId}/client?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
         {versions.length > 1 && (
-          <span className="ml-auto flex gap-1">
+          <span className="ml-auto flex items-center gap-2">
+            <span className="rounded-md border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-xs font-semibold uppercase text-amber-200">Working in {activeVersion}</span>
             {versions.map((version) => (
               <NavLink key={version} to={`/projects/${projectId}?version=${version}`} className={`rounded-md border px-2 py-1 text-xs font-semibold ${version === activeVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 text-ink-500 hover:text-ink-100'}`}>
                 {version}
