@@ -11,6 +11,12 @@ const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
 const DEFAULT_APP_SETTINGS = {
   defaultPlanning: DEFAULT_PLANNING_WHAT_LABELS,
 };
+const DEFAULT_PLANNING_VERSION = 'V1';
+
+function projectVersions(project) {
+  const versions = Array.isArray(project?.planning_versions) ? project.planning_versions : [project?.preferred_planning_version, DEFAULT_PLANNING_VERSION];
+  return [...new Set(versions.filter(Boolean))];
+}
 
 function id() {
   return crypto.randomUUID();
@@ -69,6 +75,7 @@ function hydrateDefaults(userId) {
   ].map((item, index) => ({
     id: id(),
     project_id: projectId,
+    planning_version: DEFAULT_PLANNING_VERSION,
     category_id: item[6],
     who: [label('who', item[0])],
     asset: item[1],
@@ -98,11 +105,13 @@ function hydrateDefaults(userId) {
         name: DEFAULT_PROJECT.name,
         client: DEFAULT_PROJECT.client,
         created_at: new Date().toISOString(),
+        planning_versions: [DEFAULT_PLANNING_VERSION],
+        preferred_planning_version: DEFAULT_PLANNING_VERSION,
       },
     ],
     categories: [
-      { id: categoryA, project_id: projectId, name: 'Offline - Awareness & Consideration', sort_order: 0, collapsed: false },
-      { id: categoryB, project_id: projectId, name: 'Online - Awareness & Consideration', sort_order: 1, collapsed: false },
+      { id: categoryA, project_id: projectId, planning_version: DEFAULT_PLANNING_VERSION, name: 'Offline - Awareness & Consideration', sort_order: 0, collapsed: false },
+      { id: categoryB, project_id: projectId, planning_version: DEFAULT_PLANNING_VERSION, name: 'Online - Awareness & Consideration', sort_order: 1, collapsed: false },
     ],
     lineItems,
     labels,
@@ -168,16 +177,23 @@ function normalizeLocalData(data, userId) {
     is_archived: project.is_archived ?? false,
     archived_by: project.archived_by ?? null,
     archived_at: project.archived_at ?? null,
+    planning_versions: projectVersions(project),
+    preferred_planning_version: project.preferred_planning_version ?? projectVersions(project)[0] ?? DEFAULT_PLANNING_VERSION,
   }));
   const lineItems = (data.lineItems ?? []).map((item) => ({
     ...item,
     time: item.time ?? '',
     notes: item.notes ?? '',
+    planning_version: item.planning_version ?? DEFAULT_PLANNING_VERSION,
+  }));
+  const categories = (data.categories ?? []).map((category) => ({
+    ...category,
+    planning_version: category.planning_version ?? DEFAULT_PLANNING_VERSION,
   }));
 
   return {
     projects,
-    categories: data.categories ?? [],
+    categories,
     lineItems,
     labels,
     profiles,
@@ -231,11 +247,13 @@ async function loadSupabaseData() {
     ...project,
     post_producer: profileDisplayValue(project.post_producer, loadedProfiles),
     producer: profileDisplayValue(project.producer, loadedProfiles),
+    planning_versions: projectVersions(project),
+    preferred_planning_version: project.preferred_planning_version ?? projectVersions(project)[0] ?? DEFAULT_PLANNING_VERSION,
   }));
   return {
     projects: loadedProjects,
-    categories: categories.data.map((category) => ({ ...category, collapsed: false })),
-    lineItems: lineItems.data,
+    categories: categories.data.map((category) => ({ ...category, planning_version: category.planning_version ?? DEFAULT_PLANNING_VERSION, collapsed: false })),
+    lineItems: lineItems.data.map((item) => ({ ...item, planning_version: item.planning_version ?? DEFAULT_PLANNING_VERSION })),
     labels: labels.data.map((label) => ({ ...label, sort_order: label.sort_order ?? 0, is_divider: label.is_divider ?? false })),
     profiles: loadedProfiles,
     clients: loadedClients,
@@ -364,8 +382,10 @@ export function PlannerProvider({ children }) {
           name,
           client,
           created_at: now,
+          planning_versions: [DEFAULT_PLANNING_VERSION],
+          preferred_planning_version: DEFAULT_PLANNING_VERSION,
         };
-        const category = { id: id(), project_id: project.id, name: 'Planning', sort_order: 0, collapsed: false };
+        const category = { id: id(), project_id: project.id, planning_version: DEFAULT_PLANNING_VERSION, name: 'Planning', sort_order: 0, collapsed: false };
         mutate((draft) => {
           draft.projects.unshift(project);
           draft.categories.push(category);
@@ -434,9 +454,69 @@ export function PlannerProvider({ children }) {
         draft.labels = draft.labels.filter((item) => item.project_id !== projectId);
         if (useSupabase) void saveSupabase('project delete', supabase.from('projects').delete().eq('id', projectId));
       }),
-      addCategory: (projectId) => mutate((draft) => {
-        const count = draft.categories.filter((item) => item.project_id === projectId).length;
-        const category = { id: id(), project_id: projectId, name: `Category ${count + 1}`, sort_order: count, collapsed: false };
+      duplicateProjectPlanning: (projectId, sourceVersion = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
+        const project = draft.projects.find((item) => item.id === projectId);
+        if (!project) return null;
+        const versions = projectVersions(project);
+        if (versions.includes('V2')) return 'V2';
+        const nextVersion = 'V2';
+        const sourceCategories = draft.categories
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === sourceVersion)
+          .sort((a, b) => a.sort_order - b.sort_order);
+        const sourceRows = draft.lineItems
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === sourceVersion)
+          .sort((a, b) => a.sort_order - b.sort_order);
+        const categoryIdMap = Object.fromEntries(sourceCategories.map((category) => [category.id, id()]));
+        const newCategories = sourceCategories.map((category) => ({
+          ...category,
+          id: categoryIdMap[category.id],
+          planning_version: nextVersion,
+          collapsed: false,
+        }));
+        const newRows = sourceRows.map((item) => ({
+          ...item,
+          id: id(),
+          planning_version: nextVersion,
+          category_id: item.category_id ? categoryIdMap[item.category_id] ?? null : null,
+        }));
+        project.planning_versions = [...versions, nextVersion];
+        draft.categories.push(...newCategories);
+        draft.lineItems.push(...newRows);
+        markDirty(projectId);
+        if (useSupabase) {
+          void saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: project.planning_versions }).eq('id', projectId));
+          if (newCategories.length) void saveSupabase('planning version categories', supabase.from('categories').insert(newCategories.map((category) => ({ ...category, collapsed: undefined }))));
+          if (newRows.length) void saveSupabase('planning version line items', supabase.from('line_items').insert(newRows));
+        }
+        return nextVersion;
+      }),
+      keepProjectPlanningVersion: (projectId, version) => mutate((draft) => {
+        const project = draft.projects.find((item) => item.id === projectId);
+        if (!project) return;
+        const removedCategoryIds = draft.categories
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) !== version)
+          .map((item) => item.id);
+        draft.categories = draft.categories.filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version);
+        draft.lineItems = draft.lineItems.filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version);
+        project.planning_versions = [version];
+        project.preferred_planning_version = version;
+        markDirty(projectId);
+        if (useSupabase) {
+          void saveSupabase('preferred planning version', supabase.from('projects').update({ planning_versions: [version], preferred_planning_version: version }).eq('id', projectId));
+          removedCategoryIds.forEach((categoryId) => void saveSupabase('removed planning category', supabase.from('categories').delete().eq('id', categoryId)));
+          void saveSupabase('removed planning line items', supabase.from('line_items').delete().eq('project_id', projectId).neq('planning_version', version));
+        }
+      }),
+      setPreferredPlanningVersion: (projectId, version) => mutate((draft) => {
+        const project = draft.projects.find((item) => item.id === projectId);
+        if (!project) return;
+        project.preferred_planning_version = version;
+        if (!projectVersions(project).includes(version)) project.planning_versions = [...projectVersions(project), version];
+        if (useSupabase) void saveSupabase('preferred planning version', supabase.from('projects').update({ preferred_planning_version: version, planning_versions: project.planning_versions }).eq('id', projectId));
+      }),
+      addCategory: (projectId, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
+        const count = draft.categories.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).length;
+        const category = { id: id(), project_id: projectId, planning_version: version, name: `Category ${count + 1}`, sort_order: count, collapsed: false };
         draft.categories.push(category);
         markDirty(projectId);
         if (useSupabase) void saveSupabase('category', supabase.from('categories').insert({ ...category, collapsed: undefined }));
@@ -450,8 +530,8 @@ export function PlannerProvider({ children }) {
           if (Object.keys(dbPatch).length) void saveSupabase('category changes', supabase.from('categories').update(dbPatch).eq('id', categoryId));
         }
       }),
-      reorderCategories: (projectId, activeId, overId) => mutate((draft) => {
-        const rows = draft.categories.filter((item) => item.project_id === projectId).sort((a, b) => a.sort_order - b.sort_order);
+      reorderCategories: (projectId, activeId, overId, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
+        const rows = draft.categories.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).sort((a, b) => a.sort_order - b.sort_order);
         const oldIndex = rows.findIndex((item) => item.id === activeId);
         const newIndex = rows.findIndex((item) => item.id === overId);
         if (oldIndex < 0 || newIndex < 0 || activeId === overId) return;
@@ -487,13 +567,14 @@ export function PlannerProvider({ children }) {
           void saveSupabase('default planning', supabase.from('app_settings').upsert({ key: 'default_planning', value: uniqueIds }, { onConflict: 'key' }));
         }
       }),
-      addLineItem: (projectId, categoryId, startDate = null, values = {}) => mutate((draft) => {
-        const count = draft.lineItems.filter((item) => item.project_id === projectId).length;
+      addLineItem: (projectId, categoryId, startDate = null, values = {}, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
+        const count = draft.lineItems.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).length;
         const what = draft.labels.find((item) => item.column_type === 'what')?.id ?? '';
         const todo = draft.labels.find((item) => item.column_type === 'todo')?.id ?? '';
         const item = {
           id: id(),
           project_id: projectId,
+          planning_version: version,
           category_id: categoryId,
           who: [],
           asset: '',
@@ -532,12 +613,12 @@ export function PlannerProvider({ children }) {
         if (useSupabase) void saveSupabase('duplicated line item', supabase.from('line_items').insert(duplicate));
         return duplicate.id;
       }),
-      addClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelId, offsetDays = 1, existingReviewTodoLabelIds = [reviewTodoLabelId], categoryId = null) => mutate((draft) => {
+      addClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelId, offsetDays = 1, existingReviewTodoLabelIds = [reviewTodoLabelId], categoryId = null, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
         if (!wennekerLabelId || !clientLabelId || !reviewTodoLabelId) return [];
         const reviewTodoIds = existingReviewTodoLabelIds.filter(Boolean);
 
         const rows = draft.lineItems
-          .filter((item) => item.project_id === projectId && (!categoryId || item.category_id === categoryId))
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version && (!categoryId || item.category_id === categoryId))
           .sort((a, b) => a.sort_order - b.sort_order);
         const nextRows = [];
         const duplicates = [];
@@ -572,15 +653,15 @@ export function PlannerProvider({ children }) {
 
         if (categoryId) {
           draft.lineItems = draft.lineItems
-            .filter((item) => !(item.project_id === projectId && item.category_id === categoryId))
+            .filter((item) => !(item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version && item.category_id === categoryId))
             .concat(nextRows);
         } else {
           draft.lineItems = draft.lineItems
-            .filter((item) => item.project_id !== projectId)
+            .filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) !== version)
             .concat(nextRows);
         }
         draft.lineItems
-          .filter((item) => item.project_id === projectId)
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version)
           .sort((a, b) => a.sort_order - b.sort_order)
           .forEach((item, index) => {
             item.sort_order = index;
@@ -591,18 +672,18 @@ export function PlannerProvider({ children }) {
           duplicates.forEach((item) => {
             void saveSupabase('client review row', supabase.from('line_items').insert(item));
           });
-          draft.lineItems.filter((item) => item.project_id === projectId).forEach((item) => {
+          draft.lineItems.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).forEach((item) => {
             void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: item.sort_order }).eq('id', item.id));
           });
         }
 
         return duplicates.map((item) => item.id);
       }),
-      removeClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelIds, categoryId = null) => mutate((draft) => {
+      removeClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelIds, categoryId = null, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
         const todoIds = (Array.isArray(reviewTodoLabelIds) ? reviewTodoLabelIds : [reviewTodoLabelIds]).filter(Boolean);
         if (!wennekerLabelId || !clientLabelId || !todoIds.length) return [];
         const rows = draft.lineItems
-          .filter((item) => item.project_id === projectId && (!categoryId || item.category_id === categoryId))
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version && (!categoryId || item.category_id === categoryId))
           .sort((a, b) => a.sort_order - b.sort_order);
         const reviewIds = rows
           .filter((item, index) => {
@@ -619,7 +700,7 @@ export function PlannerProvider({ children }) {
 
         draft.lineItems = draft.lineItems.filter((item) => !reviewIds.includes(item.id));
         draft.lineItems
-          .filter((item) => item.project_id === projectId)
+          .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version)
           .sort((a, b) => a.sort_order - b.sort_order)
           .forEach((item, index) => {
             item.sort_order = index;
@@ -642,8 +723,8 @@ export function PlannerProvider({ children }) {
         markDirty(item?.project_id);
         if (useSupabase) void saveSupabase('line item delete', supabase.from('line_items').delete().eq('id', itemId));
       }),
-      reorderLineItems: (projectId, activeId, overId) => mutate((draft) => {
-        const rows = draft.lineItems.filter((item) => item.project_id === projectId).sort((a, b) => a.sort_order - b.sort_order);
+      reorderLineItems: (projectId, activeId, overId, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
+        const rows = draft.lineItems.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).sort((a, b) => a.sort_order - b.sort_order);
         const oldIndex = rows.findIndex((item) => item.id === activeId);
         const newIndex = rows.findIndex((item) => item.id === overId);
         if (oldIndex < 0 || newIndex < 0) return;
@@ -660,8 +741,8 @@ export function PlannerProvider({ children }) {
           });
         }
       }),
-      moveLineItemRelative: (projectId, activeId, targetId, placement) => mutate((draft) => {
-        const rows = draft.lineItems.filter((item) => item.project_id === projectId).sort((a, b) => a.sort_order - b.sort_order);
+      moveLineItemRelative: (projectId, activeId, targetId, placement, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
+        const rows = draft.lineItems.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).sort((a, b) => a.sort_order - b.sort_order);
         const oldIndex = rows.findIndex((item) => item.id === activeId);
         const targetIndex = rows.findIndex((item) => item.id === targetId);
         if (oldIndex < 0 || targetIndex < 0 || activeId === targetId) return;

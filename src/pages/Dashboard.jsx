@@ -1,4 +1,4 @@
-import { Archive, ChevronDown, Plus, Search, Settings } from 'lucide-react';
+import { Archive, Check, ChevronDown, Copy, Plus, Search, Settings, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -79,7 +79,7 @@ function isUuidLike(value) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, duplicateProjectPlanning, keepProjectPlanningVersion, setPreferredPlanningVersion, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [search, setSearch] = useState('');
@@ -197,7 +197,7 @@ export default function Dashboard() {
           <p className="text-ink-500">Loading projects...</p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
-            <div className="grid grid-cols-[84px_1.6fr_220px_180px_112px] border-b border-black/10 px-4 py-3 text-xs font-semibold uppercase text-ink-500 dark:border-white/10">
+            <div className="grid grid-cols-[84px_1.6fr_220px_180px_190px] border-b border-black/10 px-4 py-3 text-xs font-semibold uppercase text-ink-500 dark:border-white/10">
               <span>Project #</span>
               <span>Project</span>
               <span>Post Producer</span>
@@ -205,6 +205,8 @@ export default function Dashboard() {
               <span className="text-right">Actions</span>
             </div>
             {visibleProjects.map((project) => {
+              const versions = Array.isArray(project.planning_versions) && project.planning_versions.length ? project.planning_versions : ['V1'];
+              const preferredVersion = project.preferred_planning_version && versions.includes(project.preferred_planning_version) ? project.preferred_planning_version : versions[0];
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
               const postProducerName = project.post_producer || '-';
@@ -213,9 +215,9 @@ export default function Dashboard() {
               const clientLabel = knownClient ? project.client : 'no client';
               const missingClient = clientLabel === 'no client';
               const summary = buildProjectSummary({
-                lineItems: (lineItems ?? []).filter((item) => item.project_id === project.id),
+                lineItems: (lineItems ?? []).filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === preferredVersion),
                 labelsById,
-                categories: (categories ?? []).filter((category) => category.project_id === project.id),
+                categories: (categories ?? []).filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === preferredVersion),
               });
               const activePresence = (presence ?? []).filter((item) => item.project_id === project.id && item.user_id !== user.id && Date.now() - new Date(item.last_seen_at).getTime() < 90_000);
               const activeNames = activePresence.map((item) => (profiles ?? []).find((profile) => profile.id === item.user_id)?.display_name).filter(Boolean);
@@ -226,6 +228,24 @@ export default function Dashboard() {
                   <span className="min-w-0">
                     <span className="font-semibold">{project.name}</span>
                     {clientLabel && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${missingClient ? 'bg-red-500/15 text-red-300' : 'bg-accent-500/15 text-accent-300'}`}>{clientLabel}</span>}
+                    {versions.length > 1 && (
+                      <span className="ml-2 inline-flex gap-1 align-middle">
+                        {versions.map((version) => (
+                          <button
+                            key={version}
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              window.location.href = `/projects/${project.id}?version=${version}`;
+                            }}
+                            className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${version === preferredVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 bg-white/5 text-ink-400 hover:text-ink-100'}`}
+                          >
+                            {version}
+                          </button>
+                        ))}
+                      </span>
+                    )}
                     {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                     <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                       <span><span className="font-semibold text-accent-300">Start</span> <span className="text-ink-500">{summary.start}</span></span>
@@ -262,6 +282,53 @@ export default function Dashboard() {
                     >
                       <Settings size={17} />
                     </button>
+                    {versions.length < 2 && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          duplicateProjectPlanning(project.id, preferredVersion);
+                        }}
+                        className="icon-button"
+                        aria-label="Duplicate planning version"
+                        title="Duplicate planning version"
+                      >
+                        <Copy size={17} />
+                      </button>
+                    )}
+                    {versions.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setPreferredPlanningVersion(project.id, preferredVersion === versions[0] ? versions[1] : versions[0]);
+                          }}
+                          className="icon-button"
+                          aria-label="Switch preferred planning"
+                          title="Switch preferred planning"
+                        >
+                          <Check size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (window.confirm(`Keep ${preferredVersion} and delete the other planning versions?`)) {
+                              keepProjectPlanningVersion(project.id, preferredVersion);
+                            }
+                          }}
+                          className="icon-button"
+                          aria-label="Keep preferred planning only"
+                          title="Keep preferred planning only"
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </>
+                    )}
                       <button
                         type="button"
                         onClick={(event) => {
@@ -279,13 +346,13 @@ export default function Dashboard() {
               );
               if (locked) {
                 return (
-                  <div key={project.id} className="grid grid-cols-[84px_1.6fr_220px_180px_112px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-3 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]">
+                  <div key={project.id} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-3 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]">
                     {rowContent}
                   </div>
                 );
               }
               return (
-                <Link key={project.id} to={`/projects/${project.id}`} className="grid grid-cols-[84px_1.6fr_220px_180px_112px] items-center border-b border-black/5 px-4 py-3 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
+                <Link key={project.id} to={`/projects/${project.id}?version=${preferredVersion}`} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-3 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
                   {rowContent}
                 </Link>
               );

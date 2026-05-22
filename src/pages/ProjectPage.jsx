@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import TopBar from '../components/TopBar.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -7,8 +7,12 @@ import ClientTableView from './ClientTableView.jsx';
 
 export default function ProjectPage() {
   const { projectId } = useParams();
+  const [searchParams] = useSearchParams();
   const { projects, loading, upsertPresence, clearPresence, markProjectEdited } = usePlanner();
   const project = projects.find((item) => item.id === projectId);
+  const versions = Array.isArray(project?.planning_versions) && project.planning_versions.length ? project.planning_versions : ['V1'];
+  const requestedVersion = searchParams.get('version');
+  const activeVersion = versions.includes(requestedVersion) ? requestedVersion : project?.preferred_planning_version ?? versions[0];
   const actionsRef = useRef({ upsertPresence, clearPresence, markProjectEdited });
 
   useEffect(() => {
@@ -38,12 +42,21 @@ export default function ProjectPage() {
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar project={project} />
       <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
-        <NavLink end to={`/projects/${projectId}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
-        <NavLink to={`/projects/${projectId}/client`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
+        <NavLink end to={`/projects/${projectId}?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
+        <NavLink to={`/projects/${projectId}/client?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
+        {versions.length > 1 && (
+          <span className="ml-auto flex gap-1">
+            {versions.map((version) => (
+              <NavLink key={version} to={`/projects/${projectId}?version=${version}`} className={`rounded-md border px-2 py-1 text-xs font-semibold ${version === activeVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 text-ink-500 hover:text-ink-100'}`}>
+                {version}
+              </NavLink>
+            ))}
+          </span>
+        )}
       </nav>
       <Routes>
-        <Route index element={<TimelineView project={project} />} />
-        <Route path="client" element={<ClientTableView project={project} />} />
+        <Route index element={<TimelineView project={project} planningVersion={activeVersion} />} />
+        <Route path="client" element={<ClientTableView project={project} planningVersion={activeVersion} />} />
       </Routes>
     </div>
   );

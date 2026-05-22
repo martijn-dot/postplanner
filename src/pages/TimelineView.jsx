@@ -592,7 +592,7 @@ function CategoryBlock({
   );
 }
 
-export default function TimelineView({ project }) {
+export default function TimelineView({ project, planningVersion = 'V1' }) {
   const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem } = usePlanner();
   const [zoom, setZoom] = useState('month');
   const [tableVisible, setTableVisible] = useState(true);
@@ -619,8 +619,8 @@ export default function TimelineView({ project }) {
   const scrollAnchorRef = useRef(null);
   const spreadsheetUndoRef = useRef([]);
 
-  const allRows = useMemo(() => lineItems.filter((item) => item.project_id === project.id).sort((a, b) => a.sort_order - b.sort_order), [lineItems, project.id]);
-  const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id).sort((a, b) => a.sort_order - b.sort_order), [categories, project.id]);
+  const allRows = useMemo(() => lineItems.filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [lineItems, planningVersion, project.id]);
+  const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [categories, planningVersion, project.id]);
   const projectLabels = useMemo(() => labels.filter((label) => !label.project_id || label.project_id === project.id), [labels, project.id]);
   const labelsById = useMemo(() => Object.fromEntries(projectLabels.map((label) => [label.id, label])), [projectLabels]);
   const sortLabels = (items) => items.sort((a, b) => {
@@ -710,7 +710,7 @@ export default function TimelineView({ project }) {
   };
 
   const addItemToday = (projectId, categoryId) => {
-    addLineItem(projectId, categoryId, iso(new Date()));
+    addLineItem(projectId, categoryId, iso(new Date()), {}, planningVersion);
   };
 
   const addDefaultPlanning = (categoryId = projectCategories[0]?.id ?? null) => {
@@ -727,7 +727,7 @@ export default function TimelineView({ project }) {
         who: wenneker ? [wenneker.id] : [],
         what: whatLabel.id,
         time: 'EOD',
-      });
+      }, planningVersion);
       return itemId;
     }).filter(Boolean);
     if (!createdIds.length) return;
@@ -875,7 +875,7 @@ export default function TimelineView({ project }) {
         if (targetId && targetId !== item.id && !selectedIds.includes(targetId)) {
           const rect = targetLine.getBoundingClientRect();
           const placement = currentY > rect.top + rect.height / 2 ? 'after' : 'before';
-          moveLineItemRelative(project.id, item.id, targetId, placement);
+          moveLineItemRelative(project.id, item.id, targetId, placement, planningVersion);
         }
       }
       setDragPreview(null);
@@ -914,7 +914,7 @@ export default function TimelineView({ project }) {
     const shareFeedbackId = reviewLabels.shareFeedback
       ?? addLabel(project.id, 'todo', 'Share Feedback', '#6d5dfc')?.id;
     const reviewTodoIds = [shareFeedbackId, reviewLabels.share].filter(Boolean);
-    const createdIds = addClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, shareFeedbackId, offsetDays, reviewTodoIds, categoryId) ?? [];
+    const createdIds = addClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, shareFeedbackId, offsetDays, reviewTodoIds, categoryId, planningVersion) ?? [];
     if (!createdIds.length) return;
     setDuplicatedIds((current) => [...current, ...createdIds]);
     window.setTimeout(() => {
@@ -923,7 +923,7 @@ export default function TimelineView({ project }) {
   };
 
   const removeClientReviewRows = (categoryId) => {
-    const removedIds = removeClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, [reviewLabels.shareFeedback, reviewLabels.share], categoryId) ?? [];
+    const removedIds = removeClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, [reviewLabels.shareFeedback, reviewLabels.share], categoryId, planningVersion) ?? [];
     if (removedIds.length) setSelectedIds((current) => current.filter((id) => !removedIds.includes(id)));
   };
 
@@ -1074,7 +1074,7 @@ export default function TimelineView({ project }) {
               {tableVisible && (
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
                   <div className="absolute left-2 right-2 top-2 flex flex-wrap items-center gap-1 normal-case">
-                    <button type="button" onClick={() => addCategory(project.id)} className="timeline-header-chip"><Plus size={13} /> Category</button>
+                    <button type="button" onClick={() => addCategory(project.id, planningVersion)} className="timeline-header-chip"><Plus size={13} /> Category</button>
                     <ToolbarMenu id="who" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Eye} label="Who">
                       {labelsByType.who.map((label) => (
                         <label key={label.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-white/5">
@@ -1149,10 +1149,10 @@ export default function TimelineView({ project }) {
                 const activeId = String(active.id);
                 const overId = String(over.id);
                 if (activeId.startsWith('category:') && overId.startsWith('category:')) {
-                  reorderCategories(project.id, activeId.replace('category:', ''), overId.replace('category:', ''));
+                  reorderCategories(project.id, activeId.replace('category:', ''), overId.replace('category:', ''), planningVersion);
                   return;
                 }
-                reorderLineItems(project.id, active.id, over.id);
+                reorderLineItems(project.id, active.id, over.id, planningVersion);
               }}
             >
               <SortableContext items={projectCategories.map((category) => `category:${category.id}`)} strategy={verticalListSortingStrategy}>

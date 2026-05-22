@@ -360,7 +360,7 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
   );
 }
 
-export default function ClientTableView({ project }) {
+export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const { lineItems, labels, categories, createShareLink, updateLineItem } = usePlanner();
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
@@ -376,15 +376,17 @@ export default function ClientTableView({ project }) {
     wenneker: labels.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: labels.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
   }), [labels]);
-  const filteredLineItems = useMemo(() => lineItems.filter((item) => {
+  const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === planningVersion), [lineItems, planningVersion, project.id]);
+  const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === planningVersion), [categories, planningVersion, project.id]);
+  const filteredLineItems = useMemo(() => versionLineItems.filter((item) => {
     if (showEmptyDates) return true;
     if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
     if (!showClientBookings && whoFilterIds.client && item.who?.includes(whoFilterIds.client)) return false;
     return true;
-  }), [lineItems, showClientBookings, showEmptyDates, showWennekerBookings, whoFilterIds]);
+  }), [showClientBookings, showEmptyDates, showWennekerBookings, versionLineItems, whoFilterIds]);
   const exportRows = useMemo(
-    () => clientPlanningExportRows(project, filteredLineItems, labels, categories, showEmptyDates, uncategorizedName),
-    [project, filteredLineItems, labels, categories, showEmptyDates, uncategorizedName],
+    () => clientPlanningExportRows(project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName),
+    [project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName],
   );
 
   const publish = async () => {
@@ -479,14 +481,14 @@ export default function ClientTableView({ project }) {
           project={project}
           lineItems={filteredLineItems}
           labels={labels}
-          categories={categories}
+          categories={versionCategories}
           showEmptyDates={showEmptyDates}
           showCategories={showCategories}
           onUpdateLineItem={updateLineItem}
           uncategorizedName={uncategorizedName}
         />
       ) : (
-        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={categories} uncategorizedName={uncategorizedName} />
+        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} />
       )}
     </main>
   );

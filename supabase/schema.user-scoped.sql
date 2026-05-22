@@ -27,7 +27,9 @@ create table if not exists public.projects (
   last_edited_at timestamptz default now(),
   is_archived boolean default false,
   archived_by uuid references public.profiles(id),
-  archived_at timestamptz
+  archived_at timestamptz,
+  planning_versions text[] not null default array['V1'],
+  preferred_planning_version text not null default 'V1'
 );
 
 alter table public.projects add column if not exists project_number text;
@@ -39,6 +41,8 @@ alter table public.projects add column if not exists last_edited_at timestamptz 
 alter table public.projects add column if not exists is_archived boolean default false;
 alter table public.projects add column if not exists archived_by uuid references public.profiles(id);
 alter table public.projects add column if not exists archived_at timestamptz;
+alter table public.projects add column if not exists planning_versions text[] not null default array['V1'];
+alter table public.projects add column if not exists preferred_planning_version text not null default 'V1';
 
 do $$
 declare
@@ -116,6 +120,7 @@ end $$;
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
+  planning_version text not null default 'V1',
   name text not null,
   sort_order int not null default 0
 );
@@ -123,6 +128,7 @@ create table if not exists public.categories (
 create table if not exists public.line_items (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
+  planning_version text not null default 'V1',
   category_id uuid references public.categories(id) on delete set null,
   who text[] not null default '{}',
   asset text not null default '',
@@ -136,6 +142,8 @@ create table if not exists public.line_items (
   constraint line_items_valid_range check (start_date is null or end_date is null or end_date >= start_date)
 );
 
+alter table public.categories add column if not exists planning_version text not null default 'V1';
+alter table public.line_items add column if not exists planning_version text not null default 'V1';
 alter table public.line_items add column if not exists time text not null default '';
 alter table public.line_items add column if not exists notes text not null default '';
 
