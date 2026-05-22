@@ -784,6 +784,7 @@ export function PlannerProvider({ children }) {
         if (targetUserId === user.id) throw new Error('You cannot delete your own admin account.');
         const targetProfile = data.profiles.find((profile) => profile.id === targetUserId);
         const currentProfile = data.profiles.find((profile) => profile.id === user.id);
+        if (useSupabase) await invokeAdminUserAction({ mode: 'delete-user', targetUserId });
         mutate((draft) => {
           draft.projects.forEach((project) => {
             ['user_id', 'created_by', 'last_edited_by', 'archived_by'].forEach((field) => {
@@ -794,8 +795,8 @@ export function PlannerProvider({ children }) {
           });
           draft.profiles = draft.profiles.filter((profile) => profile.id !== targetUserId);
           draft.presence = draft.presence.filter((item) => item.user_id !== targetUserId);
+          draft.invitations = draft.invitations.filter((item) => item.email?.toLowerCase() !== targetProfile?.email?.toLowerCase());
         });
-        if (useSupabase) await invokeAdminUserAction({ mode: 'delete-user', targetUserId });
       },
       updateUserRole: async (targetUserId, role) => {
         if (!['admin', 'user'].includes(role)) throw new Error('Invalid role.');

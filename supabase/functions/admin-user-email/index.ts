@@ -157,7 +157,7 @@ Deno.serve(async (request) => {
 
       const { data: targetProfile, error: targetProfileError } = await adminClient
         .from('profiles')
-        .select('role, display_name')
+        .select('role, display_name, email')
         .eq('id', targetUserId)
         .single();
       if (targetProfileError) throw targetProfileError;
@@ -186,6 +186,32 @@ Deno.serve(async (request) => {
           .from('projects')
           .update({ [field]: adminProfile.display_name })
           .eq(field, targetProfile.display_name);
+        if (error) throw error;
+      }
+
+      const { error: invitedProfilesError } = await adminClient
+        .from('profiles')
+        .update({ invited_by: authUser.user.id })
+        .eq('invited_by', targetUserId);
+      if (invitedProfilesError) throw invitedProfilesError;
+
+      const { error: invitationsByUserError } = await adminClient
+        .from('invitations')
+        .delete()
+        .eq('invited_by', targetUserId);
+      if (invitationsByUserError) throw invitationsByUserError;
+
+      const { error: invitationsByEmailError } = await adminClient
+        .from('invitations')
+        .delete()
+        .ilike('email', targetProfile.email);
+      if (invitationsByEmailError) throw invitationsByEmailError;
+
+      for (const table of ['clients', 'producers']) {
+        const { error } = await adminClient
+          .from(table)
+          .update({ created_by: authUser.user.id })
+          .eq('created_by', targetUserId);
         if (error) throw error;
       }
 
