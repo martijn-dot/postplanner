@@ -4,6 +4,15 @@ import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { RovalLogo } from '../components/TopBar.jsx';
 
+function authErrorFromUrl(searchParams) {
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const error = searchParams.get('error') || hashParams.get('error');
+  const errorCode = searchParams.get('error_code') || hashParams.get('error_code');
+  const description = searchParams.get('error_description') || hashParams.get('error_description');
+  if (!error && !errorCode && !description) return null;
+  return { error, errorCode, description };
+}
+
 export default function AuthPage() {
   const { session, demoMode, hasSupabaseConfig, signIn, resetPassword, updatePassword, enterDemo } = useAuth();
   const [searchParams] = useSearchParams();
@@ -12,6 +21,8 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [dismissAuthLinkError, setDismissAuthLinkError] = useState(false);
+  const authLinkError = dismissAuthLinkError ? null : authErrorFromUrl(searchParams);
 
   if ((session && mode !== 'update-password') || demoMode) return <Navigate to="/" replace />;
 
@@ -53,7 +64,26 @@ export default function AuthPage() {
           <h1 className="mt-4 text-3xl font-semibold">Production timelines without the spreadsheet drift.</h1>
         </div>
 
-        {hasSupabaseConfig ? (
+        {hasSupabaseConfig && authLinkError ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-4">
+              <h2 className="text-lg font-semibold text-amber-100">This invite link has already been used.</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-300">
+                Your account has already been created, or this invitation link is no longer valid. If you already made a password, you can sign in with your email and password.
+              </p>
+              {authLinkError.description && <p className="mt-2 text-xs text-ink-500">{authLinkError.description}</p>}
+            </div>
+            <a
+              href="mailto:postplanner@wenneker.amsterdam?subject=New%20Post%20Planner%20invite%20request&body=Hi%20Post%20Planner%20team%2C%0A%0AI%20am%20having%20issues%20with%20my%20invite%20link.%20Could%20you%20please%20send%20me%20a%20new%20invite%3F%0A%0AEmail%3A%20"
+              className="primary-button w-full"
+            >
+              Request a new invite
+            </a>
+            <button type="button" onClick={() => { setDismissAuthLinkError(true); setMode('signin'); }} className="secondary-button w-full">
+              Back to sign in
+            </button>
+          </div>
+        ) : hasSupabaseConfig ? (
           <form onSubmit={submit} className="space-y-4">
             {mode !== 'update-password' && <input className="field" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" required />}
             {mode !== 'recover' && <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === 'update-password' ? 'New password' : 'Password'} required />}
