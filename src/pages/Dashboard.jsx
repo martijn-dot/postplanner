@@ -1,4 +1,4 @@
-import { Archive, ChevronDown, Plus, Search, Settings, Trash2 } from 'lucide-react';
+import { Archive, ChevronDown, Copy, Plus, Search, Settings, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -94,7 +94,6 @@ export default function Dashboard() {
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
-  const [versionDuplicateSource, setVersionDuplicateSource] = useState('V1');
   const [search, setSearch] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
@@ -184,10 +183,6 @@ export default function Dashboard() {
     });
   const versionMenuProject = projects.find((project) => project.id === versionMenuProjectId);
   const versionMenuVersions = versionMenuProject ? versionsForProject(versionMenuProject, lineItems, categories) : [];
-  const versionMenuPreferred = versionMenuProject?.preferred_planning_version && versionMenuVersions.includes(versionMenuProject.preferred_planning_version)
-    ? versionMenuProject.preferred_planning_version
-    : versionMenuVersions[0];
-  const selectedDuplicateSource = versionMenuVersions.includes(versionDuplicateSource) ? versionDuplicateSource : versionMenuPreferred;
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -311,7 +306,6 @@ export default function Dashboard() {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        setVersionDuplicateSource(preferredVersion);
                         setVersionMenuProjectId(project.id);
                       }}
                       className="icon-button font-bold"
@@ -375,8 +369,22 @@ export default function Dashboard() {
                   >
                     {version}
                   </button>
-                  {versionMenuVersions.length > 1 && (
-                    <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1">
+                    {versionMenuVersions.length < 5 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          duplicateProjectPlanning(versionMenuProject.id, version);
+                        }}
+                        className="icon-button"
+                        aria-label={`Duplicate ${version}`}
+                        title={`Duplicate ${version}`}
+                      >
+                        <Copy size={16} />
+                      </button>
+                    )}
+                    {versionMenuVersions.length > 1 && (
+                      <>
                       <button
                         type="button"
                         onClick={() => {
@@ -402,30 +410,13 @@ export default function Dashboard() {
                       >
                         <Trash2 size={16} />
                       </button>
-                    </div>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
-            {versionMenuVersions.length < 5 && (
-              <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                <label className="block space-y-1">
-                  <span className="text-xs font-semibold uppercase text-ink-500">Duplicate from</span>
-                  <select className="field !py-2" value={selectedDuplicateSource} onChange={(event) => setVersionDuplicateSource(event.target.value)}>
-                    {versionMenuVersions.map((version) => <option key={version} value={version}>{version}</option>)}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    duplicateProjectPlanning(versionMenuProject.id, selectedDuplicateSource);
-                  }}
-                  className="primary-button mt-3 w-full"
-                >
-                  <Plus size={16} /> Add duplicated version
-                </button>
-              </div>
-            )}
+            {versionMenuVersions.length < 5 && <p className="mt-4 text-xs text-ink-500">Use the duplicate icon on a version row to create a new version from that planning.</p>}
           </div>
         </div>
       )}

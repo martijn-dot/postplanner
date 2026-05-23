@@ -490,14 +490,22 @@ export function PlannerProvider({ children }) {
         markDirty(projectId);
         if (useSupabase) {
           void saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: project.planning_versions }).eq('id', projectId));
-          const saveRows = () => {
-            if (newRows.length) void saveSupabase('planning version line items', supabase.from('line_items').insert(newRows));
-          };
-          if (newCategories.length) {
-            void saveSupabase('planning version categories', supabase.from('categories').insert(newCategories.map((category) => ({ ...category, collapsed: undefined })))).then(saveRows);
-          } else {
-            saveRows();
-          }
+          void (async () => {
+            try {
+              if (newCategories.length) {
+                await saveSupabase(
+                  'planning version categories',
+                  supabase.from('categories').insert(newCategories.map((category) => ({ ...category, collapsed: undefined }))),
+                  { throwOnError: true },
+                );
+              }
+              if (newRows.length) {
+                await saveSupabase('planning version line items', supabase.from('line_items').insert(newRows), { throwOnError: true });
+              }
+            } catch {
+              // saveSupabase has already shown the exact database error.
+            }
+          })();
         }
         return nextVersion;
       }),
