@@ -844,6 +844,70 @@ input {
   display: block;
 }
 
+.client-column-header {
+  cursor: grab;
+  user-select: none;
+}
+
+.client-column-header:active,
+.client-column-header.is-dragging {
+  cursor: grabbing;
+}
+
+.client-column-grip {
+  color: rgba(129, 118, 156, 0.75);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: -0.18em;
+  transform: translateY(-0.04em);
+}
+
+.client-column-drop-line {
+  background: #4b8dff;
+  bottom: 0.45rem;
+  box-shadow: 0 0 0 1px rgba(75, 141, 255, 0.22), 0 0 16px rgba(75, 141, 255, 0.5);
+  pointer-events: none;
+  position: absolute;
+  top: 0.45rem;
+  width: 2px;
+  z-index: 4;
+}
+
+.client-column-drop-line.is-before {
+  left: 0;
+}
+
+.client-column-drop-line.is-after {
+  right: 0;
+}
+
+.client-column-resize-handle {
+  bottom: 0;
+  cursor: col-resize;
+  position: absolute;
+  right: -4px;
+  top: 0;
+  width: 10px;
+  z-index: 5;
+}
+
+.client-column-resize-handle::after {
+  background: transparent;
+  bottom: 0.5rem;
+  content: "";
+  left: 4px;
+  position: absolute;
+  top: 0.5rem;
+  transition: background 120ms ease, box-shadow 120ms ease;
+  width: 2px;
+}
+
+.client-column-resize-handle:hover::after,
+.client-column-resize-handle:active::after {
+  background: #4b8dff;
+  box-shadow: 0 0 14px rgba(75, 141, 255, 0.55);
+}
+
 .client-gantt-scroll {
   max-height: calc(100vh - 17rem);
 }

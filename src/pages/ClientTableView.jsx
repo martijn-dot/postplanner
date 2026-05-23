@@ -40,10 +40,6 @@ function readClientViewMode(projectId) {
   return localStorage.getItem(`${CLIENT_VIEW_MODE_STORAGE_KEY}:${projectId}`) ?? 'table';
 }
 
-function transparentColor(color, alpha = '40') {
-  return /^#[0-9a-f]{6}$/i.test(color ?? '') ? `${color}${alpha}` : 'rgba(109, 93, 252, 0.25)';
-}
-
 function normalizeTimeInput(value) {
   const digits = value.replace(/\D/g, '').slice(0, 4);
   if (!digits) return '';
@@ -166,6 +162,7 @@ export function clientPlanningExportRows(project, lineItems, labels, categories,
 export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange }) {
   const [editingField, setEditingField] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
+  const [dragTarget, setDragTarget] = useState(null);
   const editingItem = editingField?.itemId ? lineItems.find((item) => item.id === editingField.itemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const prefs = columnPrefs ?? readClientColumnPrefs();
@@ -174,6 +171,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     onColumnPrefsChange?.(nextPrefs);
   };
   const startResize = (event, key) => {
+    event.preventDefault();
+    event.stopPropagation();
     const startX = event.clientX;
     const startWidth = prefs.widths[key] ?? CLIENT_COLUMNS.find((column) => column.key === key)?.width ?? 140;
     const move = (moveEvent) => {
@@ -190,6 +189,13 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     () => annotateRows(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)),
     [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName],
   );
+  const moveColumn = (targetKey, side) => {
+    if (!draggedColumn || draggedColumn === targetKey) return;
+    const nextOrder = prefs.order.filter((key) => key !== draggedColumn);
+    const targetIndex = nextOrder.indexOf(targetKey);
+    nextOrder.splice(side === 'after' ? targetIndex + 1 : targetIndex, 0, draggedColumn);
+    updatePrefs({ ...prefs, order: nextOrder });
+  };
 
   return (
     <>
@@ -211,19 +217,37 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   <th
                     key={column.key}
                     draggable
-                    onDragStart={() => setDraggedColumn(column.key)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => {
-                      if (!draggedColumn || draggedColumn === column.key) return;
-                      const nextOrder = prefs.order.filter((key) => key !== draggedColumn);
-                      nextOrder.splice(nextOrder.indexOf(column.key), 0, draggedColumn);
-                      updatePrefs({ ...prefs, order: nextOrder });
-                      setDraggedColumn(null);
+                    onDragStart={(event) => {
+                      setDraggedColumn(column.key);
+                      event.dataTransfer.effectAllowed = 'move';
                     }}
-                    className="relative px-4 py-3 font-semibold"
+                    onDragEnd={() => {
+                      setDraggedColumn(null);
+                      setDragTarget(null);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      setDragTarget({ key: column.key, side: event.clientX > rect.left + rect.width / 2 ? 'after' : 'before' });
+                    }}
+                    onDragLeave={() => {
+                      if (dragTarget?.key === column.key) setDragTarget(null);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const side = dragTarget?.key === column.key ? dragTarget.side : 'before';
+                      moveColumn(column.key, side);
+                      setDraggedColumn(null);
+                      setDragTarget(null);
+                    }}
+                    className={`client-column-header relative px-4 py-3 font-semibold ${draggedColumn === column.key ? 'is-dragging' : ''}`}
                   >
-                    {column.label}
-                    <button type="button" onPointerDown={(event) => startResize(event, column.key)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize" aria-label={`Resize ${column.label}`} />
+                    {dragTarget?.key === column.key && <span className={`client-column-drop-line ${dragTarget.side === 'after' ? 'is-after' : 'is-before'}`} />}
+                    <span className="inline-flex items-center gap-2">
+                      <span className="client-column-grip" aria-hidden="true">::</span>
+                      {column.label}
+                    </span>
+                    <button type="button" onPointerDown={(event) => startResize(event, column.key)} className="client-column-resize-handle" aria-label={`Resize ${column.label}`} />
                   </th>
                 ))}
               </tr>
@@ -362,7 +386,6 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
             const offset = differenceInCalendarDays(parseISO(item.end_date), days[0]);
             const what = labelsById[item.what];
             const todo = labelsById[item.todo];
-            const who = item.who.map((id) => labelsById[id]).find(Boolean);
             const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
             return (
               <div key={item.id} className="client-gantt-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
@@ -371,19 +394,18 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
                   <div className="min-w-0 px-3 py-3">
                     <div className="truncate text-sm font-semibold">{item.asset || '-'}</div>
                     <div className="truncate text-[0.65rem] text-ink-500">{category}</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {what && <Pill label={what} />}
-                      {todo && <Pill label={todo} subtle />}
-                      {item.time && <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-300">{item.time}</span>}
-                    </div>
                   </div>
                 </div>
                 <div className="relative min-h-14">
                   {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
-                  <div
-                    className="absolute inset-y-0 border-x border-white/20"
-                    style={{ left: offset * dayWidth, width: dayWidth, backgroundColor: transparentColor(who?.color) }}
-                  />
+                  <div className="client-gantt-dot-wrap" style={{ left: offset * dayWidth + dayWidth / 2 }}>
+                    <span className="client-gantt-dot" style={{ backgroundColor: what?.color ?? '#6d5dfc' }} />
+                    <span className="client-gantt-labels">
+                      {what && <Pill label={what} />}
+                      {todo && <Pill label={todo} subtle />}
+                      {item.time && <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-300">{item.time}</span>}
+                    </span>
+                  </div>
                 </div>
               </div>
             );
