@@ -38,6 +38,12 @@ function profileDisplayValue(value, profiles = []) {
   return profiles.find((profile) => profile.id === value)?.display_name ?? value ?? '';
 }
 
+function dbCategory(category) {
+  const { collapsed, ...rest } = category;
+  void collapsed;
+  return rest;
+}
+
 function readShares() {
   return JSON.parse(localStorage.getItem(SHARE_STORAGE_KEY) ?? '{}');
 }
@@ -400,7 +406,7 @@ export function PlannerProvider({ children }) {
         });
         if (useSupabase) {
           await saveSupabase('project', supabase.from('projects').insert(project), { throwOnError: true });
-          await saveSupabase('category', supabase.from('categories').insert({ ...category, collapsed: undefined }), { throwOnError: true });
+          await saveSupabase('category', supabase.from('categories').insert(dbCategory(category)), { throwOnError: true });
           if (client) await saveSupabase('client', supabase.from('clients').upsert({ name: client, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }), { throwOnError: false });
           await Promise.all([postProducer, producer].filter(Boolean).map((producerName) => saveSupabase('producer', supabase.from('producers').upsert({ name: producerName, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }), { throwOnError: false })));
         }
@@ -495,7 +501,7 @@ export function PlannerProvider({ children }) {
               if (newCategories.length) {
                 await saveSupabase(
                   'planning version categories',
-                  supabase.from('categories').insert(newCategories.map((category) => ({ ...category, collapsed: undefined }))),
+                  supabase.from('categories').insert(newCategories.map(dbCategory)),
                   { throwOnError: true },
                 );
               }
@@ -595,7 +601,7 @@ export function PlannerProvider({ children }) {
         const category = { id: id(), project_id: projectId, planning_version: version, name: `Category ${count + 1}`, sort_order: count, collapsed: false };
         draft.categories.push(category);
         markDirty(projectId);
-        if (useSupabase) void saveSupabase('category', supabase.from('categories').insert({ ...category, collapsed: undefined }));
+        if (useSupabase) void saveSupabase('category', supabase.from('categories').insert(dbCategory(category)));
       }),
       updateCategory: (categoryId, patch) => mutate((draft) => {
         const category = draft.categories.find((item) => item.id === categoryId);
