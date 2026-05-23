@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { Check, Copy, Download, Eye, EyeOff, FileText, Globe2, SlidersHorizontal } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Check, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -8,6 +8,7 @@ import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPre
 import { weekNumber } from '../lib/dates.js';
 
 const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v1';
+const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
 const CLIENT_COLUMNS = [
   { key: 'category', label: 'Category', width: 150 },
   { key: 'time', label: 'Time', width: 74 },
@@ -33,6 +34,14 @@ function readClientColumnPrefs() {
       visible: Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, true])),
     };
   }
+}
+
+function readClientViewMode(projectId) {
+  return localStorage.getItem(`${CLIENT_VIEW_MODE_STORAGE_KEY}:${projectId}`) ?? 'table';
+}
+
+function transparentColor(color, alpha = '40') {
+  return /^#[0-9a-f]{6}$/i.test(color ?? '') ? `${color}${alpha}` : 'rgba(109, 93, 252, 0.25)';
 }
 
 function normalizeTimeInput(value) {
@@ -353,6 +362,7 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
             const offset = differenceInCalendarDays(parseISO(item.end_date), days[0]);
             const what = labelsById[item.what];
             const todo = labelsById[item.todo];
+            const who = item.who.map((id) => labelsById[id]).find(Boolean);
             const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
             return (
               <div key={item.id} className="client-gantt-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
@@ -361,18 +371,19 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
                   <div className="min-w-0 px-3 py-3">
                     <div className="truncate text-sm font-semibold">{item.asset || '-'}</div>
                     <div className="truncate text-[0.65rem] text-ink-500">{category}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {what && <Pill label={what} />}
+                      {todo && <Pill label={todo} subtle />}
+                      {item.time && <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-300">{item.time}</span>}
+                    </div>
                   </div>
                 </div>
                 <div className="relative min-h-14">
                   {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
-                  <div className="client-gantt-dot-wrap" style={{ left: offset * dayWidth + dayWidth / 2 }}>
-                    <span className="client-gantt-dot" style={{ backgroundColor: what?.color ?? '#6d5dfc' }} />
-                    <span className="client-gantt-labels">
-                      {what && <Pill label={what} />}
-                      {todo && <Pill label={todo} subtle />}
-                      {item.time && <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-300">{item.time}</span>}
-                    </span>
-                  </div>
+                  <div
+                    className="absolute inset-y-0 border-x border-white/20"
+                    style={{ left: offset * dayWidth, width: dayWidth, backgroundColor: transparentColor(who?.color) }}
+                  />
                 </div>
               </div>
             );
@@ -390,7 +401,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const [showClientBookings, setShowClientBookings] = useState(true);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
-  const [viewMode, setViewMode] = useState('table');
+  const [viewMode, setViewMode] = useState(() => readClientViewMode(project.id));
   const uncategorizedNames = useMemo(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}), []);
   const [publishedUrl, setPublishedUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -403,11 +414,10 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === planningVersion), [lineItems, planningVersion, project.id]);
   const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === planningVersion), [categories, planningVersion, project.id]);
   const filteredLineItems = useMemo(() => versionLineItems.filter((item) => {
-    if (showEmptyDates) return true;
     if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
     if (!showClientBookings && whoFilterIds.client && item.who?.includes(whoFilterIds.client)) return false;
     return true;
-  }), [showClientBookings, showEmptyDates, showWennekerBookings, versionLineItems, whoFilterIds]);
+  }), [showClientBookings, showWennekerBookings, versionLineItems, whoFilterIds]);
   const exportRows = useMemo(
     () => clientPlanningExportRows(project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName),
     [project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName],
@@ -442,6 +452,14 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
     setColumnPrefs(nextPrefs);
     localStorage.setItem(CLIENT_COLUMN_STORAGE_KEY, JSON.stringify(nextPrefs));
   };
+  const changeViewMode = (nextMode) => {
+    setViewMode(nextMode);
+    localStorage.setItem(`${CLIENT_VIEW_MODE_STORAGE_KEY}:${project.id}`, nextMode);
+  };
+
+  useEffect(() => {
+    setViewMode(readClientViewMode(project.id));
+  }, [project.id]);
 
   return (
     <main className="mx-auto max-w-[1600px] px-5 py-6">
@@ -458,29 +476,32 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
             {showEmptyDates ? <EyeOff size={17} /> : <Eye size={17} />}
             {showEmptyDates ? 'Hide empty dates' : 'Show empty dates'}
           </button>}
-          {!showEmptyDates && (
+          {viewMode === 'table' && (
             <>
               <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`secondary-button ${showWennekerBookings ? 'text-accent-300' : 'opacity-60'}`}>
-                {showWennekerBookings ? 'Hide Wenneker' : 'Show Wenneker'}
+                {showWennekerBookings ? <Eye size={17} /> : <EyeOff size={17} />}
+                {showWennekerBookings ? 'Wenneker' : 'Wenneker'}
               </button>
               <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`secondary-button ${showClientBookings ? 'text-accent-300' : 'opacity-60'}`}>
-                {showClientBookings ? 'Hide Client' : 'Show Client'}
+                {showClientBookings ? <Eye size={17} /> : <EyeOff size={17} />}
+                {showClientBookings ? 'Client' : 'Client'}
               </button>
             </>
           )}
-          <div className="relative">
-            <button type="button" onClick={() => setColumnMenuOpen((next) => !next)} className="secondary-button"><SlidersHorizontal size={17} /> Columns</button>
+          <div className="relative" onMouseLeave={() => setColumnMenuOpen(false)}>
+            <button type="button" onClick={() => setColumnMenuOpen((next) => !next)} className="secondary-button"><Eye size={17} /> Columns</button>
             {columnMenuOpen && (
               <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-white/10 bg-ink-900 p-2 shadow-glow">
                 {CLIENT_COLUMNS.map((column) => (
-                  <label key={column.key} className="flex items-center gap-2 rounded px-2 py-2 text-sm hover:bg-white/5">
-                    <input
-                      type="checkbox"
-                      checked={columnPrefs.visible[column.key] !== false}
-                      onChange={() => updateColumnPrefs({ ...columnPrefs, visible: { ...columnPrefs.visible, [column.key]: columnPrefs.visible[column.key] === false } })}
-                    />
+                  <button
+                    key={column.key}
+                    type="button"
+                    onClick={() => updateColumnPrefs({ ...columnPrefs, visible: { ...columnPrefs.visible, [column.key]: columnPrefs.visible[column.key] === false } })}
+                    className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-white/5"
+                  >
+                    {columnPrefs.visible[column.key] !== false ? <Eye size={14} className="text-accent-300" /> : <EyeOff size={14} className="text-ink-500" />}
                     {column.label}
-                  </label>
+                  </button>
                 ))}
               </div>
             )}
@@ -489,8 +510,8 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
             Set all EOD
           </button>
           <div className="segmented">
-            <button type="button" onClick={() => setViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
-            <button type="button" onClick={() => setViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gant Chart</button>
+            <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
+            <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gant Chart</button>
           </div>
           <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="primary-button" disabled={!exportRows.length}>
             <Download size={17} /> Download Excel
