@@ -1,4 +1,4 @@
-import { Archive, ChevronDown, Copy, Plus, Search, Settings, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, Plus, Search, Settings, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -94,6 +94,8 @@ export default function Dashboard() {
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
+  const [archiveProjectTarget, setArchiveProjectTarget] = useState(null);
+  const [archiveConfirmText, setArchiveConfirmText] = useState('');
   const [search, setSearch] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
@@ -158,7 +160,11 @@ export default function Dashboard() {
     }
     const duplicateProject = projects.find((project) => project.project_number && project.project_number === projectNumber);
     if (duplicateProject && !window.confirm(`Project number ${projectNumber} already exists. Do you want to create this project anyway?`)) {
-      setFormError(`Project number ${projectNumber} already exists.`);
+      setFormError(`Project number ${projectNumber} already exists${duplicateProject.is_archived ? ' in archived projects' : ''}.`);
+      return;
+    }
+    if (!/^\d{5}$/.test(projectNumber)) {
+      setFormError('Project code should be exactly 5 numbers.');
       return;
     }
     try {
@@ -316,15 +322,16 @@ export default function Dashboard() {
                     </button>
                       <button
                         type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          archiveProject(project.id);
-                        }}
-                        className="icon-button"
-                        aria-label="Archive project"
-                      >
-                        <Archive size={17} />
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setArchiveProjectTarget(project);
+                        setArchiveConfirmText('');
+                      }}
+                      className="icon-button"
+                      aria-label="Archive project"
+                    >
+                        <Trash2 size={17} />
                       </button>
                   </span>
                 </>
@@ -417,6 +424,30 @@ export default function Dashboard() {
               ))}
             </div>
             {versionMenuVersions.length < 5 && <p className="mt-4 text-xs text-ink-500">Use the duplicate icon on a version row to create a new version from that planning.</p>}
+          </div>
+        </div>
+      )}
+
+      {archiveProjectTarget && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/60 p-5">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 text-ink-100 shadow-glow">
+            <h2 className="text-xl font-semibold">Archive project?</h2>
+            <p className="mt-2 text-sm text-ink-500">This removes {archiveProjectTarget.name} from the active project list. Type ARCHIVE to confirm.</p>
+            <input className="field mt-5" value={archiveConfirmText} onChange={(event) => setArchiveConfirmText(event.target.value)} placeholder="ARCHIVE" autoFocus />
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setArchiveProjectTarget(null)} className="secondary-button">Cancel</button>
+              <button
+                type="button"
+                disabled={archiveConfirmText !== 'ARCHIVE'}
+                onClick={() => {
+                  archiveProject(archiveProjectTarget.id);
+                  setArchiveProjectTarget(null);
+                }}
+                className="primary-button disabled:opacity-40"
+              >
+                Archive
+              </button>
+            </div>
           </div>
         </div>
       )}

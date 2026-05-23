@@ -1,7 +1,7 @@
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArchiveRestore, GripVertical, KeyRound, Plus, Trash2, UserX, XCircle } from 'lucide-react';
+import { ArchiveRestore, GripVertical, KeyRound, Plus, Search, Trash2, UserX, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
@@ -92,6 +92,7 @@ export default function SettingsPage() {
   const [defaultPlanningLabelId, setDefaultPlanningLabelId] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
   const [confirmUserDelete, setConfirmUserDelete] = useState('');
+  const [archiveSearch, setArchiveSearch] = useState('');
   const labelSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const selectedProfile = profiles.find((item) => item.id === selectedUserId) ?? null;
   const pendingInvites = (invitations ?? [])
@@ -473,8 +474,13 @@ export default function SettingsPage() {
         )}
 
         {tab === 'archived' && (
+          <>
+          <label className="relative mb-4 block max-w-lg">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" size={16} />
+            <input className="field !py-2 pl-9" value={archiveSearch} onChange={(event) => setArchiveSearch(event.target.value)} placeholder="Search archived projects" />
+          </label>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {projects.filter((project) => project.is_archived).map((project) => {
+            {projects.filter((project) => project.is_archived).filter((project) => [project.project_number, project.name, project.client].filter(Boolean).join(' ').toLowerCase().includes(archiveSearch.toLowerCase())).map((project) => {
               const archivedBy = profiles.find((item) => item.id === project.archived_by);
               return (
                 <section key={project.id} className="rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-ink-900">
@@ -489,7 +495,7 @@ export default function SettingsPage() {
                         if (confirmDelete === project.id) deleteProjectForever(project.id);
                         else setConfirmDelete(project.id);
                       }}
-                      className="secondary-button text-red-300"
+                      className={`secondary-button text-red-300 ${confirmDelete === project.id ? 'border-red-400/80' : ''}`}
                     >
                       <Trash2 size={16} /> {confirmDelete === project.id ? 'Confirm Delete' : 'Delete Forever'}
                     </button>
@@ -498,6 +504,7 @@ export default function SettingsPage() {
               );
             })}
           </div>
+          </>
         )}
       </main>
     </div>

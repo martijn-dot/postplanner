@@ -1,11 +1,39 @@
 import { differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { Check, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
+import { Check, Copy, Download, Eye, EyeOff, FileText, Globe2, SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import { weekNumber } from '../lib/dates.js';
+
+const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v1';
+const CLIENT_COLUMNS = [
+  { key: 'category', label: 'Category', width: 150 },
+  { key: 'time', label: 'Time', width: 74 },
+  { key: 'who', label: 'Who', width: 118 },
+  { key: 'asset', label: 'Asset', width: 200 },
+  { key: 'what', label: 'What', width: 180 },
+  { key: 'todo', label: 'Todo', width: 190 },
+  { key: 'notes', label: 'Notes', width: 160 },
+];
+
+function readClientColumnPrefs() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(CLIENT_COLUMN_STORAGE_KEY) ?? '{}');
+    return {
+      order: Array.isArray(stored.order) ? stored.order.filter((key) => CLIENT_COLUMNS.some((column) => column.key === key)) : CLIENT_COLUMNS.map((column) => column.key),
+      widths: stored.widths ?? Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.width])),
+      visible: stored.visible ?? Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, true])),
+    };
+  } catch {
+    return {
+      order: CLIENT_COLUMNS.map((column) => column.key),
+      widths: Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.width])),
+      visible: Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, true])),
+    };
+  }
+}
 
 function normalizeTimeInput(value) {
   const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -126,10 +154,29 @@ export function clientPlanningExportRows(project, lineItems, labels, categories,
   }));
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, showCategories = true, onUpdateLineItem, uncategorizedName = 'Uncategorized' }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange }) {
   const [editingField, setEditingField] = useState(null);
+  const [draggedColumn, setDraggedColumn] = useState(null);
   const editingItem = editingField?.itemId ? lineItems.find((item) => item.id === editingField.itemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
+  const prefs = columnPrefs ?? readClientColumnPrefs();
+  const orderedColumns = prefs.order.map((key) => CLIENT_COLUMNS.find((column) => column.key === key)).filter((column) => column && prefs.visible[column.key] !== false);
+  const updatePrefs = (nextPrefs) => {
+    onColumnPrefsChange?.(nextPrefs);
+  };
+  const startResize = (event, key) => {
+    const startX = event.clientX;
+    const startWidth = prefs.widths[key] ?? CLIENT_COLUMNS.find((column) => column.key === key)?.width ?? 140;
+    const move = (moveEvent) => {
+      updatePrefs({ ...prefs, widths: { ...prefs.widths, [key]: Math.max(70, startWidth + moveEvent.clientX - startX) } });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   const rows = useMemo(
     () => annotateRows(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)),
     [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName],
@@ -139,31 +186,37 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     <>
       <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
         <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
-          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: showCategories ? 1300 : 1150 }}>
+          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: 48 + 78 + 72 + orderedColumns.reduce((sum, column) => sum + (prefs.widths[column.key] ?? column.width), 0) }}>
             <colgroup>
               <col className="w-[48px]" />
               <col className="w-[78px]" />
               <col className="w-[72px]" />
-              {showCategories && <col className="w-[150px]" />}
-              <col className="w-[74px]" />
-              <col className="w-[118px]" />
-              <col className="w-[200px]" />
-              <col className="w-[180px]" />
-              <col className="w-[190px]" />
-              <col className="w-[160px]" />
+              {orderedColumns.map((column) => <col key={column.key} style={{ width: prefs.widths[column.key] ?? column.width }} />)}
             </colgroup>
             <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
                 <th className="sticky-week px-2 py-3 text-center font-semibold">Week</th>
                 <th className="px-2 py-3 font-semibold">Day</th>
                 <th className="px-2 py-3 font-semibold">Date</th>
-                {showCategories && <th className="px-4 py-3 font-semibold">Category</th>}
-                <th className="px-3 py-3 font-semibold">Time</th>
-                <th className="px-4 py-3 font-semibold">Who</th>
-                <th className="px-4 py-3 font-semibold">Asset</th>
-                <th className="px-4 py-3 font-semibold">What</th>
-                <th className="px-4 py-3 font-semibold">Todo</th>
-                <th className="px-4 py-3 font-semibold">Notes</th>
+                {orderedColumns.map((column) => (
+                  <th
+                    key={column.key}
+                    draggable
+                    onDragStart={() => setDraggedColumn(column.key)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => {
+                      if (!draggedColumn || draggedColumn === column.key) return;
+                      const nextOrder = prefs.order.filter((key) => key !== draggedColumn);
+                      nextOrder.splice(nextOrder.indexOf(column.key), 0, draggedColumn);
+                      updatePrefs({ ...prefs, order: nextOrder });
+                      setDraggedColumn(null);
+                    }}
+                    className="relative px-4 py-3 font-semibold"
+                  >
+                    {column.label}
+                    <button type="button" onPointerDown={(event) => startResize(event, column.key)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize" aria-label={`Resize ${column.label}`} />
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -173,7 +226,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._item ? 'booking-row' : ''} ${row._showWeekDivider ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
                 >
                   {row._showWeek && (
-                    <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono">
+                    <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono text-[1.5em]">
                       <span><em>WEEK</em>{row.Week}</span>
                     </td>
                   )}
@@ -187,51 +240,21 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       </td>
                     </>
                   )}
-                  {showCategories && <td className="px-4 py-3 text-sm font-semibold text-ink-400">{row.Category || <span className="text-ink-500">-</span>}</td>}
-                  <td className="px-3 py-3 font-mono">
-                    {row._item && onUpdateLineItem ? (
-                      <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">
-                        {row._item.time || <span className="text-ink-500">--:--</span>}
-                      </button>
-                    ) : (
-                      row.Time || <span className="text-ink-500">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {row._item ? (
-                      <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>
-                    ) : (
-                      <span className="text-ink-500">-</span>
-                    )}
-                  </td>
-                  <td className="max-w-[200px] overflow-visible px-4 py-3">
-                    {row.Asset ? (
-                      <span className="note-preview group relative inline-flex w-full min-w-0 text-left">
-                        <span className="truncate font-semibold">{row.Asset}</span>
-                        <span className="note-tooltip">{row.Asset}</span>
-                      </span>
-                    ) : (
-                      <span className="text-ink-500">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : <span className="text-ink-500">-</span>}</td>
-                  <td className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : <span className="text-ink-500">-</span>}</td>
-                  <td className="max-w-[160px] overflow-visible px-4 py-3">
-                    {row._item && onUpdateLineItem ? (
-                      <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">
-                        <FileText size={14} className="shrink-0 text-ink-500" />
-                        <span className="truncate">{row._item.notes || 'Add note'}</span>
-                        {row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}
-                      </button>
-                    ) : (
-                      row.Notes || <span className="text-ink-500">-</span>
-                    )}
-                  </td>
+                  {orderedColumns.map((column) => {
+                    if (column.key === 'category') return <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">{row.Category || <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row.Time || <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'asset') return <td key={column.key} className="overflow-visible px-4 py-3"><span className="note-preview group relative inline-flex w-full min-w-0 text-left"><span className="truncate font-semibold">{row.Asset || '-'}</span>{row.Asset && <span className="note-tooltip">{row.Asset}</span>}</span></td>;
+                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || 'Add note'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</button> : row.Notes || <span className="text-ink-500">-</span>}</td>;
+                    return null;
+                  })}
                 </tr>
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan={showCategories ? 10 : 9} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
+                  <td colSpan={3 + orderedColumns.length} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
                 </tr>
               )}
             </tbody>
@@ -309,7 +332,7 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
       <div className="client-gantt-scroll overflow-auto">
         <div style={{ minWidth: leftWidth + days.length * dayWidth }}>
           <div className="sticky top-0 z-20 grid bg-zinc-100 dark:bg-ink-850" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
-            <div className="grid grid-cols-[110px_1fr] border-b border-r border-black/10 text-xs font-semibold uppercase text-ink-500 dark:border-white/10">
+            <div className="sticky left-0 z-30 grid grid-cols-[110px_1fr] border-b border-r border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-850">
               <span className="px-4 py-5">Who</span>
               <span className="px-4 py-5">Asset</span>
             </div>
@@ -333,7 +356,7 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
             const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
             return (
               <div key={item.id} className="client-gantt-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
-                <div className="grid grid-cols-[110px_1fr] border-r border-black/10 dark:border-white/10">
+                <div className="sticky left-0 z-10 grid grid-cols-[110px_1fr] border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
                   <div className="flex flex-wrap content-center gap-1 px-3 py-3">{item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>
                   <div className="min-w-0 px-3 py-3">
                     <div className="truncate text-sm font-semibold">{item.asset || '-'}</div>
@@ -365,7 +388,8 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
-  const [showCategories, setShowCategories] = useState(true);
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
   const [viewMode, setViewMode] = useState('table');
   const uncategorizedNames = useMemo(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}), []);
   const [publishedUrl, setPublishedUrl] = useState('');
@@ -414,6 +438,10 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
       .filter((item) => item.end_date)
       .forEach((item) => updateLineItem(item.id, { time: 'EOD' }));
   };
+  const updateColumnPrefs = (nextPrefs) => {
+    setColumnPrefs(nextPrefs);
+    localStorage.setItem(CLIENT_COLUMN_STORAGE_KEY, JSON.stringify(nextPrefs));
+  };
 
   return (
     <main className="mx-auto max-w-[1600px] px-5 py-6">
@@ -426,10 +454,10 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
           <button type="button" onClick={publish} className="secondary-button" disabled={publishing}>
             <Globe2 size={17} /> {publishing ? 'Publishing...' : 'Publish'}
           </button>
-          <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className="secondary-button">
+          {viewMode === 'table' && <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className="secondary-button">
             {showEmptyDates ? <EyeOff size={17} /> : <Eye size={17} />}
             {showEmptyDates ? 'Hide empty dates' : 'Show empty dates'}
-          </button>
+          </button>}
           {!showEmptyDates && (
             <>
               <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`secondary-button ${showWennekerBookings ? 'text-accent-300' : 'opacity-60'}`}>
@@ -440,11 +468,23 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
               </button>
             </>
           )}
-          {viewMode === 'table' && (
-            <button type="button" onClick={() => setShowCategories((next) => !next)} className={`secondary-button ${showCategories ? 'text-accent-300' : 'opacity-60'}`}>
-              {showCategories ? 'Hide categories' : 'Show categories'}
-            </button>
-          )}
+          <div className="relative">
+            <button type="button" onClick={() => setColumnMenuOpen((next) => !next)} className="secondary-button"><SlidersHorizontal size={17} /> Columns</button>
+            {columnMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-white/10 bg-ink-900 p-2 shadow-glow">
+                {CLIENT_COLUMNS.map((column) => (
+                  <label key={column.key} className="flex items-center gap-2 rounded px-2 py-2 text-sm hover:bg-white/5">
+                    <input
+                      type="checkbox"
+                      checked={columnPrefs.visible[column.key] !== false}
+                      onChange={() => updateColumnPrefs({ ...columnPrefs, visible: { ...columnPrefs.visible, [column.key]: columnPrefs.visible[column.key] === false } })}
+                    />
+                    {column.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <button type="button" onClick={setAllTimesEod} className="secondary-button">
             Set all EOD
           </button>
@@ -483,9 +523,10 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
           labels={labels}
           categories={versionCategories}
           showEmptyDates={showEmptyDates}
-          showCategories={showCategories}
           onUpdateLineItem={updateLineItem}
           uncategorizedName={uncategorizedName}
+          columnPrefs={columnPrefs}
+          onColumnPrefsChange={updateColumnPrefs}
         />
       ) : (
         <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} />

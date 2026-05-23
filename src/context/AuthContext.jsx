@@ -3,6 +3,7 @@ import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 
 const AuthContext = createContext(null);
 const LOCALHOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const IDLE_LOGOUT_MS = 24 * 60 * 60 * 1000;
 
 function isLocalhost() {
   return typeof window !== 'undefined' && LOCALHOSTS.has(window.location.hostname);
@@ -30,6 +31,25 @@ export function AuthProvider({ children }) {
 
     return () => listener.subscription.unsubscribe();
   }, [localAdminMode]);
+
+  useEffect(() => {
+    if (localAdminMode || !hasSupabaseConfig || !session) return undefined;
+    let timeoutId;
+    const resetTimer = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(async () => {
+        await supabase.auth.signOut();
+        setSession(null);
+      }, IDLE_LOGOUT_MS);
+    };
+    const events = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach((eventName) => window.addEventListener(eventName, resetTimer, { passive: true }));
+    resetTimer();
+    return () => {
+      window.clearTimeout(timeoutId);
+      events.forEach((eventName) => window.removeEventListener(eventName, resetTimer));
+    };
+  }, [localAdminMode, session]);
 
   const value = useMemo(
     () => ({
