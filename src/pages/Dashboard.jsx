@@ -402,7 +402,7 @@ export default function Dashboard() {
                         onClick={() => {
                           if (window.confirm(`Delete ${version}? This cannot be undone.`)) {
                             deleteProjectPlanningVersion(versionMenuProject.id, version);
-                            setVersionMenuProjectId(null);
+                            if (versionMenuVersions.length === 2) setVersionMenuProjectId(null);
                           }
                         }}
                         className="icon-button"
