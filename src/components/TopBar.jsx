@@ -17,7 +17,7 @@ export function RovalLogo() {
   );
 }
 
-export default function TopBar({ project, planningVersions = [] }) {
+export default function TopBar({ project }) {
   const { user, signOut, demoMode } = useAuth();
   const { profiles, saveError, clearSaveError, updateProfile } = usePlanner();
   const [dark, setDark] = useState(() => localStorage.theme !== 'light');
@@ -52,7 +52,6 @@ export default function TopBar({ project, planningVersions = [] }) {
     reader.readAsDataURL(file);
   };
 
-  const orderedPlanningVersions = [...planningVersions].sort((a, b) => Number(String(a).replace(/^V/i, '')) - Number(String(b).replace(/^V/i, '')));
   const avatar = profile.avatar_url ? (
     <img src={profile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
   ) : initials;
@@ -74,24 +73,7 @@ export default function TopBar({ project, planningVersions = [] }) {
               <span className="mt-1 text-[10px] font-semibold normal-case tracking-normal text-ink-500">the post production planner without clutter</span>
             </span>
           </Link>
-          {project && (
-            <span className="flex items-center gap-2 text-sm text-ink-500">
-              <span>/ {project.name}</span>
-              {orderedPlanningVersions.length > 1 && (
-                <span className="flex gap-1">
-                  {orderedPlanningVersions.map((version) => (
-                    <Link
-                      key={version}
-                      to={`/projects/${project.id}?version=${version}`}
-                      className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-ink-500 transition hover:border-amber-300/40 hover:bg-amber-300/15 hover:text-amber-200"
-                    >
-                      {version}
-                    </Link>
-                  ))}
-                </span>
-              )}
-            </span>
-          )}
+          {project && <span className="text-sm text-ink-500">/ {project.name}</span>}
         </div>
         <div className="flex items-center gap-2">
           {demoMode && <span className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold text-amber-300">Demo mode</span>}

@@ -51,23 +51,13 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
-      <TopBar project={project} planningVersions={versions} />
+      <TopBar project={project} />
       <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
         <NavLink end to={`/projects/${projectId}?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
         <NavLink to={`/projects/${projectId}/client?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
-        {versions.length > 1 && (
-          <span className="ml-auto flex items-center gap-2">
-            <span className="rounded-md border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-xs font-semibold uppercase text-amber-200">Working in {activeVersion}</span>
-            {versions.map((version) => (
-              <NavLink key={version} to={`/projects/${projectId}?version=${version}`} className="rounded-md border border-white/10 px-2 py-1 text-xs font-semibold text-ink-500 transition hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100">
-                {version}
-              </NavLink>
-            ))}
-          </span>
-        )}
       </nav>
       <Routes>
-        <Route index element={<TimelineView project={project} planningVersion={activeVersion} />} />
+        <Route index element={<TimelineView project={project} planningVersion={activeVersion} planningVersions={versions} />} />
         <Route path="client" element={<ClientTableView project={project} planningVersion={activeVersion} />} />
       </Routes>
     </div>

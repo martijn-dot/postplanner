@@ -505,19 +505,39 @@ export function PlannerProvider({ children }) {
         ].filter(Boolean))];
         if (versions.length <= 1) return;
         const nextVersions = versions.filter((item) => item !== version);
-        const nextPreferred = nextVersions.includes(project.preferred_planning_version) ? project.preferred_planning_version : nextVersions[0];
+        const onlyRemainingVersion = nextVersions.length === 1 ? nextVersions[0] : null;
+        const shouldResetToV1 = onlyRemainingVersion && onlyRemainingVersion !== DEFAULT_PLANNING_VERSION;
+        const nextPreferred = shouldResetToV1
+          ? DEFAULT_PLANNING_VERSION
+          : nextVersions.includes(project.preferred_planning_version) ? project.preferred_planning_version : nextVersions[0];
         const removedCategoryIds = draft.categories
           .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version)
           .map((item) => item.id);
         draft.categories = draft.categories.filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) !== version);
         draft.lineItems = draft.lineItems.filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) !== version);
-        project.planning_versions = nextVersions;
+        if (shouldResetToV1) {
+          draft.categories
+            .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === onlyRemainingVersion)
+            .forEach((item) => {
+              item.planning_version = DEFAULT_PLANNING_VERSION;
+            });
+          draft.lineItems
+            .filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === onlyRemainingVersion)
+            .forEach((item) => {
+              item.planning_version = DEFAULT_PLANNING_VERSION;
+            });
+        }
+        project.planning_versions = shouldResetToV1 ? [DEFAULT_PLANNING_VERSION] : nextVersions;
         project.preferred_planning_version = nextPreferred;
         markDirty(projectId);
         if (useSupabase) {
-          void saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: nextVersions, preferred_planning_version: nextPreferred }).eq('id', projectId));
+          void saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: project.planning_versions, preferred_planning_version: nextPreferred }).eq('id', projectId));
           removedCategoryIds.forEach((categoryId) => void saveSupabase('removed planning category', supabase.from('categories').delete().eq('id', categoryId)));
           void saveSupabase('removed planning line items', supabase.from('line_items').delete().eq('project_id', projectId).eq('planning_version', version));
+          if (shouldResetToV1) {
+            void saveSupabase('reset planning categories', supabase.from('categories').update({ planning_version: DEFAULT_PLANNING_VERSION }).eq('project_id', projectId).eq('planning_version', onlyRemainingVersion));
+            void saveSupabase('reset planning line items', supabase.from('line_items').update({ planning_version: DEFAULT_PLANNING_VERSION }).eq('project_id', projectId).eq('planning_version', onlyRemainingVersion));
+          }
         }
       }),
       keepProjectPlanningVersion: (projectId, version) => mutate((draft) => {
@@ -528,13 +548,25 @@ export function PlannerProvider({ children }) {
           .map((item) => item.id);
         draft.categories = draft.categories.filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version);
         draft.lineItems = draft.lineItems.filter((item) => item.project_id !== projectId || (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version);
-        project.planning_versions = [version];
-        project.preferred_planning_version = version;
+        draft.categories
+          .filter((item) => item.project_id === projectId)
+          .forEach((item) => {
+            item.planning_version = DEFAULT_PLANNING_VERSION;
+          });
+        draft.lineItems
+          .filter((item) => item.project_id === projectId)
+          .forEach((item) => {
+            item.planning_version = DEFAULT_PLANNING_VERSION;
+          });
+        project.planning_versions = [DEFAULT_PLANNING_VERSION];
+        project.preferred_planning_version = DEFAULT_PLANNING_VERSION;
         markDirty(projectId);
         if (useSupabase) {
-          void saveSupabase('preferred planning version', supabase.from('projects').update({ planning_versions: [version], preferred_planning_version: version }).eq('id', projectId));
+          void saveSupabase('preferred planning version', supabase.from('projects').update({ planning_versions: [DEFAULT_PLANNING_VERSION], preferred_planning_version: DEFAULT_PLANNING_VERSION }).eq('id', projectId));
           removedCategoryIds.forEach((categoryId) => void saveSupabase('removed planning category', supabase.from('categories').delete().eq('id', categoryId)));
           void saveSupabase('removed planning line items', supabase.from('line_items').delete().eq('project_id', projectId).neq('planning_version', version));
+          void saveSupabase('reset kept categories', supabase.from('categories').update({ planning_version: DEFAULT_PLANNING_VERSION }).eq('project_id', projectId).eq('planning_version', version));
+          void saveSupabase('reset kept line items', supabase.from('line_items').update({ planning_version: DEFAULT_PLANNING_VERSION }).eq('project_id', projectId).eq('planning_version', version));
         }
       }),
       setPreferredPlanningVersion: (projectId, version) => mutate((draft) => {

@@ -90,10 +90,11 @@ function versionsForProject(project, lineItems = [], categories = []) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, duplicateProjectPlanning, deleteProjectPlanningVersion, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
+  const [versionDuplicateSource, setVersionDuplicateSource] = useState('V1');
   const [search, setSearch] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
@@ -186,6 +187,7 @@ export default function Dashboard() {
   const versionMenuPreferred = versionMenuProject?.preferred_planning_version && versionMenuVersions.includes(versionMenuProject.preferred_planning_version)
     ? versionMenuProject.preferred_planning_version
     : versionMenuVersions[0];
+  const selectedDuplicateSource = versionMenuVersions.includes(versionDuplicateSource) ? versionDuplicateSource : versionMenuPreferred;
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -309,6 +311,7 @@ export default function Dashboard() {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
+                        setVersionDuplicateSource(preferredVersion);
                         setVersionMenuProjectId(project.id);
                       }}
                       className="icon-button font-bold"
@@ -373,33 +376,55 @@ export default function Dashboard() {
                     {version}
                   </button>
                   {versionMenuVersions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm(`Delete ${version}? This cannot be undone.`)) {
-                          deleteProjectPlanningVersion(versionMenuProject.id, version);
-                          setVersionMenuProjectId(null);
-                        }
-                      }}
-                      className="icon-button"
-                      aria-label={`Delete ${version}`}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Use ${version} as the current planning and delete all other versions? This cannot be undone.`)) {
+                            keepProjectPlanningVersion(versionMenuProject.id, version);
+                            setVersionMenuProjectId(null);
+                          }
+                        }}
+                        className="secondary-button !px-2 !py-1 text-xs"
+                      >
+                        Keep only
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete ${version}? This cannot be undone.`)) {
+                            deleteProjectPlanningVersion(versionMenuProject.id, version);
+                            setVersionMenuProjectId(null);
+                          }
+                        }}
+                        className="icon-button"
+                        aria-label={`Delete ${version}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
             </div>
             {versionMenuVersions.length < 5 && (
-              <button
-                type="button"
-                onClick={() => {
-                  duplicateProjectPlanning(versionMenuProject.id, versionMenuPreferred);
-                }}
-                className="primary-button mt-5 w-full"
-              >
-                <Plus size={16} /> Add duplicated version
-              </button>
+              <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <label className="block space-y-1">
+                  <span className="text-xs font-semibold uppercase text-ink-500">Duplicate from</span>
+                  <select className="field !py-2" value={selectedDuplicateSource} onChange={(event) => setVersionDuplicateSource(event.target.value)}>
+                    {versionMenuVersions.map((version) => <option key={version} value={version}>{version}</option>)}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    duplicateProjectPlanning(versionMenuProject.id, selectedDuplicateSource);
+                  }}
+                  className="primary-button mt-3 w-full"
+                >
+                  <Plus size={16} /> Add duplicated version
+                </button>
+              </div>
             )}
           </div>
         </div>

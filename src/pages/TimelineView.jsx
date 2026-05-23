@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -592,7 +593,7 @@ function CategoryBlock({
   );
 }
 
-export default function TimelineView({ project, planningVersion = 'V1' }) {
+export default function TimelineView({ project, planningVersion = 'V1', planningVersions = ['V1'] }) {
   const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem } = usePlanner();
   const [zoom, setZoom] = useState('month');
   const [tableVisible, setTableVisible] = useState(true);
@@ -1045,7 +1046,23 @@ export default function TimelineView({ project, planningVersion = 'V1' }) {
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
           <div>
-            <h1 className="text-xl font-semibold">{project.name}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold">{project.name}</h1>
+              {planningVersions.length > 1 && (
+                <span className="flex items-center gap-1">
+                  <span className="rounded-md border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-xs font-semibold uppercase text-amber-200">Working in {planningVersion}</span>
+                  {planningVersions.map((version) => (
+                    <Link
+                      key={version}
+                      to={`/projects/${project.id}?version=${version}`}
+                      className={`rounded-md border px-2 py-1 text-xs font-semibold transition ${version === planningVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 text-ink-500 hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100'}`}
+                    >
+                      {version}
+                    </Link>
+                  ))}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-ink-500">{project.client || 'Internal project'}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
