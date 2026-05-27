@@ -561,6 +561,11 @@ as $$
       select jsonb_agg(to_jsonb(l) order by l.column_type, l.value)
       from public.labels l
       join share s on l.project_id is null or l.project_id = s.project_id
+    ), '[]'::jsonb),
+    'assetLists', coalesce((
+      select jsonb_agg(to_jsonb(al) order by al.sort_order)
+      from public.asset_lists al
+      join share s on s.project_id = al.project_id
     ), '[]'::jsonb)
   )
   from share;

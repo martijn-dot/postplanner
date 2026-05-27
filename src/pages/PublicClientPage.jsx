@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
@@ -19,7 +19,89 @@ function readLocalShare(token) {
     categories: planner.categories?.filter((category) => category.project_id === share.projectId) ?? [],
     lineItems: planner.lineItems?.filter((item) => item.project_id === share.projectId) ?? [],
     labels: planner.labels?.filter((label) => !label.project_id || label.project_id === share.projectId) ?? [],
+    assetLists: planner.assetLists?.filter((list) => list.project_id === share.projectId) ?? [],
   };
+}
+
+function assetColumns(list) {
+  return [...(list?.columns ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+function assetRows(list) {
+  return [...(list?.rows ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+function assetCategories(list) {
+  return [...(list?.categories ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+function assetValue(value, column) {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  if (column.type === 'length') return `${text.replace(/s$/i, '')}s`;
+  if (column.type === 'text') return text.replace(/\s+/g, '-');
+  return text;
+}
+
+function assetFilename(project, list, row) {
+  const columns = assetColumns(list);
+  const parts = [project.project_number, project.client, project.name, row.number, ...columns.map((column) => assetValue(row.values?.[column.id], column))]
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean);
+  return parts.join(list.global_separator ?? '_');
+}
+
+function PublicAssetList({ project, assetLists = [] }) {
+  const [activeId, setActiveId] = useState(assetLists[0]?.id ?? '');
+  const activeList = assetLists.find((list) => list.id === activeId) ?? assetLists[0];
+  useEffect(() => {
+    if (!activeId && assetLists[0]?.id) setActiveId(assetLists[0].id);
+  }, [activeId, assetLists]);
+
+  if (!assetLists.length) return <div className="rounded-lg border border-black/10 bg-white px-4 py-10 text-center text-ink-500 dark:border-white/10 dark:bg-ink-900">No asset list published yet.</div>;
+
+  const columns = assetColumns(activeList);
+  const rows = assetRows(activeList);
+  const groups = assetCategories(activeList);
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {assetLists.map((list) => (
+          <button key={list.id} type="button" onClick={() => setActiveId(list.id)} className={`tab ${list.id === activeList.id ? 'tab-active' : ''}`}>{list.name}</button>
+        ))}
+      </div>
+      <div className="overflow-auto rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
+        <table className="w-full min-w-[900px] border-collapse text-sm">
+          <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
+            <tr>
+              <th className="px-3 py-3">Number</th>
+              {columns.map((column) => <th key={column.id} className="px-3 py-3">{column.name}</th>)}
+              <th className="px-3 py-3">Filename</th>
+              <th className="px-3 py-3">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(groups.length ? groups : [{ id: null, name: 'Asset list' }]).map((group) => (
+              <Fragment key={group.id ?? 'asset-list'}>
+                <tr key={`${group.id}-heading`} className="bg-accent-500/10">
+                  <td colSpan={columns.length + 3} className="px-3 py-2 text-xs font-bold uppercase text-accent-300">{group.name}</td>
+                </tr>
+                {(groups.length ? rows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === group.id) : rows).map((row) => (
+                  <tr key={row.id} className="border-t border-black/5 dark:border-white/5">
+                    <td className="px-3 py-2 font-mono">{row.number}</td>
+                    {columns.map((column) => <td key={column.id} className="px-3 py-2">{assetValue(row.values?.[column.id], column) || '-'}</td>)}
+                    <td className="px-3 py-2 font-mono text-xs">{assetFilename(project, activeList, row)}</td>
+                    <td className="px-3 py-2">{row.notes || '-'}</td>
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 export default function PublicClientPage() {
@@ -27,8 +109,10 @@ export default function PublicClientPage() {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tab, setTab] = useState('planning');
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
+  const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
 
   useEffect(() => {
     let alive = true;
@@ -95,14 +179,22 @@ export default function PublicClientPage() {
             <Download size={17} /> Download Excel
           </button>
         </div>
-        <ClientPlanningTable
-          project={payload.project}
-          lineItems={payload.lineItems}
-          labels={payload.labels}
-          categories={payload.categories}
-          showEmptyDates
-          uncategorizedName={uncategorizedName}
-        />
+        <div className="mb-5 flex gap-2">
+          <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
+          <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
+        </div>
+        {tab === 'planning' ? (
+          <ClientPlanningTable
+            project={payload.project}
+            lineItems={payload.lineItems}
+            labels={payload.labels}
+            categories={payload.categories}
+            showEmptyDates
+            uncategorizedName={uncategorizedName}
+          />
+        ) : (
+          <PublicAssetList project={payload.project} assetLists={assetLists} />
+        )}
       </div>
     </main>
   );

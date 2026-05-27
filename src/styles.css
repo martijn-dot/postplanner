@@ -243,7 +243,7 @@ input {
   align-items: center;
   border-right: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
-  gap: 6px;
+  gap: 3px;
   min-width: 0;
   padding: 0 8px;
   position: relative;
@@ -286,27 +286,6 @@ input {
   opacity: 0.5;
 }
 
-.asset-column-drag-handle {
-  border-radius: 5px;
-  color: #8b879c;
-  cursor: grab;
-  flex: 0 0 auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.68rem;
-  font-weight: 900;
-  line-height: 1;
-  padding: 6px 3px;
-}
-
-.asset-column-drag-handle:hover {
-  background: rgba(109, 93, 252, 0.14);
-  color: #c7c0ff;
-}
-
-.asset-column-drag-handle:active {
-  cursor: grabbing;
-}
-
 .dark .asset-cell {
   border-right-color: rgba(255, 255, 255, 0.055);
 }
@@ -331,11 +310,11 @@ input {
   color: #8bdcff;
   font: inherit;
   font-weight: 700;
-  min-width: 0;
+  min-width: max-content;
   outline: none;
   padding: 4px 6px;
   text-transform: none;
-  width: 100%;
+  width: auto;
 }
 
 .asset-header-name:focus {
@@ -380,35 +359,7 @@ input {
 }
 
 .asset-category-body {
-  padding-left: 38px;
   position: relative;
-}
-
-.asset-category-rail {
-  align-items: center;
-  background: rgba(109, 93, 252, 0.2);
-  border-right: 1px solid rgba(109, 93, 252, 0.28);
-  bottom: 0;
-  color: #c7c0ff;
-  display: flex;
-  font-size: 0.68rem;
-  font-weight: 900;
-  justify-content: center;
-  left: 0;
-  position: absolute;
-  text-transform: uppercase;
-  top: 0;
-  width: 38px;
-}
-
-.asset-category-rail span {
-  display: inline-block;
-  letter-spacing: 0;
-  max-height: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transform: rotate(180deg);
-  writing-mode: vertical-rl;
 }
 
 .asset-header-icon {
@@ -443,17 +394,28 @@ input {
   text-transform: none;
   transform: translateX(-50%);
   white-space: nowrap;
-  z-index: 1200;
+  z-index: 5000;
 }
 
-.asset-row-color {
-  border: 0;
-  border-radius: 4px;
-  height: 18px;
-  margin-right: 2px;
-  overflow: hidden;
-  padding: 0;
-  width: 18px;
+.asset-row-actions {
+  align-items: center;
+  border-right: 1px solid rgba(0, 0, 0, 0.045);
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.asset-row-color-select {
+  border: 1px solid rgba(109, 93, 252, 0.22);
+  border-radius: 5px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  height: 26px;
+  margin-right: 4px;
+  max-width: 58px;
+  outline: none;
+  padding: 0 2px;
 }
 
 .asset-filename-input {
@@ -539,7 +501,7 @@ input {
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  z-index: 1000;
+  z-index: 5000;
 }
 
 .asset-label-option {
@@ -555,16 +517,6 @@ input {
 
 .asset-label-option:hover {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.asset-resize-handle {
-  bottom: 0;
-  cursor: ew-resize;
-  position: absolute;
-  right: -4px;
-  top: 0;
-  width: 8px;
-  z-index: 5;
 }
 
 .fill-handle-zone {

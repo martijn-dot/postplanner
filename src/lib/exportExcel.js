@@ -154,18 +154,19 @@ function formatAssetValue(value, column) {
 
 function assetSheetRows(project, list) {
   const columns = visibleColumns(list);
-  const headers = ['Number', ...columns.map((column) => column.name), 'Filename'];
+  const headers = ['Number', ...columns.map((column) => column.name), 'Filename', 'Notes'];
   const sortedRows = [...(list.rows ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const categories = [...(list.categories ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const groups = categories.length ? categories : [{ id: null, name: 'Category 1' }];
   const rows = groups.flatMap((category) => {
-    const groupRows = sortedRows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === category.id);
+    const groupRows = categories.length ? sortedRows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === category.id) : sortedRows;
     return [
-      [category.name, ...Array.from({ length: columns.length + 1 }, () => '')],
+      [category.name, ...Array.from({ length: columns.length + 2 }, () => '')],
       ...groupRows.map((row) => [
         row.number ?? '',
         ...columns.map((column) => formatAssetValue(row.values?.[column.id], column)),
         formatAssetFilename(project, list, row),
+        row.notes ?? '',
       ]),
     ];
   });
@@ -187,6 +188,7 @@ function appendAssetSheet(XLSX, workbook, project, list) {
     { wch: 12 },
     ...columns.map((column) => ({ wch: Math.max(12, Math.round((column.width ?? 160) / 9)) })),
     { wch: 54 },
+    { wch: 28 },
   ];
   XLSX.utils.book_append_sheet(workbook, worksheet, (list.name || 'Asset list').slice(0, 31));
 }

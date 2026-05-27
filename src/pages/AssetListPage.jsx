@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, Download, FileSpreadsheet, Plus, Settings, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Download, FileSpreadsheet, Plus, RotateCcw, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadAssetListExcel } from '../lib/exportExcel.js';
@@ -23,6 +23,15 @@ const STANDARD_COLUMNS = [
 ];
 
 const SEPARATORS = ['-', '_', ' '];
+const ROW_COLORS = [
+  { name: 'None', value: '', bg: 'transparent', text: 'inherit' },
+  { name: 'Green', value: 'green', bg: '#dcfce7', text: '#166534' },
+  { name: 'Yellow', value: 'yellow', bg: '#fef9c3', text: '#854d0e' },
+  { name: 'Red', value: 'red', bg: '#fee2e2', text: '#991b1b' },
+  { name: 'Blue', value: 'blue', bg: '#dbeafe', text: '#1e40af' },
+  { name: 'Pink', value: 'pink', bg: '#fce7f3', text: '#9d174d' },
+  { name: 'Orange', value: 'orange', bg: '#ffedd5', text: '#9a3412' },
+];
 
 function uid() {
   return crypto.randomUUID();
@@ -71,6 +80,7 @@ function formatCellValue(value, column) {
   const text = String(value ?? '').trim();
   if (!text) return '';
   if (column.type === 'length') return `${text.replace(/s$/i, '')}s`;
+  if (column.type === 'text') return text.replace(/\s+/g, '-');
   return text;
 }
 
@@ -85,6 +95,10 @@ function labelColor(value = '') {
   const colors = ['#6d5dfc', '#28b8ff', '#10b981', '#f59e0b', '#f466ae', '#ef4444'];
   const index = [...value].reduce((total, char) => total + char.charCodeAt(0), 0) % colors.length;
   return colors[index];
+}
+
+function rowColorStyle(colorName) {
+  return ROW_COLORS.find((color) => color.value === colorName) ?? ROW_COLORS[0];
 }
 
 function LabelDropdown({ id, value, options, onChange, onMoveDown, openDropdownId, setOpenDropdownId }) {
@@ -117,6 +131,19 @@ function LabelDropdown({ id, value, options, onChange, onMoveDown, openDropdownI
         </div>
       )}
     </div>
+  );
+}
+
+function SeparatorDropdown({ value, onChange, openDropdownId, setOpenDropdownId }) {
+  return (
+    <LabelDropdown
+      id="global-separator"
+      value={value === ' ' ? 'Blank' : value}
+      options={['-', '_', 'Blank']}
+      onChange={(nextValue) => onChange(nextValue === 'Blank' ? ' ' : nextValue || '_')}
+      openDropdownId={openDropdownId}
+      setOpenDropdownId={setOpenDropdownId}
+    />
   );
 }
 
@@ -276,14 +303,20 @@ export default function AssetListPage({ project }) {
     });
   };
 
+  const autoFitColumnWidth = (column) => {
+    const values = rows.map((row) => String(row.values?.[column.id] ?? ''));
+    const longest = [column.name, ...values].reduce((maxLength, value) => Math.max(maxLength, value.length), 0);
+    return Math.max(120, Math.min(360, longest * 8 + 88));
+  };
+
   const addColumn = () => {
     const column = {
       id: uid(),
       name: `Column ${columns.length + 1}`,
-      type: 'text',
+      type: 'custom-dropdown',
       options: [],
       separator: null,
-      width: 170,
+      width: 190,
       sort_order: columns.length,
     };
     saveColumns([...columns, column], updateRowsForColumn(activeList.rows, column.id));
@@ -312,6 +345,17 @@ export default function AssetListPage({ project }) {
         sort_order: index,
       }));
     saveList({ columns: nextColumns, categories: nextCategories, rows: nextRows, global_separator: activeList.global_separator || '_' });
+  };
+
+  const reorderStandardColumns = () => {
+    const expected = ['unique/ratio', 'asset type', 'name', 'length', 'ratio'];
+    const names = columns.map((column) => column.name.toLowerCase());
+    if (!expected.every((name) => names.includes(name))) {
+      applyStandardColumns();
+      return;
+    }
+    const order = Object.fromEntries(expected.map((name, index) => [name, index]));
+    saveColumns([...columns].sort((a, b) => (order[a.name.toLowerCase()] ?? 99) - (order[b.name.toLowerCase()] ?? 99)));
   };
 
   useEffect(() => {
@@ -344,6 +388,8 @@ export default function AssetListPage({ project }) {
       group_id: fallbackCategory.id,
       values: Object.fromEntries(columns.map((column) => [column.id, ''])),
       sort_order: rows.length,
+      notes: '',
+      color: '',
     };
     saveList({ rows: [...rows, nextRow] });
   };
@@ -385,8 +431,21 @@ export default function AssetListPage({ project }) {
       values: Object.fromEntries(columns.map((column) => [column.id, ''])),
       sort_order: rows.length,
       color: '',
+      notes: '',
     };
     saveList({ rows: [...rows, nextRow] });
+  };
+
+  const duplicateRow = (rowId) => {
+    const sourceIndex = rows.findIndex((row) => row.id === rowId);
+    if (sourceIndex < 0) return;
+    const nextRows = rows.map((row, index) => ({ ...row, sort_order: index > sourceIndex ? index + 1 : index }));
+    nextRows.push({ ...structuredClone(rows[sourceIndex]), id: uid(), sort_order: sourceIndex + 1 });
+    saveList({ rows: nextRows.sort((a, b) => a.sort_order - b.sort_order) });
+  };
+
+  const deleteRow = (rowId) => {
+    saveList({ rows: rows.filter((row) => row.id !== rowId).map((row, index) => ({ ...row, sort_order: index })) });
   };
 
   const pasteCells = (event, rowIndex, columnIndex) => {
@@ -456,6 +515,7 @@ export default function AssetListPage({ project }) {
     const onKeyDown = (event) => {
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
       if (!selectedCells.length) return;
+      if (event.target?.closest?.('input, textarea, [contenteditable="true"]')) return;
       event.preventDefault();
       clearSelectedCells();
     };
@@ -512,22 +572,6 @@ export default function AssetListPage({ project }) {
     });
   };
 
-  const resizeColumn = (event, column) => {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = column.width ?? 170;
-    const onMove = (moveEvent) => {
-      const width = Math.max(110, startWidth + moveEvent.clientX - startX);
-      saveColumns(columns.map((item) => item.id === column.id ? { ...item, width } : item));
-    };
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
-
   const reorderColumn = (targetId) => {
     if (!dragColumnId || dragColumnId === targetId) return;
     const nextColumns = [...columns];
@@ -557,7 +601,7 @@ export default function AssetListPage({ project }) {
     return <div className="grid min-h-[60vh] place-items-center text-ink-500">Preparing asset list...</div>;
   }
 
-  const gridTemplate = `86px ${columns.map((column) => `${column.width ?? 170}px`).join(' ')} minmax(320px, 1fr)`;
+  const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} minmax(320px, 1fr) 220px`;
 
   return (
     <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -570,9 +614,9 @@ export default function AssetListPage({ project }) {
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-ink-500">
               Global separator
-              <select className="field !w-24 !py-2" value={activeList.global_separator ?? '_'} onChange={(event) => saveList({ global_separator: event.target.value })}>
-                {SEPARATORS.map((item) => <option key={item} value={item}>{item === ' ' ? 'blank' : item}</option>)}
-              </select>
+              <span className="w-28">
+                <SeparatorDropdown value={activeList.global_separator ?? '_'} onChange={(global_separator) => saveList({ global_separator })} openDropdownId={openDropdownId} setOpenDropdownId={setOpenDropdownId} />
+              </span>
             </label>
             <button type="button" onClick={() => downloadAssetListExcel(project, activeList, 'active')} className="secondary-button"><Download size={16} /> Active tab</button>
             <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all')} className="secondary-button"><FileSpreadsheet size={16} /> All tabs</button>
@@ -587,7 +631,6 @@ export default function AssetListPage({ project }) {
             <button type="button" onClick={() => setActiveId(createAssetListTab(project.id, activeList.id))} className="icon-button" aria-label="Duplicate setup"><Copy size={16} /></button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <input className="field !w-52 !py-2" value={activeList.name} onChange={(event) => saveList({ name: event.target.value })} />
             {projectLists.length > 1 && (
               <button type="button" onClick={() => deleteAssetListTab(activeList.id)} className="icon-button" aria-label="Delete setup"><Trash2 size={16} /></button>
             )}
@@ -599,13 +642,14 @@ export default function AssetListPage({ project }) {
         <button type="button" onClick={addColumn} className="primary-button"><Plus size={16} /> Column</button>
         <button type="button" onClick={addRow} className="secondary-button"><Plus size={16} /> Row</button>
         <button type="button" onClick={addCategory} className="secondary-button"><Plus size={16} /> Category</button>
+        <button type="button" onClick={reorderStandardColumns} className="secondary-button"><RotateCcw size={16} /> Re-order columns</button>
         <span className="ml-auto text-xs font-semibold uppercase text-ink-500">Autosaved</span>
       </div>
 
       <div className="asset-list-scroll flex-1 overflow-auto">
         <div className="min-w-max">
-          <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: `38px ${gridTemplate}` }}>
-            <div className="asset-list-header locked" />
+          <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: fullGridTemplate }}>
+            <div className="asset-list-header locked">Actions</div>
             <div className="asset-list-header locked">Number</div>
             {columns.map((column) => (
               <div
@@ -624,17 +668,6 @@ export default function AssetListPage({ project }) {
                   setDropColumnId('');
                 }}
               >
-                <span
-                  className="asset-column-drag-handle"
-                  draggable
-                  onDragStart={(event) => {
-                    setDragColumnId(column.id);
-                    event.dataTransfer.effectAllowed = 'move';
-                  }}
-                  title="Drag column"
-                >
-                  :::
-                </span>
                 <input
                   className="asset-header-name"
                   defaultValue={column.name}
@@ -651,10 +684,10 @@ export default function AssetListPage({ project }) {
                 />
                 <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-icon" aria-label="Column settings" data-tooltip="Settings"><Settings size={11} /></button>
                 <button type="button" onClick={() => deleteColumn(column.id)} className="asset-header-icon" aria-label="Delete column" data-tooltip="Delete"><Trash2 size={11} /></button>
-                <button type="button" onPointerDown={(event) => resizeColumn(event, column)} className="asset-resize-handle" aria-label="Resize column" />
               </div>
             ))}
             <div className="asset-list-header locked">Filename</div>
+            <div className="asset-list-header locked">Notes</div>
           </div>
 
           {(categories.length ? categories : [fallbackCategory]).map((category) => {
@@ -672,15 +705,19 @@ export default function AssetListPage({ project }) {
                   />
                 </div>
                 <div className="asset-category-body">
-                  <div className="asset-category-rail">
-                    <span>{category.name}</span>
-                  </div>
                 {!category.collapsed && groupRows.map((row) => {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
+                  const rowColor = rowColorStyle(row.color);
                   return (
-                    <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: gridTemplate, backgroundColor: row.color || undefined }}>
+                    <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: fullGridTemplate, backgroundColor: rowColor.bg, color: rowColor.text }}>
+                      <div className="asset-row-actions">
+                        <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>
+                        <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
+                      </div>
                       <div className={`asset-cell ${selectedCells.some((cell) => cell.rowIndex === absoluteRowIndex && cell.columnIndex === -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
-                        <input type="color" className="asset-row-color" value={row.color || '#ffffff'} onChange={(event) => updateRow(row.id, { color: event.target.value })} aria-label="Row color" />
+                        <select className="asset-row-color-select" value={row.color ?? ''} onChange={(event) => updateRow(row.id, { color: event.target.value })} aria-label="Row color">
+                          {ROW_COLORS.map((color) => <option key={color.value || 'none'} value={color.value}>{color.name}</option>)}
+                        </select>
                         <input
                           className="table-input"
                           value={row.number ?? ''}
@@ -770,6 +807,17 @@ export default function AssetListPage({ project }) {
                         }}
                       >
                         <input className="asset-filename-input" readOnly value={generatedFilename(project, activeList, row)} />
+                      </div>
+                      <div className="asset-cell">
+                        <input
+                          className="table-input"
+                          value={row.notes ?? ''}
+                          onChange={(event) => updateRow(row.id, { notes: event.target.value })}
+                          onCopy={(event) => {
+                            event.preventDefault();
+                            event.clipboardData.setData('text/plain', row.notes ?? '');
+                          }}
+                        />
                       </div>
                     </div>
                   );
