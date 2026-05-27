@@ -114,3 +114,76 @@ export async function downloadPlanningExcel(project, rows) {
     cellStyles: true,
   });
 }
+
+function assetFileName(project, suffix) {
+  return `${safeFileName(project.name)}_${suffix}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+}
+
+function visibleColumns(list) {
+  return [...(list.columns ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+function formatAssetFilename(project, list, row) {
+  const options = list.filename_options ?? {};
+  const columns = visibleColumns(list);
+  const baseParts = [project.project_number, project.client, project.name, row.number].filter((part) => String(part ?? '').trim());
+  const columnParts = columns
+    .map((column) => ({ column, value: String(row.values?.[column.id] ?? '').trim() }))
+    .filter((item) => item.value);
+  const parts = [
+    ...baseParts.map((value, index) => ({ value: String(value).trim(), separator: index < baseParts.length - 1 ? list.global_separator ?? '-' : null })),
+    ...columnParts.map((item) => ({ value: item.value, separator: item.column.separator || list.global_separator || '-' })),
+  ];
+  let filename = parts.reduce((output, part, index) => {
+    if (index === 0) return part.value;
+    const previous = parts[index - 1];
+    return `${output}${previous.separator || list.global_separator || '-'}${part.value}`;
+  }, '');
+  if (options.capitalizeWords) filename = filename.replace(/\b\w/g, (letter) => letter.toUpperCase());
+  if (options.lowercase) filename = filename.toLowerCase();
+  if (options.hyphenateSpaces) filename = filename.replace(/\s+/g, '-');
+  return filename;
+}
+
+function assetSheetRows(project, list) {
+  const columns = visibleColumns(list);
+  const headers = ['Number', ...columns.map((column) => column.name), 'Filename'];
+  const rows = [...(list.rows ?? [])]
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((row) => [
+      row.number ?? '',
+      ...columns.map((column) => row.values?.[column.id] ?? ''),
+      formatAssetFilename(project, list, row),
+    ]);
+  return { headers, rows, columns };
+}
+
+function appendAssetSheet(XLSX, workbook, project, list) {
+  const { headers, rows, columns } = assetSheetRows(project, list);
+  const metadata = [
+    ['ASSET LIST:', '', list.name || 'Asset list'],
+    ['Project number:', '', project.project_number || '-'],
+    ['Client:', '', project.client || '-'],
+    ['Project:', '', project.name || '-'],
+    [],
+    headers,
+  ];
+  const worksheet = XLSX.utils.aoa_to_sheet([...metadata, ...rows]);
+  worksheet['!cols'] = [
+    { wch: 12 },
+    ...columns.map((column) => ({ wch: Math.max(12, Math.round((column.width ?? 160) / 9)) })),
+    { wch: 54 },
+  ];
+  XLSX.utils.book_append_sheet(workbook, worksheet, (list.name || 'Asset list').slice(0, 31));
+}
+
+export async function downloadAssetListExcel(project, lists, mode = 'active') {
+  const XLSX = await import('xlsx');
+  const workbook = XLSX.utils.book_new();
+  const exportLists = Array.isArray(lists) ? lists : [lists];
+  exportLists.forEach((list) => appendAssetSheet(XLSX, workbook, project, list));
+  XLSX.writeFile(workbook, assetFileName(project, mode === 'all' ? 'asset-lists' : 'asset-list'), {
+    bookType: 'xlsx',
+    cellStyles: true,
+  });
+}

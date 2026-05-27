@@ -44,6 +44,53 @@ function dbCategory(category) {
   return rest;
 }
 
+function defaultAssetColumns() {
+  return [
+    { id: id(), name: 'Asset type', type: 'dropdown', options: ['film', 'cutdown', 'social', 'display'], separator: null, width: 180, sort_order: 0 },
+    { id: id(), name: 'Version', type: 'dropdown', options: ['v01', 'v02', 'final'], separator: null, width: 140, sort_order: 1 },
+  ];
+}
+
+function defaultAssetRows(columns = []) {
+  return Array.from({ length: 8 }, (_, index) => ({
+    id: id(),
+    number: String(index + 1).padStart(2, '0'),
+    values: Object.fromEntries(columns.map((column) => [column.id, ''])),
+    sort_order: index,
+  }));
+}
+
+function createAssetList(projectId, name, sortOrder = 0) {
+  const columns = defaultAssetColumns();
+  return {
+    id: id(),
+    project_id: projectId,
+    name,
+    sort_order: sortOrder,
+    global_separator: '-',
+    filename_options: { lowercase: false, capitalizeWords: false, hyphenateSpaces: false },
+    columns,
+    rows: defaultAssetRows(columns),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function dbAssetList(list) {
+  return {
+    id: list.id,
+    project_id: list.project_id,
+    name: list.name,
+    sort_order: list.sort_order ?? 0,
+    global_separator: list.global_separator ?? '-',
+    filename_options: list.filename_options ?? {},
+    columns: list.columns ?? [],
+    rows: list.rows ?? [],
+    created_at: list.created_at,
+    updated_at: list.updated_at ?? new Date().toISOString(),
+  };
+}
+
 function readShares() {
   return JSON.parse(localStorage.getItem(SHARE_STORAGE_KEY) ?? '{}');
 }
@@ -126,6 +173,7 @@ function hydrateDefaults(userId) {
     producers: [{ id: id(), name: profile.display_name, created_by: userId, created_at: new Date().toISOString() }],
     presence: [],
     invitations: [],
+    assetLists: [],
     appSettings: { ...DEFAULT_APP_SETTINGS, defaultPlanning: resolveDefaultPlanning(DEFAULT_APP_SETTINGS, labels) },
   };
 }
@@ -207,6 +255,7 @@ function normalizeLocalData(data, userId) {
     producers: data.producers ?? [...new Set(profiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: id(), name, created_by: userId, created_at: now })),
     presence: data.presence ?? [],
     invitations: data.invitations ?? [],
+    assetLists: data.assetLists ?? [],
     appSettings: {
       ...DEFAULT_APP_SETTINGS,
       ...(data.appSettings ?? {}),
@@ -228,7 +277,7 @@ function readLocal(userId) {
 }
 
 async function loadSupabaseData() {
-  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers, appSettings] = await Promise.all([
+  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers, appSettings, assetLists] = await Promise.all([
     supabase.from('projects').select('*').order('created_at', { ascending: false }),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('line_items').select('*').order('sort_order'),
@@ -239,6 +288,7 @@ async function loadSupabaseData() {
     supabase.from('clients').select('*').order('name'),
     supabase.from('producers').select('*').order('name'),
     supabase.from('app_settings').select('*').eq('key', 'default_planning').maybeSingle(),
+    supabase.from('asset_lists').select('*').order('sort_order'),
   ]);
   for (const result of [projects, categories, lineItems, labels, profiles, presence]) {
     if (result.error) throw result.error;
@@ -247,6 +297,7 @@ async function loadSupabaseData() {
   if (clients.error && clients.error.code !== '42P01' && clients.error.code !== '42501') throw clients.error;
   if (producers.error && producers.error.code !== '42P01' && producers.error.code !== '42501') throw producers.error;
   if (appSettings.error && appSettings.error.code !== '42P01' && appSettings.error.code !== '42501' && appSettings.error.code !== 'PGRST205') throw appSettings.error;
+  if (assetLists.error && assetLists.error.code !== '42P01' && assetLists.error.code !== '42501' && assetLists.error.code !== 'PGRST205') throw assetLists.error;
   const loadedProfiles = profiles.data ?? [];
   const loadedClients = clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name }));
   const loadedProjects = projects.data.map((project) => ({
@@ -266,6 +317,13 @@ async function loadSupabaseData() {
     producers: producers.data ?? [...new Set(loadedProfiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: name, name })),
     presence: presence.data ?? [],
     invitations: invitations.data ?? [],
+    assetLists: (assetLists.data ?? []).map((list) => ({
+      ...list,
+      columns: list.columns ?? [],
+      rows: list.rows ?? [],
+      filename_options: list.filename_options ?? {},
+      global_separator: list.global_separator ?? '-',
+    })),
     appSettings: {
       ...DEFAULT_APP_SETTINGS,
       defaultPlanning: resolveDefaultPlanning({ defaultPlanning: appSettings.data?.value }, labels.data),
@@ -275,7 +333,7 @@ async function loadSupabaseData() {
 
 export function PlannerProvider({ children }) {
   const { user, demoMode, hasSupabaseConfig } = useAuth();
-  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [], appSettings: DEFAULT_APP_SETTINGS });
+  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [], assetLists: [], appSettings: DEFAULT_APP_SETTINGS });
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
   const [dirtyProjectIds, setDirtyProjectIds] = useState([]);
@@ -458,7 +516,57 @@ export function PlannerProvider({ children }) {
         draft.categories = draft.categories.filter((item) => item.project_id !== projectId);
         draft.lineItems = draft.lineItems.filter((item) => item.project_id !== projectId);
         draft.labels = draft.labels.filter((item) => item.project_id !== projectId);
+        draft.assetLists = draft.assetLists.filter((item) => item.project_id !== projectId);
         if (useSupabase) void saveSupabase('project delete', supabase.from('projects').delete().eq('id', projectId));
+      }),
+      ensureAssetList: (projectId) => mutate((draft) => {
+        const existing = draft.assetLists
+          .filter((item) => item.project_id === projectId)
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
+        if (existing) return existing.id;
+        const list = createAssetList(projectId, 'Asset list', 0);
+        draft.assetLists.push(list);
+        markDirty(projectId);
+        if (useSupabase) void saveSupabase('asset list', supabase.from('asset_lists').insert(dbAssetList(list)));
+        return list.id;
+      }),
+      createAssetListTab: (projectId, sourceId = null) => mutate((draft) => {
+        const projectLists = draft.assetLists.filter((item) => item.project_id === projectId);
+        const source = sourceId ? projectLists.find((item) => item.id === sourceId) : null;
+        const nextSortOrder = projectLists.length;
+        const list = source ? {
+          ...structuredClone(source),
+          id: id(),
+          name: `${source.name} copy`,
+          sort_order: nextSortOrder,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } : createAssetList(projectId, `Setup ${nextSortOrder + 1}`, nextSortOrder);
+        draft.assetLists.push(list);
+        markDirty(projectId);
+        if (useSupabase) void saveSupabase('asset list tab', supabase.from('asset_lists').insert(dbAssetList(list)));
+        return list.id;
+      }),
+      updateAssetList: (listId, patch) => mutate((draft) => {
+        const list = draft.assetLists.find((item) => item.id === listId);
+        if (!list) return;
+        const nextPatch = { ...patch, updated_at: new Date().toISOString() };
+        Object.assign(list, nextPatch);
+        markDirty(list.project_id);
+        if (useSupabase) void saveSupabase('asset list changes', supabase.from('asset_lists').update(nextPatch).eq('id', listId));
+      }),
+      deleteAssetListTab: (listId) => mutate((draft) => {
+        const list = draft.assetLists.find((item) => item.id === listId);
+        if (!list) return;
+        draft.assetLists = draft.assetLists.filter((item) => item.id !== listId);
+        draft.assetLists
+          .filter((item) => item.project_id === list.project_id)
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          .forEach((item, index) => {
+            item.sort_order = index;
+          });
+        markDirty(list.project_id);
+        if (useSupabase) void saveSupabase('asset list delete', supabase.from('asset_lists').delete().eq('id', listId));
       }),
       duplicateProjectPlanning: (projectId, sourceVersion = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);

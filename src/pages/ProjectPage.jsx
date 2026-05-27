@@ -4,6 +4,7 @@ import TopBar from '../components/TopBar.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import TimelineView from './TimelineView.jsx';
 import ClientTableView from './ClientTableView.jsx';
+import AssetListPage from './AssetListPage.jsx';
 
 function versionsForProject(project, lineItems = [], categories = []) {
   const versions = [...new Set([
@@ -55,10 +56,12 @@ export default function ProjectPage() {
       <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
         <NavLink end to={`/projects/${projectId}?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
         <NavLink to={`/projects/${projectId}/client?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
+        <NavLink to={`/projects/${projectId}/assets?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Asset List</NavLink>
       </nav>
       <Routes>
         <Route index element={<TimelineView project={project} planningVersion={activeVersion} planningVersions={versions} />} />
         <Route path="client" element={<ClientTableView project={project} planningVersion={activeVersion} />} />
+        <Route path="assets" element={<AssetListPage project={project} />} />
       </Routes>
     </div>
   );

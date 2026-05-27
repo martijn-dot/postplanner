@@ -1,4 +1,4 @@
-import { ChevronDown, Copy, Plus, Search, Settings, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, FileSpreadsheet, Plus, Search, Settings, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -319,6 +319,19 @@ export default function Dashboard() {
                       title="Planning versions"
                     >
                       V
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        window.location.href = `/projects/${project.id}/assets?version=${preferredVersion}`;
+                      }}
+                      className="icon-button"
+                      aria-label="Start building asset list"
+                      title="Start building asset list"
+                    >
+                      <FileSpreadsheet size={17} />
                     </button>
                       <button
                         type="button"
