@@ -3,7 +3,7 @@ create table if not exists public.asset_lists (
   project_id uuid not null references public.projects(id) on delete cascade,
   name text not null default 'Asset list',
   sort_order integer not null default 0,
-  global_separator text not null default '-',
+  global_separator text not null default '_',
   filename_options jsonb not null default '{}'::jsonb,
   columns jsonb not null default '[]'::jsonb,
   categories jsonb not null default '[]'::jsonb,

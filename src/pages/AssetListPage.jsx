@@ -15,17 +15,12 @@ const LABEL_TYPE_NAMES = {
 };
 
 const STANDARD_COLUMNS = [
-  { name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_TYPES, width: 180 },
-  { name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_RATIOS, width: 140 },
   { name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_UNIQUE_RATIO, width: 150 },
-  { name: 'Platform', type: 'dropdown', label_type: 'asset_platform', options: DEFAULT_PLATFORMS, width: 140 },
-  { name: 'Length', type: 'length', options: [], width: 120 },
+  { name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_TYPES, width: 180 },
   { name: 'Name', type: 'text', options: [], width: 240 },
+  { name: 'Length', type: 'length', options: [], width: 120 },
+  { name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_RATIOS, width: 140 },
 ];
-
-const SETUP_TEMPLATES = {
-  'Standard asset list': STANDARD_COLUMNS,
-};
 
 const SEPARATORS = ['-', '_', ' '];
 
@@ -92,19 +87,19 @@ function labelColor(value = '') {
   return colors[index];
 }
 
-function LabelDropdown({ value, options, onChange, onMoveDown }) {
-  const [open, setOpen] = useState(false);
+function LabelDropdown({ id, value, options, onChange, onMoveDown, openDropdownId, setOpenDropdownId }) {
+  const open = openDropdownId === id;
   return (
     <div className="asset-label-select">
       <button
         type="button"
         className="asset-label-button"
-        onClick={() => setOpen((next) => !next)}
+        onClick={() => setOpenDropdownId(open ? '' : id)}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.preventDefault();
             if (open) onMoveDown?.();
-            else setOpen(true);
+            else setOpenDropdownId(id);
           }
         }}
       >
@@ -113,9 +108,9 @@ function LabelDropdown({ value, options, onChange, onMoveDown }) {
       </button>
       {open && (
         <div className="asset-label-menu">
-          <button type="button" className="asset-label-option" onClick={() => { onChange(''); setOpen(false); }}>-</button>
+          <button type="button" className="asset-label-option" onClick={() => { onChange(''); setOpenDropdownId(''); }}>-</button>
           {options.map((option) => (
-            <button key={option} type="button" className="asset-label-option" onClick={() => { onChange(option); setOpen(false); }}>
+            <button key={option} type="button" className="asset-label-option" onClick={() => { onChange(option); setOpenDropdownId(''); }}>
               <span className="asset-label-chip" style={{ backgroundColor: labelColor(option) }}>{option}</span>
             </button>
           ))}
@@ -235,7 +230,9 @@ export default function AssetListPage({ project }) {
   const [selectedCell, setSelectedCell] = useState(null);
   const [dragColumnId, setDragColumnId] = useState('');
   const [dropColumnId, setDropColumnId] = useState('');
-  const [setupTemplate, setSetupTemplate] = useState('');
+  const [selectedCells, setSelectedCells] = useState([]);
+  const [selectionAnchor, setSelectionAnchor] = useState(null);
+  const [openDropdownId, setOpenDropdownId] = useState('');
   const fillSourceRef = useRef(null);
   const globalOptions = useMemo(() => ({
     asset_type: labels.filter((label) => !label.project_id && label.column_type === 'asset_type' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
@@ -320,8 +317,13 @@ export default function AssetListPage({ project }) {
   useEffect(() => {
     if (!activeList || !columns.length) return;
     const names = columns.map((column) => column.name.toLowerCase());
-    const hasStandardColumns = ['asset type', 'ratio', 'unique/ratio', 'platform', 'length', 'name'].every((name) => names.includes(name));
+    const expected = ['unique/ratio', 'asset type', 'name', 'length', 'ratio'];
+    const hasStandardColumns = expected.every((name) => names.includes(name));
     if (!hasStandardColumns) applyStandardColumns();
+    else if (expected.some((name, index) => names[index] !== name)) {
+      const order = Object.fromEntries(expected.map((name, index) => [name, index]));
+      saveColumns([...columns].sort((a, b) => (order[a.name.toLowerCase()] ?? 99) - (order[b.name.toLowerCase()] ?? 99)));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeList?.id]);
 
@@ -346,30 +348,6 @@ export default function AssetListPage({ project }) {
     saveList({ rows: [...rows, nextRow] });
   };
 
-  const applySetupTemplate = () => {
-    const templateColumns = SETUP_TEMPLATES[setupTemplate];
-    if (!templateColumns) return;
-    const nextColumns = templateColumns.map((column, index) => ({
-      id: uid(),
-      separator: null,
-      sort_order: index,
-      ...column,
-      options: column.label_type ? globalOptions[column.label_type] ?? column.options : column.options,
-    }));
-    const groupId = fallbackCategory.id === 'default' ? uid() : fallbackCategory.id;
-    const nextCategories = categories.length ? categories : [{ ...fallbackCategory, id: groupId }];
-    const nextRows = rows.length
-      ? rows.map((row) => ({ ...row, group_id: row.group_id ?? groupId, values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])) }))
-      : Array.from({ length: 8 }, (_, index) => ({
-        id: uid(),
-        number: String(index + 1).padStart(2, '0'),
-        group_id: groupId,
-        values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])),
-        sort_order: index,
-      }));
-    saveList({ columns: nextColumns, categories: nextCategories, rows: nextRows });
-  };
-
   const updateCell = (rowId, columnId, value) => {
     saveList({
       rows: rows.map((row) => row.id === rowId ? { ...row, values: { ...(row.values ?? {}), [columnId]: value } } : row),
@@ -378,6 +356,10 @@ export default function AssetListPage({ project }) {
 
   const updateNumber = (rowId, value) => {
     saveList({ rows: rows.map((row) => row.id === rowId ? { ...row, number: value } : row) });
+  };
+
+  const updateRow = (rowId, patch) => {
+    saveList({ rows: rows.map((row) => row.id === rowId ? { ...row, ...patch } : row) });
   };
 
   const addCategory = () => {
@@ -395,12 +377,35 @@ export default function AssetListPage({ project }) {
     saveColumns(columns.map((column) => column.id === columnId ? { ...column, name: trimmed } : column));
   };
 
+  const addRowToCategory = (categoryId) => {
+    const nextRow = {
+      id: uid(),
+      number: String(rows.length + 1).padStart(2, '0'),
+      group_id: categoryId,
+      values: Object.fromEntries(columns.map((column) => [column.id, ''])),
+      sort_order: rows.length,
+      color: '',
+    };
+    saveList({ rows: [...rows, nextRow] });
+  };
+
   const pasteCells = (event, rowIndex, columnIndex) => {
     const text = event.clipboardData.getData('text/plain');
     if (!text) return;
     event.preventDefault();
     const matrix = text.split(/\r?\n/).filter((line) => line.length).map((line) => line.split('\t'));
     const nextRows = rows.map((row) => ({ ...row, values: { ...(row.values ?? {}) } }));
+    const sourceGroupId = nextRows[rowIndex]?.group_id ?? fallbackCategory.id;
+    while (nextRows.length < rowIndex + matrix.length) {
+      nextRows.push({
+        id: uid(),
+        number: String(nextRows.length + 1).padStart(2, '0'),
+        group_id: sourceGroupId,
+        values: Object.fromEntries(columns.map((column) => [column.id, ''])),
+        sort_order: nextRows.length,
+        color: '',
+      });
+    }
     matrix.forEach((line, y) => {
       const row = nextRows[rowIndex + y];
       if (!row) return;
@@ -412,6 +417,86 @@ export default function AssetListPage({ project }) {
       });
     });
     saveList({ rows: nextRows });
+  };
+
+  const cellKey = (rowIndex, columnIndex) => `${rowIndex}:${columnIndex}`;
+
+  const selectRange = (from, to) => {
+    if (!from || !to) return;
+    const rowStart = Math.min(from.rowIndex, to.rowIndex);
+    const rowEnd = Math.max(from.rowIndex, to.rowIndex);
+    const columnStart = Math.min(from.columnIndex, to.columnIndex);
+    const columnEnd = Math.max(from.columnIndex, to.columnIndex);
+    const nextCells = [];
+    for (let rowIndex = rowStart; rowIndex <= rowEnd; rowIndex += 1) {
+      for (let columnIndex = columnStart; columnIndex <= columnEnd; columnIndex += 1) {
+        nextCells.push({ rowIndex, columnIndex });
+      }
+    }
+    setSelectedCells(nextCells);
+  };
+
+  const clearSelectedCells = () => {
+    if (!selectedCells.length) return;
+    const selected = new Set(selectedCells.map((cell) => cellKey(cell.rowIndex, cell.columnIndex)));
+    saveList({
+      rows: rows.map((row, rowIndex) => {
+        const nextRow = { ...row, values: { ...(row.values ?? {}) } };
+        if (selected.has(cellKey(rowIndex, -1))) nextRow.number = '';
+        columns.forEach((column, columnIndex) => {
+          if (selected.has(cellKey(rowIndex, columnIndex))) nextRow.values[column.id] = '';
+        });
+        return nextRow;
+      }),
+    });
+  };
+
+  useEffect(() => {
+    const onPointerUp = () => setSelectionAnchor(null);
+    const onKeyDown = (event) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      if (!selectedCells.length) return;
+      event.preventDefault();
+      clearSelectedCells();
+    };
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  });
+
+  const cellSelectionProps = (rowIndex, columnIndex) => ({
+    onPointerDown: (event) => {
+      if (event.button !== 0) return;
+      const anchor = { rowIndex, columnIndex };
+      setSelectionAnchor(anchor);
+      setSelectedCells([anchor]);
+    },
+    onPointerEnter: () => {
+      if (selectionAnchor) selectRange(selectionAnchor, { rowIndex, columnIndex });
+    },
+  });
+
+  const copySelectedCells = (event, rowIndex, columnIndex, value) => {
+    if (!selectedCells.length || !selectedCells.some((cell) => cell.rowIndex === rowIndex && cell.columnIndex === columnIndex)) {
+      event.clipboardData.setData('text/plain', value);
+      return;
+    }
+    const rowIndexes = [...new Set(selectedCells.map((cell) => cell.rowIndex))].sort((a, b) => a - b);
+    const columnIndexes = [...new Set(selectedCells.map((cell) => cell.columnIndex))].sort((a, b) => a - b);
+    const selected = new Set(selectedCells.map((cell) => cellKey(cell.rowIndex, cell.columnIndex)));
+    const text = rowIndexes.map((selectedRowIndex) => columnIndexes.map((selectedColumnIndex) => {
+      if (!selected.has(cellKey(selectedRowIndex, selectedColumnIndex))) return '';
+      const row = rows[selectedRowIndex];
+      if (!row) return '';
+      if (selectedColumnIndex === -1) return row.number ?? '';
+      if (selectedColumnIndex === columns.length) return generatedFilename(project, activeList, row);
+      const column = columns[selectedColumnIndex];
+      return column ? formatCellValue(row.values?.[column.id], column) : '';
+    }).join('\t')).join('\n');
+    event.clipboardData.setData('text/plain', text);
   };
 
   const fillTo = (targetRowId, columnId) => {
@@ -514,32 +599,13 @@ export default function AssetListPage({ project }) {
         <button type="button" onClick={addColumn} className="primary-button"><Plus size={16} /> Column</button>
         <button type="button" onClick={addRow} className="secondary-button"><Plus size={16} /> Row</button>
         <button type="button" onClick={addCategory} className="secondary-button"><Plus size={16} /> Category</button>
-        <select className="field !w-52 !py-2" value={setupTemplate} onChange={(event) => setSetupTemplate(event.target.value)}>
-          <option value="">Setup template</option>
-          {Object.keys(SETUP_TEMPLATES).map((name) => <option key={name} value={name}>{name}</option>)}
-        </select>
-        <button type="button" onClick={applySetupTemplate} disabled={!setupTemplate} className="secondary-button">Apply</button>
-        <button type="button" onClick={applyStandardColumns} className="secondary-button">Standard columns</button>
-        {[
-          ['lowercase', 'small caps'],
-          ['capitalizeWords', 'first words capital'],
-          ['hyphenateSpaces', 'spaces to -'],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => saveList({ filename_options: { ...(activeList.filename_options ?? {}), [key]: !activeList.filename_options?.[key] } })}
-            className={`secondary-button ${activeList.filename_options?.[key] ? 'is-active' : ''}`}
-          >
-            {label}
-          </button>
-        ))}
         <span className="ml-auto text-xs font-semibold uppercase text-ink-500">Autosaved</span>
       </div>
 
       <div className="asset-list-scroll flex-1 overflow-auto">
         <div className="min-w-max">
-          <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: gridTemplate }}>
+          <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: `38px ${gridTemplate}` }}>
+            <div className="asset-list-header locked" />
             <div className="asset-list-header locked">Number</div>
             {columns.map((column) => (
               <div
@@ -567,7 +633,7 @@ export default function AssetListPage({ project }) {
                   }}
                   title="Drag column"
                 >
-                  ::
+                  :::
                 </span>
                 <input
                   className="asset-header-name"
@@ -583,8 +649,8 @@ export default function AssetListPage({ project }) {
                   }}
                   draggable={false}
                 />
-                <button type="button" onClick={() => setSettingsColumnId(column.id)} className="icon-button !h-7 !w-7" aria-label="Column settings"><Settings size={14} /></button>
-                <button type="button" onClick={() => deleteColumn(column.id)} className="icon-button !h-7 !w-7" aria-label="Delete column"><Trash2 size={14} /></button>
+                <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-icon" aria-label="Column settings" data-tooltip="Settings"><Settings size={11} /></button>
+                <button type="button" onClick={() => deleteColumn(column.id)} className="asset-header-icon" aria-label="Delete column" data-tooltip="Delete"><Trash2 size={11} /></button>
                 <button type="button" onPointerDown={(event) => resizeColumn(event, column)} className="asset-resize-handle" aria-label="Resize column" />
               </div>
             ))}
@@ -595,7 +661,7 @@ export default function AssetListPage({ project }) {
             const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === category.id);
             return (
               <div key={category.id} className="asset-category-container">
-                <div className="asset-category-bar" style={{ width: '100%' }}>
+                <div className="asset-category-bar" style={{ marginLeft: 38 }}>
                   <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button !h-7 !w-7">
                     {category.collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                   </button>
@@ -605,11 +671,16 @@ export default function AssetListPage({ project }) {
                     onChange={(event) => updateCategory(category.id, { name: event.target.value })}
                   />
                 </div>
+                <div className="asset-category-body">
+                  <div className="asset-category-rail">
+                    <span>{category.name}</span>
+                  </div>
                 {!category.collapsed && groupRows.map((row) => {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
                   return (
-                    <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: gridTemplate }}>
-                      <div className="asset-cell" data-asset-row={absoluteRowIndex} data-asset-column="-1">
+                    <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: gridTemplate, backgroundColor: row.color || undefined }}>
+                      <div className={`asset-cell ${selectedCells.some((cell) => cell.rowIndex === absoluteRowIndex && cell.columnIndex === -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
+                        <input type="color" className="asset-row-color" value={row.color || '#ffffff'} onChange={(event) => updateRow(row.id, { color: event.target.value })} aria-label="Row color" />
                         <input
                           className="table-input"
                           value={row.number ?? ''}
@@ -621,20 +692,25 @@ export default function AssetListPage({ project }) {
                             }
                           }}
                           onPaste={(event) => pasteCells(event, absoluteRowIndex, -1)}
+                          onCopy={(event) => {
+                            event.preventDefault();
+                            copySelectedCells(event, absoluteRowIndex, -1, row.number ?? '');
+                          }}
                           onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'number' })}
                         />
                       </div>
                       {columns.map((column, columnIndex) => {
-                        const selected = selectedCell?.rowId === row.id && selectedCell?.columnId === column.id;
+                        const selected = selectedCells.some((cell) => cell.rowIndex === absoluteRowIndex && cell.columnIndex === columnIndex) || (selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
                         return (
                           <div
                             key={column.id}
                             data-asset-row={absoluteRowIndex}
                             data-asset-column={columnIndex}
                             className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${dragColumnId === column.id ? 'is-column-dragging' : ''}`}
+                            {...cellSelectionProps(absoluteRowIndex, columnIndex)}
                             onCopy={(event) => {
                               event.preventDefault();
-                              event.clipboardData.setData('text/plain', row.values?.[column.id] ?? '');
+                              copySelectedCells(event, absoluteRowIndex, columnIndex, row.values?.[column.id] ?? '');
                             }}
                             onPaste={(event) => pasteCells(event, absoluteRowIndex, columnIndex)}
                             onPointerEnter={() => fillTo(row.id, column.id)}
@@ -655,10 +731,13 @@ export default function AssetListPage({ project }) {
                               />
                             ) : (
                               <LabelDropdown
+                                id={`${row.id}:${column.id}`}
                                 value={row.values?.[column.id] ?? ''}
                                 options={(column.label_type ? globalOptions[column.label_type] : column.options) ?? []}
                                 onChange={(value) => updateCell(row.id, column.id, value)}
                                 onMoveDown={() => focusCellBelow(absoluteRowIndex, columnIndex)}
+                                openDropdownId={openDropdownId}
+                                setOpenDropdownId={setOpenDropdownId}
                               />
                             )}
                             <span className="fill-handle-zone">
@@ -680,13 +759,28 @@ export default function AssetListPage({ project }) {
                           </div>
                         );
                       })}
-                      <div className="asset-cell bg-zinc-50 font-mono text-xs text-ink-600 dark:bg-white/[0.035] dark:text-ink-300">
-                        <span className="truncate px-2">{generatedFilename(project, activeList, row)}</span>
+                      <div
+                        className={`asset-cell bg-zinc-50 font-mono text-xs text-ink-600 dark:bg-white/[0.035] dark:text-ink-300 ${selectedCells.some((cell) => cell.rowIndex === absoluteRowIndex && cell.columnIndex === columns.length) ? 'copy-cell-selected' : ''}`}
+                        data-asset-row={absoluteRowIndex}
+                        data-asset-column={columns.length}
+                        {...cellSelectionProps(absoluteRowIndex, columns.length)}
+                        onCopy={(event) => {
+                          event.preventDefault();
+                          copySelectedCells(event, absoluteRowIndex, columns.length, generatedFilename(project, activeList, row));
+                        }}
+                      >
+                        <input className="asset-filename-input" readOnly value={generatedFilename(project, activeList, row)} />
                       </div>
                     </div>
                   );
                 })}
                 {!category.collapsed && !groupRows.length && <p className="px-4 py-3 text-sm text-ink-500">No rows in this category yet.</p>}
+                {!category.collapsed && (
+                  <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-add-row-button">
+                    <Plus size={14} /> Row
+                  </button>
+                )}
+                </div>
               </div>
             );
           })}

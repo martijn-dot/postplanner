@@ -56,12 +56,11 @@ function dbCategory(category) {
 
 function defaultAssetColumns() {
   return [
-    { id: id(), name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_type').map((label) => label.value), separator: null, width: 180, sort_order: 0 },
-    { id: id(), name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_ratio').map((label) => label.value), separator: null, width: 140, sort_order: 1 },
-    { id: id(), name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_unique_ratio').map((label) => label.value), separator: null, width: 150, sort_order: 2 },
-    { id: id(), name: 'Platform', type: 'dropdown', label_type: 'asset_platform', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_platform').map((label) => label.value), separator: null, width: 140, sort_order: 3 },
-    { id: id(), name: 'Length', type: 'length', options: [], separator: null, width: 120, sort_order: 4 },
-    { id: id(), name: 'Name', type: 'text', options: [], separator: null, width: 240, sort_order: 5 },
+    { id: id(), name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_unique_ratio').map((label) => label.value), separator: null, width: 150, sort_order: 0 },
+    { id: id(), name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_type').map((label) => label.value), separator: null, width: 180, sort_order: 1 },
+    { id: id(), name: 'Name', type: 'text', options: [], separator: null, width: 240, sort_order: 2 },
+    { id: id(), name: 'Length', type: 'length', options: [], separator: null, width: 120, sort_order: 3 },
+    { id: id(), name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_ratio').map((label) => label.value), separator: null, width: 140, sort_order: 4 },
   ];
 }
 
