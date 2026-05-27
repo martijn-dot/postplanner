@@ -1,14 +1,24 @@
-import { Check, Copy, Download, FileSpreadsheet, Plus, Settings, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Download, FileSpreadsheet, Plus, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadAssetListExcel } from '../lib/exportExcel.js';
 
 const DEFAULT_ASSET_TYPES = ['OLV', 'SOC', 'PRV', 'HWT', 'TECH', 'CGI', 'Bumper', 'TrueView', 'Story', '360', 'IMG', 'FeatIMG', 'Photography', 'KV', 'StaticBanner', 'DynaBanner'];
 const DEFAULT_RATIOS = ['16x9', '9x16', '4x5', '1x1', '3x4', '4x3', 'TBC'];
+const DEFAULT_UNIQUE_RATIO = ['Unique', 'Ratio'];
+const DEFAULT_PLATFORMS = ['IG', 'FB', 'IG+TB', 'YT', 'TK', 'PIN', 'SPF'];
+const LABEL_TYPE_NAMES = {
+  asset_type: 'Asset Type',
+  asset_ratio: 'Ratio',
+  asset_unique_ratio: 'Unique/Ratio',
+  asset_platform: 'Platform',
+};
 
 const STANDARD_COLUMNS = [
   { name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_TYPES, width: 180 },
   { name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_RATIOS, width: 140 },
+  { name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_UNIQUE_RATIO, width: 150 },
+  { name: 'Platform', type: 'dropdown', label_type: 'asset_platform', options: DEFAULT_PLATFORMS, width: 140 },
   { name: 'Length', type: 'length', options: [], width: 120 },
   { name: 'Name', type: 'text', options: [], width: 240 },
 ];
@@ -17,7 +27,7 @@ const SETUP_TEMPLATES = {
   'Standard asset list': STANDARD_COLUMNS,
 };
 
-const SEPARATORS = ['-', '_', '.', ' '];
+const SEPARATORS = ['-', '_', ' '];
 
 function uid() {
   return crypto.randomUUID();
@@ -29,6 +39,10 @@ function orderedColumns(list) {
 
 function orderedRows(list) {
   return [...(list?.rows ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+function orderedCategories(list) {
+  return [...(list?.categories ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
 
 function applyFilenameOptions(value, options = {}) {
@@ -45,15 +59,15 @@ function generatedFilename(project, list, row) {
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   const rowParts = columns
-    .map((column) => ({ value: formatCellValue(row.values?.[column.id], column), separator: column.separator || list.global_separator || '-' }))
+    .map((column) => ({ value: formatCellValue(row.values?.[column.id], column), separator: column.separator || list.global_separator || '_' }))
     .filter((part) => part.value);
   const parts = [
-    ...baseParts.map((value) => ({ value, separator: list.global_separator || '-' })),
+    ...baseParts.map((value) => ({ value, separator: list.global_separator || '_' })),
     ...rowParts,
   ];
   const joined = parts.reduce((output, part, index) => {
     if (index === 0) return part.value;
-    return `${output}${parts[index - 1]?.separator || list.global_separator || '-'}${part.value}`;
+    return `${output}${parts[index - 1]?.separator || list.global_separator || '_'}${part.value}`;
   }, '');
   return applyFilenameOptions(joined, list.filename_options);
 }
@@ -70,6 +84,45 @@ function updateRowsForColumn(rows, columnId, fallback = '') {
     ...row,
     values: { ...(row.values ?? {}), [columnId]: row.values?.[columnId] ?? fallback },
   }));
+}
+
+function labelColor(value = '') {
+  const colors = ['#6d5dfc', '#28b8ff', '#10b981', '#f59e0b', '#f466ae', '#ef4444'];
+  const index = [...value].reduce((total, char) => total + char.charCodeAt(0), 0) % colors.length;
+  return colors[index];
+}
+
+function LabelDropdown({ value, options, onChange, onMoveDown }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="asset-label-select">
+      <button
+        type="button"
+        className="asset-label-button"
+        onClick={() => setOpen((next) => !next)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            if (open) onMoveDown?.();
+            else setOpen(true);
+          }
+        }}
+      >
+        {value ? <span className="asset-label-chip" style={{ backgroundColor: labelColor(value) }}>{value}</span> : <span className="text-ink-500">-</span>}
+        <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div className="asset-label-menu">
+          <button type="button" className="asset-label-option" onClick={() => { onChange(''); setOpen(false); }}>-</button>
+          {options.map((option) => (
+            <button key={option} type="button" className="asset-label-option" onClick={() => { onChange(option); setOpen(false); }}>
+              <span className="asset-label-chip" style={{ backgroundColor: labelColor(option) }}>{option}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
@@ -116,13 +169,15 @@ function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
                 value={labelType}
                 onChange={(event) => {
                   setLabelType(event.target.value);
+                  if (LABEL_TYPE_NAMES[event.target.value]) setName(LABEL_TYPE_NAMES[event.target.value]);
                   setOptionsText((globalOptions[event.target.value] ?? []).join('\n'));
                 }}
               >
                 <option value="">Choose label group</option>
                 <option value="asset_type">Asset Type</option>
                 <option value="asset_ratio">Ratio</option>
-                <option value="asset_category">Category</option>
+                <option value="asset_unique_ratio">Unique/Ratio</option>
+                <option value="asset_platform">Platform</option>
               </select>
             </label>
           )}
@@ -141,7 +196,7 @@ function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
             <span className="text-xs font-semibold uppercase text-ink-500">Separator after this column</span>
             <select className="field" value={separator} onChange={(event) => setSeparator(event.target.value)}>
               <option value="">Use global separator</option>
-              {SEPARATORS.map((item) => <option key={item} value={item}>{item === ' ' ? 'space' : item}</option>)}
+              {SEPARATORS.map((item) => <option key={item} value={item}>{item === ' ' ? 'blank space' : item}</option>)}
             </select>
           </label>
           {type === 'length' && <p className="text-sm text-ink-500">Only numbers are entered in the sheet. The filename shows the value with an s, like 15s.</p>}
@@ -185,7 +240,8 @@ export default function AssetListPage({ project }) {
   const globalOptions = useMemo(() => ({
     asset_type: labels.filter((label) => !label.project_id && label.column_type === 'asset_type' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
     asset_ratio: labels.filter((label) => !label.project_id && label.column_type === 'asset_ratio' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
-    asset_category: labels.filter((label) => !label.project_id && label.column_type === 'asset_category' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
+    asset_unique_ratio: labels.filter((label) => !label.project_id && label.column_type === 'asset_unique_ratio' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
+    asset_platform: labels.filter((label) => !label.project_id && label.column_type === 'asset_platform' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
   }), [labels]);
 
   useEffect(() => {
@@ -200,6 +256,8 @@ export default function AssetListPage({ project }) {
   const activeList = projectLists.find((item) => item.id === activeId) ?? projectLists[0];
   const columns = orderedColumns(activeList);
   const rows = orderedRows(activeList);
+  const categories = orderedCategories(activeList);
+  const fallbackCategory = categories[0] ?? { id: 'default', name: 'Category 1', collapsed: false, sort_order: 0 };
   const settingsColumn = columns.find((column) => column.id === settingsColumnId);
 
   const saveList = (patch) => {
@@ -210,6 +268,13 @@ export default function AssetListPage({ project }) {
   const saveColumns = (nextColumns, nextRows = activeList.rows) => {
     saveList({
       columns: nextColumns.map((column, index) => ({ ...column, sort_order: index })),
+      rows: nextRows,
+    });
+  };
+
+  const saveCategories = (nextCategories, nextRows = rows) => {
+    saveList({
+      categories: nextCategories.map((category, index) => ({ ...category, sort_order: index })),
       rows: nextRows,
     });
   };
@@ -238,31 +303,43 @@ export default function AssetListPage({ project }) {
 
   const applyStandardColumns = () => {
     const nextColumns = standardColumns();
+    const groupId = fallbackCategory.id === 'default' ? uid() : fallbackCategory.id;
+    const nextCategories = categories.length ? categories : [{ ...fallbackCategory, id: groupId }];
     const nextRows = rows.length
-      ? rows.map((row) => ({ ...row, category: row.category ?? '', values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])) }))
+      ? rows.map((row) => ({ ...row, group_id: row.group_id ?? groupId, values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])) }))
       : Array.from({ length: 8 }, (_, index) => ({
         id: uid(),
         number: String(index + 1).padStart(2, '0'),
-        category: '',
+        group_id: groupId,
         values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])),
         sort_order: index,
       }));
-    saveList({ columns: nextColumns, rows: nextRows });
+    saveList({ columns: nextColumns, categories: nextCategories, rows: nextRows, global_separator: activeList.global_separator || '_' });
   };
 
   useEffect(() => {
     if (!activeList || !columns.length) return;
     const names = columns.map((column) => column.name.toLowerCase());
-    const hasStandardColumns = ['asset type', 'ratio', 'length', 'name'].every((name) => names.includes(name));
+    const hasStandardColumns = ['asset type', 'ratio', 'unique/ratio', 'platform', 'length', 'name'].every((name) => names.includes(name));
     if (!hasStandardColumns) applyStandardColumns();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeList?.id]);
+
+  useEffect(() => {
+    if (!activeList || categories.length) return;
+    const category = { id: uid(), name: 'Category 1', collapsed: false, sort_order: 0 };
+    saveList({
+      categories: [category],
+      rows: rows.map((row) => ({ ...row, group_id: row.group_id ?? category.id })),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeList?.id, categories.length]);
 
   const addRow = () => {
     const nextRow = {
       id: uid(),
       number: String(rows.length + 1).padStart(2, '0'),
-      category: '',
+      group_id: fallbackCategory.id,
       values: Object.fromEntries(columns.map((column) => [column.id, ''])),
       sort_order: rows.length,
     };
@@ -279,16 +356,18 @@ export default function AssetListPage({ project }) {
       ...column,
       options: column.label_type ? globalOptions[column.label_type] ?? column.options : column.options,
     }));
+    const groupId = fallbackCategory.id === 'default' ? uid() : fallbackCategory.id;
+    const nextCategories = categories.length ? categories : [{ ...fallbackCategory, id: groupId }];
     const nextRows = rows.length
-      ? rows.map((row) => ({ ...row, values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])) }))
+      ? rows.map((row) => ({ ...row, group_id: row.group_id ?? groupId, values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])) }))
       : Array.from({ length: 8 }, (_, index) => ({
         id: uid(),
         number: String(index + 1).padStart(2, '0'),
-        category: '',
+        group_id: groupId,
         values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])),
         sort_order: index,
       }));
-    saveList({ columns: nextColumns, rows: nextRows });
+    saveList({ columns: nextColumns, categories: nextCategories, rows: nextRows });
   };
 
   const updateCell = (rowId, columnId, value) => {
@@ -301,8 +380,13 @@ export default function AssetListPage({ project }) {
     saveList({ rows: rows.map((row) => row.id === rowId ? { ...row, number: value } : row) });
   };
 
-  const updateCategory = (rowId, category) => {
-    saveList({ rows: rows.map((row) => row.id === rowId ? { ...row, category } : row) });
+  const addCategory = () => {
+    const category = { id: uid(), name: `Category ${categories.length + 1}`, collapsed: false, sort_order: categories.length };
+    saveCategories([...categories, category]);
+  };
+
+  const updateCategory = (categoryId, patch) => {
+    saveCategories(categories.map((category) => category.id === categoryId ? { ...category, ...patch } : category));
   };
 
   const updateColumnName = (columnId, name) => {
@@ -322,8 +406,7 @@ export default function AssetListPage({ project }) {
       if (!row) return;
       line.forEach((value, x) => {
         const targetColumnIndex = columnIndex + x;
-        if (targetColumnIndex === -2) row.number = value;
-        if (targetColumnIndex === -1) row.category = value;
+        if (targetColumnIndex === -1) row.number = value;
         const column = columns[targetColumnIndex];
         if (column) row.values[column.id] = value;
       });
@@ -370,11 +453,26 @@ export default function AssetListPage({ project }) {
     saveColumns(nextColumns);
   };
 
+  const deleteColumn = (columnId) => {
+    const nextColumns = columns.filter((column) => column.id !== columnId);
+    const nextRows = rows.map((row) => {
+      const values = { ...(row.values ?? {}) };
+      delete values[columnId];
+      return { ...row, values };
+    });
+    saveColumns(nextColumns, nextRows);
+  };
+
+  const focusCellBelow = (rowIndex, columnIndex) => {
+    const target = document.querySelector(`[data-asset-row="${rowIndex + 1}"][data-asset-column="${columnIndex}"] input, [data-asset-row="${rowIndex + 1}"][data-asset-column="${columnIndex}"] button`);
+    target?.focus();
+  };
+
   if (!activeList) {
     return <div className="grid min-h-[60vh] place-items-center text-ink-500">Preparing asset list...</div>;
   }
 
-  const gridTemplate = `86px 180px ${columns.map((column) => `${column.width ?? 170}px`).join(' ')} minmax(320px, 1fr)`;
+  const gridTemplate = `86px ${columns.map((column) => `${column.width ?? 170}px`).join(' ')} minmax(320px, 1fr)`;
 
   return (
     <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -387,8 +485,8 @@ export default function AssetListPage({ project }) {
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-ink-500">
               Global separator
-              <select className="field !w-20 !py-2" value={activeList.global_separator ?? '-'} onChange={(event) => saveList({ global_separator: event.target.value })}>
-                {SEPARATORS.map((item) => <option key={item} value={item}>{item === ' ' ? 'space' : item}</option>)}
+              <select className="field !w-24 !py-2" value={activeList.global_separator ?? '_'} onChange={(event) => saveList({ global_separator: event.target.value })}>
+                {SEPARATORS.map((item) => <option key={item} value={item}>{item === ' ' ? 'blank' : item}</option>)}
               </select>
             </label>
             <button type="button" onClick={() => downloadAssetListExcel(project, activeList, 'active')} className="secondary-button"><Download size={16} /> Active tab</button>
@@ -415,6 +513,7 @@ export default function AssetListPage({ project }) {
       <div className="flex flex-wrap items-center gap-2 border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-900">
         <button type="button" onClick={addColumn} className="primary-button"><Plus size={16} /> Column</button>
         <button type="button" onClick={addRow} className="secondary-button"><Plus size={16} /> Row</button>
+        <button type="button" onClick={addCategory} className="secondary-button"><Plus size={16} /> Category</button>
         <select className="field !w-52 !py-2" value={setupTemplate} onChange={(event) => setSetupTemplate(event.target.value)}>
           <option value="">Setup template</option>
           {Object.keys(SETUP_TEMPLATES).map((name) => <option key={name} value={name}>{name}</option>)}
@@ -442,13 +541,10 @@ export default function AssetListPage({ project }) {
         <div className="min-w-max">
           <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: gridTemplate }}>
             <div className="asset-list-header locked">Number</div>
-            <div className="asset-list-header locked">Category</div>
             {columns.map((column) => (
               <div
                 key={column.id}
-                className={`asset-list-header ${dropColumnId === column.id ? 'is-drop-target' : ''}`}
-                draggable
-                onDragStart={() => setDragColumnId(column.id)}
+                className={`asset-list-header ${dropColumnId === column.id ? 'is-drop-target' : ''} ${dragColumnId === column.id ? 'is-column-dragging' : ''}`}
                 onDragEnter={() => setDropColumnId(column.id)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
@@ -462,6 +558,17 @@ export default function AssetListPage({ project }) {
                   setDropColumnId('');
                 }}
               >
+                <span
+                  className="asset-column-drag-handle"
+                  draggable
+                  onDragStart={(event) => {
+                    setDragColumnId(column.id);
+                    event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  title="Drag column"
+                >
+                  ::
+                </span>
                 <input
                   className="asset-header-name"
                   defaultValue={column.name}
@@ -477,89 +584,112 @@ export default function AssetListPage({ project }) {
                   draggable={false}
                 />
                 <button type="button" onClick={() => setSettingsColumnId(column.id)} className="icon-button !h-7 !w-7" aria-label="Column settings"><Settings size={14} /></button>
+                <button type="button" onClick={() => deleteColumn(column.id)} className="icon-button !h-7 !w-7" aria-label="Delete column"><Trash2 size={14} /></button>
                 <button type="button" onPointerDown={(event) => resizeColumn(event, column)} className="asset-resize-handle" aria-label="Resize column" />
               </div>
             ))}
             <div className="asset-list-header locked">Filename</div>
           </div>
 
-          {rows.map((row, rowIndex) => (
-            <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: gridTemplate }}>
-              <div className="asset-cell">
-                <input
-                  className="table-input"
-                  value={row.number ?? ''}
-                  onChange={(event) => updateNumber(row.id, event.target.value)}
-                  onPaste={(event) => pasteCells(event, rowIndex, -2)}
-                  onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'number' })}
-                />
+          {(categories.length ? categories : [fallbackCategory]).map((category) => {
+            const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === category.id);
+            return (
+              <div key={category.id} className="asset-category-container">
+                <div className="asset-category-bar" style={{ width: '100%' }}>
+                  <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button !h-7 !w-7">
+                    {category.collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                  </button>
+                  <input
+                    className="asset-category-name"
+                    value={category.name}
+                    onChange={(event) => updateCategory(category.id, { name: event.target.value })}
+                  />
+                </div>
+                {!category.collapsed && groupRows.map((row) => {
+                  const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
+                  return (
+                    <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: gridTemplate }}>
+                      <div className="asset-cell" data-asset-row={absoluteRowIndex} data-asset-column="-1">
+                        <input
+                          className="table-input"
+                          value={row.number ?? ''}
+                          onChange={(event) => updateNumber(row.id, event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              focusCellBelow(absoluteRowIndex, -1);
+                            }
+                          }}
+                          onPaste={(event) => pasteCells(event, absoluteRowIndex, -1)}
+                          onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'number' })}
+                        />
+                      </div>
+                      {columns.map((column, columnIndex) => {
+                        const selected = selectedCell?.rowId === row.id && selectedCell?.columnId === column.id;
+                        return (
+                          <div
+                            key={column.id}
+                            data-asset-row={absoluteRowIndex}
+                            data-asset-column={columnIndex}
+                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${dragColumnId === column.id ? 'is-column-dragging' : ''}`}
+                            onCopy={(event) => {
+                              event.preventDefault();
+                              event.clipboardData.setData('text/plain', row.values?.[column.id] ?? '');
+                            }}
+                            onPaste={(event) => pasteCells(event, absoluteRowIndex, columnIndex)}
+                            onPointerEnter={() => fillTo(row.id, column.id)}
+                          >
+                            {column.type === 'text' || column.type === 'length' ? (
+                              <input
+                                className="table-input"
+                                inputMode={column.type === 'length' ? 'numeric' : undefined}
+                                value={row.values?.[column.id] ?? ''}
+                                onChange={(event) => updateCell(row.id, column.id, column.type === 'length' ? event.target.value.replace(/[^\d.]/g, '') : event.target.value)}
+                                onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    focusCellBelow(absoluteRowIndex, columnIndex);
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <LabelDropdown
+                                value={row.values?.[column.id] ?? ''}
+                                options={(column.label_type ? globalOptions[column.label_type] : column.options) ?? []}
+                                onChange={(value) => updateCell(row.id, column.id, value)}
+                                onMoveDown={() => focusCellBelow(absoluteRowIndex, columnIndex)}
+                              />
+                            )}
+                            <span className="fill-handle-zone">
+                              <button
+                                type="button"
+                                className="fill-handle"
+                                onPointerDown={() => {
+                                  fillSourceRef.current = { rowId: row.id, columnId: column.id };
+                                  window.addEventListener('pointerup', () => {
+                                    fillSourceRef.current = null;
+                                    markProjectEdited(project.id);
+                                  }, { once: true });
+                                }}
+                                aria-label="Fill down"
+                              >
+                                +
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      })}
+                      <div className="asset-cell bg-zinc-50 font-mono text-xs text-ink-600 dark:bg-white/[0.035] dark:text-ink-300">
+                        <span className="truncate px-2">{generatedFilename(project, activeList, row)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {!category.collapsed && !groupRows.length && <p className="px-4 py-3 text-sm text-ink-500">No rows in this category yet.</p>}
               </div>
-              <div className="asset-cell">
-                <input
-                  className="table-input"
-                  list="asset-category-options"
-                  value={row.category ?? ''}
-                  onChange={(event) => updateCategory(row.id, event.target.value)}
-                  onPaste={(event) => pasteCells(event, rowIndex, -1)}
-                  onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'category' })}
-                />
-              </div>
-              {columns.map((column, columnIndex) => {
-                const selected = selectedCell?.rowId === row.id && selectedCell?.columnId === column.id;
-                return (
-                  <div
-                    key={column.id}
-                    className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''}`}
-                    onCopy={(event) => {
-                      event.preventDefault();
-                      event.clipboardData.setData('text/plain', row.values?.[column.id] ?? '');
-                    }}
-                    onPaste={(event) => pasteCells(event, rowIndex, columnIndex)}
-                    onPointerEnter={() => fillTo(row.id, column.id)}
-                  >
-                    {column.type === 'text' || column.type === 'length' ? (
-                      <input
-                        className="table-input"
-                        inputMode={column.type === 'length' ? 'numeric' : undefined}
-                        value={row.values?.[column.id] ?? ''}
-                        onChange={(event) => updateCell(row.id, column.id, column.type === 'length' ? event.target.value.replace(/[^\d.]/g, '') : event.target.value)}
-                        onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
-                      />
-                    ) : (
-                      <select
-                        className="table-input"
-                        value={row.values?.[column.id] ?? ''}
-                        onChange={(event) => updateCell(row.id, column.id, event.target.value)}
-                        onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
-                      >
-                        <option value="">-</option>
-                        {((column.label_type ? globalOptions[column.label_type] : column.options) ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
-                      </select>
-                    )}
-                    <span className="fill-handle-zone">
-                      <button
-                        type="button"
-                        className="fill-handle"
-                        onPointerDown={() => {
-                          fillSourceRef.current = { rowId: row.id, columnId: column.id };
-                          window.addEventListener('pointerup', () => {
-                            fillSourceRef.current = null;
-                            markProjectEdited(project.id);
-                          }, { once: true });
-                        }}
-                        aria-label="Fill down"
-                      >
-                        +
-                      </button>
-                    </span>
-                  </div>
-                );
-              })}
-              <div className="asset-cell bg-zinc-50 font-mono text-xs text-ink-600 dark:bg-white/[0.035] dark:text-ink-300">
-                <span className="truncate px-2">{generatedFilename(project, activeList, row)}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -584,9 +714,6 @@ export default function AssetListPage({ project }) {
           }}
         />
       )}
-      <datalist id="asset-category-options">
-        {globalOptions.asset_category.map((option) => <option key={option} value={option} />)}
-      </datalist>
     </main>
   );
 }

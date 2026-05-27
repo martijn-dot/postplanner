@@ -17,6 +17,10 @@ const DEFAULT_ASSET_LABELS = [
     .map((value, index) => ({ column_type: 'asset_type', value, color: '#6d5dfc', sort_order: index })),
   ...['16x9', '9x16', '4x5', '1x1', '3x4', '4x3', 'TBC']
     .map((value, index) => ({ column_type: 'asset_ratio', value, color: '#28b8ff', sort_order: index })),
+  ...['Unique', 'Ratio']
+    .map((value, index) => ({ column_type: 'asset_unique_ratio', value, color: '#f59e0b', sort_order: index })),
+  ...['IG', 'FB', 'IG+TB', 'YT', 'TK', 'PIN', 'SPF']
+    .map((value, index) => ({ column_type: 'asset_platform', value, color: '#10b981', sort_order: index })),
 ];
 
 function projectVersions(project) {
@@ -54,16 +58,18 @@ function defaultAssetColumns() {
   return [
     { id: id(), name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_type').map((label) => label.value), separator: null, width: 180, sort_order: 0 },
     { id: id(), name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_ratio').map((label) => label.value), separator: null, width: 140, sort_order: 1 },
-    { id: id(), name: 'Length', type: 'length', options: [], separator: null, width: 120, sort_order: 2 },
-    { id: id(), name: 'Name', type: 'text', options: [], separator: null, width: 240, sort_order: 3 },
+    { id: id(), name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_unique_ratio').map((label) => label.value), separator: null, width: 150, sort_order: 2 },
+    { id: id(), name: 'Platform', type: 'dropdown', label_type: 'asset_platform', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_platform').map((label) => label.value), separator: null, width: 140, sort_order: 3 },
+    { id: id(), name: 'Length', type: 'length', options: [], separator: null, width: 120, sort_order: 4 },
+    { id: id(), name: 'Name', type: 'text', options: [], separator: null, width: 240, sort_order: 5 },
   ];
 }
 
-function defaultAssetRows(columns = []) {
+function defaultAssetRows(columns = [], groupId = null) {
   return Array.from({ length: 8 }, (_, index) => ({
     id: id(),
     number: String(index + 1).padStart(2, '0'),
-    category: '',
+    group_id: groupId,
     values: Object.fromEntries(columns.map((column) => [column.id, ''])),
     sort_order: index,
   }));
@@ -90,15 +96,17 @@ function mergeDefaultAssetLabels(labels) {
 
 function createAssetList(projectId, name, sortOrder = 0) {
   const columns = defaultAssetColumns();
+  const group = { id: id(), name: 'Category 1', collapsed: false, sort_order: 0 };
   return {
     id: id(),
     project_id: projectId,
     name,
     sort_order: sortOrder,
-    global_separator: '-',
+    global_separator: '_',
     filename_options: { lowercase: false, capitalizeWords: false, hyphenateSpaces: false },
     columns,
-    rows: defaultAssetRows(columns),
+    categories: [group],
+    rows: defaultAssetRows(columns, group.id),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -110,9 +118,10 @@ function dbAssetList(list) {
     project_id: list.project_id,
     name: list.name,
     sort_order: list.sort_order ?? 0,
-    global_separator: list.global_separator ?? '-',
+    global_separator: list.global_separator ?? '_',
     filename_options: list.filename_options ?? {},
     columns: list.columns ?? [],
+    categories: list.categories ?? [],
     rows: list.rows ?? [],
     created_at: list.created_at,
     updated_at: list.updated_at ?? new Date().toISOString(),
@@ -349,9 +358,10 @@ async function loadSupabaseData() {
     assetLists: (assetLists.data ?? []).map((list) => ({
       ...list,
       columns: list.columns ?? [],
+      categories: list.categories ?? [],
       rows: list.rows ?? [],
       filename_options: list.filename_options ?? {},
-      global_separator: list.global_separator ?? '-',
+      global_separator: list.global_separator ?? '_',
     })),
     appSettings: {
       ...DEFAULT_APP_SETTINGS,

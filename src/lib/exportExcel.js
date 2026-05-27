@@ -131,13 +131,13 @@ function formatAssetFilename(project, list, row) {
     .map((column) => ({ column, value: formatAssetValue(row.values?.[column.id], column) }))
     .filter((item) => item.value);
   const parts = [
-    ...baseParts.map((value, index) => ({ value: String(value).trim(), separator: index < baseParts.length - 1 ? list.global_separator ?? '-' : null })),
-    ...columnParts.map((item) => ({ value: item.value, separator: item.column.separator || list.global_separator || '-' })),
+    ...baseParts.map((value, index) => ({ value: String(value).trim(), separator: index < baseParts.length - 1 ? list.global_separator ?? '_' : null })),
+    ...columnParts.map((item) => ({ value: item.value, separator: item.column.separator || list.global_separator || '_' })),
   ];
   let filename = parts.reduce((output, part, index) => {
     if (index === 0) return part.value;
     const previous = parts[index - 1];
-    return `${output}${previous.separator || list.global_separator || '-'}${part.value}`;
+    return `${output}${previous.separator || list.global_separator || '_'}${part.value}`;
   }, '');
   if (options.capitalizeWords) filename = filename.replace(/\b\w/g, (letter) => letter.toUpperCase());
   if (options.lowercase) filename = filename.toLowerCase();
@@ -154,15 +154,21 @@ function formatAssetValue(value, column) {
 
 function assetSheetRows(project, list) {
   const columns = visibleColumns(list);
-  const headers = ['Number', 'Category', ...columns.map((column) => column.name), 'Filename'];
-  const rows = [...(list.rows ?? [])]
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((row) => [
-      row.number ?? '',
-      row.category ?? '',
-      ...columns.map((column) => formatAssetValue(row.values?.[column.id], column)),
-      formatAssetFilename(project, list, row),
-    ]);
+  const headers = ['Number', ...columns.map((column) => column.name), 'Filename'];
+  const sortedRows = [...(list.rows ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const categories = [...(list.categories ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const groups = categories.length ? categories : [{ id: null, name: 'Category 1' }];
+  const rows = groups.flatMap((category) => {
+    const groupRows = sortedRows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === category.id);
+    return [
+      [category.name, ...Array.from({ length: columns.length + 1 }, () => '')],
+      ...groupRows.map((row) => [
+        row.number ?? '',
+        ...columns.map((column) => formatAssetValue(row.values?.[column.id], column)),
+        formatAssetFilename(project, list, row),
+      ]),
+    ];
+  });
   return { headers, rows, columns };
 }
 
@@ -179,7 +185,6 @@ function appendAssetSheet(XLSX, workbook, project, list) {
   const worksheet = XLSX.utils.aoa_to_sheet([...metadata, ...rows]);
   worksheet['!cols'] = [
     { wch: 12 },
-    { wch: 20 },
     ...columns.map((column) => ({ wch: Math.max(12, Math.round((column.width ?? 160) / 9)) })),
     { wch: 54 },
   ];

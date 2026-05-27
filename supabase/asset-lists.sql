@@ -6,10 +6,14 @@ create table if not exists public.asset_lists (
   global_separator text not null default '-',
   filename_options jsonb not null default '{}'::jsonb,
   columns jsonb not null default '[]'::jsonb,
+  categories jsonb not null default '[]'::jsonb,
   rows jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.asset_lists
+  add column if not exists categories jsonb not null default '[]'::jsonb;
 
 alter table public.asset_lists enable row level security;
 
