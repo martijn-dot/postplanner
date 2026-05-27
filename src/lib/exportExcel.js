@@ -128,7 +128,7 @@ function formatAssetFilename(project, list, row) {
   const columns = visibleColumns(list);
   const baseParts = [project.project_number, project.client, project.name, row.number].filter((part) => String(part ?? '').trim());
   const columnParts = columns
-    .map((column) => ({ column, value: String(row.values?.[column.id] ?? '').trim() }))
+    .map((column) => ({ column, value: formatAssetValue(row.values?.[column.id], column) }))
     .filter((item) => item.value);
   const parts = [
     ...baseParts.map((value, index) => ({ value: String(value).trim(), separator: index < baseParts.length - 1 ? list.global_separator ?? '-' : null })),
@@ -145,14 +145,22 @@ function formatAssetFilename(project, list, row) {
   return filename;
 }
 
+function formatAssetValue(value, column) {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  if (column.type === 'length') return `${text.replace(/s$/i, '')}s`;
+  return text;
+}
+
 function assetSheetRows(project, list) {
   const columns = visibleColumns(list);
-  const headers = ['Number', ...columns.map((column) => column.name), 'Filename'];
+  const headers = ['Number', 'Category', ...columns.map((column) => column.name), 'Filename'];
   const rows = [...(list.rows ?? [])]
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     .map((row) => [
       row.number ?? '',
-      ...columns.map((column) => row.values?.[column.id] ?? ''),
+      row.category ?? '',
+      ...columns.map((column) => formatAssetValue(row.values?.[column.id], column)),
       formatAssetFilename(project, list, row),
     ]);
   return { headers, rows, columns };
@@ -171,6 +179,7 @@ function appendAssetSheet(XLSX, workbook, project, list) {
   const worksheet = XLSX.utils.aoa_to_sheet([...metadata, ...rows]);
   worksheet['!cols'] = [
     { wch: 12 },
+    { wch: 20 },
     ...columns.map((column) => ({ wch: Math.max(12, Math.round((column.width ?? 160) / 9)) })),
     { wch: 54 },
   ];

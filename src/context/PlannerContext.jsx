@@ -12,6 +12,12 @@ const DEFAULT_APP_SETTINGS = {
   defaultPlanning: DEFAULT_PLANNING_WHAT_LABELS,
 };
 const DEFAULT_PLANNING_VERSION = 'V1';
+const DEFAULT_ASSET_LABELS = [
+  ...['OLV', 'SOC', 'PRV', 'HWT', 'TECH', 'CGI', 'Bumper', 'TrueView', 'Story', '360', 'IMG', 'FeatIMG', 'Photography', 'KV', 'StaticBanner', 'DynaBanner']
+    .map((value, index) => ({ column_type: 'asset_type', value, color: '#6d5dfc', sort_order: index })),
+  ...['16x9', '9x16', '4x5', '1x1', '3x4', '4x3', 'TBC']
+    .map((value, index) => ({ column_type: 'asset_ratio', value, color: '#28b8ff', sort_order: index })),
+];
 
 function projectVersions(project) {
   const versions = Array.isArray(project?.planning_versions) ? project.planning_versions : [project?.preferred_planning_version, DEFAULT_PLANNING_VERSION];
@@ -46,8 +52,10 @@ function dbCategory(category) {
 
 function defaultAssetColumns() {
   return [
-    { id: id(), name: 'Asset type', type: 'dropdown', options: ['film', 'cutdown', 'social', 'display'], separator: null, width: 180, sort_order: 0 },
-    { id: id(), name: 'Version', type: 'dropdown', options: ['v01', 'v02', 'final'], separator: null, width: 140, sort_order: 1 },
+    { id: id(), name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_type').map((label) => label.value), separator: null, width: 180, sort_order: 0 },
+    { id: id(), name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_ratio').map((label) => label.value), separator: null, width: 140, sort_order: 1 },
+    { id: id(), name: 'Length', type: 'length', options: [], separator: null, width: 120, sort_order: 2 },
+    { id: id(), name: 'Name', type: 'text', options: [], separator: null, width: 240, sort_order: 3 },
   ];
 }
 
@@ -55,9 +63,29 @@ function defaultAssetRows(columns = []) {
   return Array.from({ length: 8 }, (_, index) => ({
     id: id(),
     number: String(index + 1).padStart(2, '0'),
+    category: '',
     values: Object.fromEntries(columns.map((column) => [column.id, ''])),
     sort_order: index,
   }));
+}
+
+function mergeDefaultAssetLabels(labels) {
+  const nextLabels = [...labels];
+  const existingAssetTypes = new Set(nextLabels.filter((item) => !item.project_id).map((item) => item.column_type));
+  DEFAULT_ASSET_LABELS.filter((label) => !existingAssetTypes.has(label.column_type)).forEach((label) => {
+    const exists = nextLabels.some((item) => !item.project_id && item.column_type === label.column_type && normalizedName(item.value) === normalizedName(label.value));
+    if (!exists) {
+      nextLabels.push({
+        ...label,
+        id: id(),
+        project_id: null,
+        scope: 'global',
+        is_default: true,
+        is_divider: false,
+      });
+    }
+  });
+  return nextLabels;
 }
 
 function createAssetList(projectId, name, sortOrder = 0) {
@@ -115,7 +143,7 @@ function hydrateDefaults(userId) {
   const categoryB = id();
   const today = new Date();
 
-  const labels = DEFAULT_LABELS.map((label, index) => ({ ...label, id: id(), project_id: null, scope: 'global', sort_order: index, is_divider: false }));
+  const labels = mergeDefaultAssetLabels(DEFAULT_LABELS.map((label, index) => ({ ...label, id: id(), project_id: null, scope: 'global', sort_order: index, is_divider: false })));
   const label = (type, value) => labels.find((item) => item.column_type === type && item.value === value)?.id;
 
   const lineItems = [
@@ -218,7 +246,7 @@ function normalizeLocalData(data, userId) {
     const key = labelKey(normalized);
     if (!labelsByKey.has(key)) labelsByKey.set(key, normalized);
   });
-  const labels = [...labelsByKey.values()];
+  const labels = mergeDefaultAssetLabels([...labelsByKey.values()]);
   const projects = (data.projects ?? []).map((project) => ({
     ...project,
     user_id: project.user_id ?? userId,
@@ -307,11 +335,12 @@ async function loadSupabaseData() {
     planning_versions: projectVersions(project),
     preferred_planning_version: project.preferred_planning_version ?? projectVersions(project)[0] ?? DEFAULT_PLANNING_VERSION,
   }));
+  const loadedLabels = mergeDefaultAssetLabels(labels.data.map((label) => ({ ...label, sort_order: label.sort_order ?? 0, is_divider: label.is_divider ?? false })));
   return {
     projects: loadedProjects,
     categories: categories.data.map((category) => ({ ...category, planning_version: category.planning_version ?? DEFAULT_PLANNING_VERSION, collapsed: false })),
     lineItems: lineItems.data.map((item) => ({ ...item, planning_version: item.planning_version ?? DEFAULT_PLANNING_VERSION })),
-    labels: labels.data.map((label) => ({ ...label, sort_order: label.sort_order ?? 0, is_divider: label.is_divider ?? false })),
+    labels: loadedLabels,
     profiles: loadedProfiles,
     clients: loadedClients,
     producers: producers.data ?? [...new Set(loadedProfiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: name, name })),
@@ -326,7 +355,7 @@ async function loadSupabaseData() {
     })),
     appSettings: {
       ...DEFAULT_APP_SETTINGS,
-      defaultPlanning: resolveDefaultPlanning({ defaultPlanning: appSettings.data?.value }, labels.data),
+      defaultPlanning: resolveDefaultPlanning({ defaultPlanning: appSettings.data?.value }, loadedLabels),
     },
   };
 }

@@ -10,6 +10,11 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 
 const LABEL_TYPES = ['who', 'what', 'todo'];
+const ASSET_LABEL_TYPES = [
+  ['asset_type', 'Asset Type'],
+  ['asset_ratio', 'Ratio'],
+  ['asset_category', 'Category'],
+];
 
 function SortableLabelRow({ label, onUpdate, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: label.id });
@@ -265,6 +270,7 @@ export default function SettingsPage() {
           {[
             ['labels', 'Default Labels'],
             ['planning', 'Default Planning'],
+            ['assetlist', 'Asset List'],
             ['users', 'User Management'],
             ['clients', 'Clients'],
             ['producers', 'Producers'],
@@ -342,6 +348,43 @@ export default function SettingsPage() {
               </SortableContext>
             </DndContext>
           </section>
+        )}
+
+        {tab === 'assetlist' && (
+          <div className="grid gap-4 lg:grid-cols-3">
+            {ASSET_LABEL_TYPES.map(([type, title]) => (
+              <section key={type} className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
+                <h2 className="mb-4 text-lg font-semibold">{title}</h2>
+                <form className="mb-4 space-y-2 rounded-lg border border-black/10 p-2 dark:border-white/10" onSubmit={(event) => { event.preventDefault(); createLabel(type); }}>
+                  <div className="flex gap-2">
+                    <input
+                      value={drafts[type]?.value ?? ''}
+                      onChange={(event) => setDrafts((current) => ({ ...current, [type]: { color: '#6d5dfc', ...current[type], value: event.target.value } }))}
+                      className="field !py-2"
+                      placeholder={`Add ${title} label`}
+                    />
+                    <input
+                      type="color"
+                      value={drafts[type]?.color ?? '#6d5dfc'}
+                      onChange={(event) => setDrafts((current) => ({ ...current, [type]: { value: '', ...current[type], color: event.target.value } }))}
+                      className="h-10 w-12 rounded-md border border-white/10 bg-transparent"
+                    />
+                    <button type="submit" className="icon-button" aria-label={`Add ${title} label`}><Plus size={17} /></button>
+                  </div>
+                </form>
+                <DndContext sensors={labelSensors} onDragEnd={({ active, over }) => over && reorderLabels(type, active.id, over.id)}>
+                  <SortableContext items={globalLabels.filter((label) => label.column_type === type).map((label) => label.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {globalLabels.filter((label) => label.column_type === type).map((label) => (
+                        <SortableLabelRow key={label.id} label={label} onUpdate={updateLabel} onDelete={deleteLabel} />
+                      ))}
+                      {!globalLabels.filter((label) => label.column_type === type).length && <p className="rounded-md border border-white/10 p-3 text-sm text-ink-500">No labels yet.</p>}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </section>
+            ))}
+          </div>
         )}
 
         {tab === 'users' && (

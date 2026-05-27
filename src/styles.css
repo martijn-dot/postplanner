@@ -298,6 +298,25 @@ input {
   padding: 3px 4px;
 }
 
+.asset-header-name {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  min-width: 0;
+  outline: none;
+  padding: 4px 6px;
+  text-transform: none;
+  width: 100%;
+}
+
+.asset-header-name:focus {
+  background: rgba(109, 93, 252, 0.1);
+  border-color: rgba(109, 93, 252, 0.58);
+}
+
 .asset-resize-handle {
   bottom: 0;
   cursor: ew-resize;
