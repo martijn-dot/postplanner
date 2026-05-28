@@ -191,6 +191,7 @@ function hydrateDefaults(user) {
     todo: label('todo', item[3]),
     time: '',
     notes: '',
+    row_color: '',
     start_date: iso(addDays(today, item[4])),
     end_date: iso(addDays(today, item[5])),
     sort_order: index,
@@ -293,6 +294,7 @@ function normalizeLocalData(data, user) {
     ...item,
     time: item.time ?? '',
     notes: item.notes ?? '',
+    row_color: item.row_color ?? '',
     planning_version: item.planning_version ?? DEFAULT_PLANNING_VERSION,
   }));
   const categories = (data.categories ?? []).map((category) => ({
@@ -366,7 +368,7 @@ async function loadSupabaseData() {
   return {
     projects: loadedProjects,
     categories: categories.data.map((category) => ({ ...category, planning_version: category.planning_version ?? DEFAULT_PLANNING_VERSION, collapsed: false })),
-    lineItems: lineItems.data.map((item) => ({ ...item, planning_version: item.planning_version ?? DEFAULT_PLANNING_VERSION })),
+    lineItems: lineItems.data.map((item) => ({ ...item, row_color: item.row_color ?? '', planning_version: item.planning_version ?? DEFAULT_PLANNING_VERSION })),
     labels: loadedLabels,
     profiles: loadedProfiles,
     clients: loadedClients,
@@ -829,6 +831,7 @@ export function PlannerProvider({ children }) {
           todo,
           time: '',
           notes: '',
+          row_color: '',
           start_date: startDate,
           end_date: startDate,
           sort_order: count,

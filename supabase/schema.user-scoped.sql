@@ -136,6 +136,7 @@ create table if not exists public.line_items (
   todo text not null default '',
   time text not null default '',
   notes text not null default '',
+  row_color text not null default '',
   start_date date,
   end_date date,
   sort_order int not null default 0,
@@ -146,6 +147,7 @@ alter table public.categories add column if not exists planning_version text not
 alter table public.line_items add column if not exists planning_version text not null default 'V1';
 alter table public.line_items add column if not exists time text not null default '';
 alter table public.line_items add column if not exists notes text not null default '';
+alter table public.line_items add column if not exists row_color text not null default '';
 
 create table if not exists public.labels (
   id uuid primary key default gen_random_uuid(),

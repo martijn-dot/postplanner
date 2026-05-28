@@ -1579,3 +1579,94 @@ nav .tab-active {
 .rounded-xl {
   border-radius: 18px;
 }
+
+.client-planning-table .date-booking-chip,
+.dark .client-planning-table .date-booking-chip,
+.client-planning-table .booking-row,
+.dark .client-planning-table .booking-row {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.client-planning-table .date-booking-chip::after {
+  display: none !important;
+}
+
+.client-planning-table .today-row > td {
+  border-bottom: 1px solid #ff4d5f !important;
+  border-top: 1px solid #ff4d5f !important;
+}
+
+.client-planning-table .week-divider > td,
+.dark .client-planning-table .week-divider > td {
+  border-top-color: #25304a !important;
+}
+
+.client-planning-table .today-row > td,
+.dark .client-planning-table .today-row > td {
+  border-bottom-color: #ff4d5f !important;
+  border-top-color: #ff4d5f !important;
+}
+
+.client-planning-table .today-row > td:first-child {
+  box-shadow: inset 2px 0 0 #ff4d5f;
+}
+
+.client-planning-table .client-row-color-red > td {
+  background: #2b1727 !important;
+  color: #f3f0ff;
+}
+
+.client-planning-table .client-row-color-green > td {
+  background: #173027 !important;
+  color: #f3f0ff;
+}
+
+.client-planning-table .client-row-color-purple > td {
+  background: #241f3f !important;
+  color: #f3f0ff;
+}
+
+.client-planning-table .client-row-color-orange > td {
+  background: #302213 !important;
+  color: #f3f0ff;
+}
+
+.client-row-color-select {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.client-row-color-select button {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  height: 16px;
+  justify-content: center;
+  width: 16px;
+}
+
+.client-row-color-select button:hover,
+.client-row-color-select button.is-active {
+  border-color: #f3f0ff;
+}
+
+.client-row-color-select span,
+.client-row-color-readonly span {
+  border-radius: 999px;
+  display: block;
+  height: 9px;
+  width: 9px;
+}
+
+.client-row-color-empty {
+  background: transparent;
+  border: 1px solid rgba(125, 119, 144, 0.55);
+}
+
+.client-row-color-readonly {
+  align-items: center;
+  display: inline-flex;
+  min-height: 16px;
+}

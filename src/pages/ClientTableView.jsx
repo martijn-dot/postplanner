@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { ArrowRight, Check, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
+import { Check, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -10,6 +10,7 @@ import { weekNumber } from '../lib/dates.js';
 const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v2';
 const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
 const CLIENT_COLUMNS = [
+  { key: 'rowColor', label: 'Color', width: 82 },
   { key: 'time', label: 'Time', width: 74 },
   { key: 'category', label: 'Category', width: 150 },
   { key: 'who', label: 'Who', width: 118 },
@@ -17,6 +18,14 @@ const CLIENT_COLUMNS = [
   { key: 'what', label: 'What', width: 180 },
   { key: 'todo', label: 'Todo', width: 190 },
   { key: 'notes', label: 'Notes', width: 160 },
+];
+
+const ROW_COLOR_OPTIONS = [
+  { value: '', label: 'None', color: 'transparent' },
+  { value: 'red', label: 'Red', color: '#ff5e84' },
+  { value: 'green', label: 'Green', color: '#46d39b' },
+  { value: 'purple', label: 'Purple', color: '#b793ff' },
+  { value: 'orange', label: 'Orange', color: '#ff8f4f' },
 ];
 
 function readClientColumnPrefs() {
@@ -125,6 +134,7 @@ export function buildClientPlanningRows(project, items, categories, labelsById, 
       ...base,
       Category: item.category_id ? categoriesById[item.category_id]?.name ?? uncategorizedName : uncategorizedName,
       Time: item.time ?? '',
+      RowColor: item.row_color ?? '',
       Who: item.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', '),
       Asset: item.asset,
       What: labelsById[item.what]?.value ?? '',
@@ -178,6 +188,35 @@ function measureTextWidth(text, min, max, charWidth = 8.2) {
   return Math.max(min, Math.min(max, Math.ceil(value.length * charWidth) + 42));
 }
 
+function RowColorSelect({ value, onChange, readOnly = false }) {
+  const selected = ROW_COLOR_OPTIONS.find((option) => option.value === value) ?? ROW_COLOR_OPTIONS[0];
+
+  if (readOnly) {
+    return (
+      <span className="client-row-color-readonly" title={selected.label}>
+        {selected.value ? <span style={{ backgroundColor: selected.color }} /> : '-'}
+      </span>
+    );
+  }
+
+  return (
+    <div className="client-row-color-select" aria-label="Row color">
+      {ROW_COLOR_OPTIONS.map((option) => (
+        <button
+          key={option.value || 'none'}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={value === option.value ? 'is-active' : ''}
+          title={option.label}
+          aria-label={`Set row color ${option.label}`}
+        >
+          {option.value ? <span style={{ backgroundColor: option.color }} /> : <span className="client-row-color-empty" />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, labelsAsText = false, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange }) {
   const [editingField, setEditingField] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
@@ -215,13 +254,13 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     () => annotateRows(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)),
     [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName],
   );
-  const todayVisible = rows.some((row) => row._isToday);
   const autoWidths = useMemo(() => {
     const maxText = (key, fallback) => rows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
     const longestAsset = rows.reduce((longest, row) => (String(row.Asset ?? '').length > String(longest ?? '').length ? row.Asset : longest), 'Asset');
     const longestNotes = rows.reduce((longest, row) => (String(row.Notes ?? '').length > String(longest ?? '').length ? row.Notes : longest), 'Notes');
     const labelExtra = labelsAsText ? 24 : 54;
     return {
+      rowColor: 82,
       time: measureTextWidth(maxText('Time', 'Time'), 70, 96, 7.2),
       category: measureTextWidth(maxText('Category', 'Category'), 120, 260, 7.2),
       who: measureTextWidth(maxText('Who', 'Who'), 92, 260, 7.1) + labelExtra,
@@ -248,8 +287,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   return (
     <>
       <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
-        <div className={`client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto ${todayVisible ? 'has-today-marker' : ''}`}>
-          <table className={`client-planning-table w-full border-collapse text-sm ${todayVisible ? 'has-today-marker' : ''}`} style={{ minWidth: 48 + 78 + 72 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
+        <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
+          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: 48 + 78 + 72 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
             <colgroup>
               <col className="w-[48px]" />
               <col className="w-[78px]" />
@@ -304,7 +343,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
               {rows.map((row, index) => (
                 <tr
                   key={`${row._item?.id ?? row._dateKey}-${index}`}
-                  className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._item ? 'booking-row' : ''} ${row._showWeekDivider ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
+                  className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._isToday ? 'today-row' : ''} ${row._item?.row_color ? `client-row-color-${row._item.row_color}` : ''} ${row._showWeekDivider ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
                 >
                   {row._showWeek && (
                     <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono text-[1.5em]">
@@ -314,21 +353,15 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   {row._showDateGroup && (
                     <>
                       <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 text-xs font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
-                        <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>
-                          {row._isToday && (
-                            <span className="client-today-label">
-                              Today <ArrowRight size={13} strokeWidth={2.5} />
-                            </span>
-                          )}
-                          {row.Day}
-                        </span>
+                        <span className="date-group-chip">{row.Day}</span>
                       </td>
                       <td rowSpan={row._dateRowSpan} className={`date-group-cell whitespace-nowrap p-0 font-mono text-xs font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
-                        <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>{row.Date}</span>
+                        <span className="date-group-chip">{row.Date}</span>
                       </td>
                     </>
                   )}
                   {orderedColumns.map((column) => {
+                    if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : <span className="text-ink-500">-</span>}</td>;
                     if (column.key === 'category') return <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">{row.Category || <span className="text-ink-500">-</span>}</td>;
                     if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row.Time || <span className="text-ink-500">-</span>}</td>;
                     if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{labelsAsText ? row.Who : row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : <span className="text-ink-500">-</span>}</td>;
