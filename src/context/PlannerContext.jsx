@@ -60,9 +60,13 @@ function profileDisplayValue(value, profiles = []) {
 }
 
 function dbCategory(category) {
-  const { collapsed, ...rest } = category;
-  void collapsed;
-  return rest;
+  return {
+    id: category.id,
+    project_id: category.project_id,
+    planning_version: category.planning_version ?? DEFAULT_PLANNING_VERSION,
+    name: category.name,
+    sort_order: category.sort_order ?? 0,
+  };
 }
 
 function defaultAssetColumns() {
@@ -766,9 +770,21 @@ export function PlannerProvider({ children }) {
       addCategory: (projectId, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
         const count = draft.categories.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).length;
         const category = { id: id(), project_id: projectId, planning_version: version, name: `Category ${count + 1}`, sort_order: count, collapsed: false };
+        const project = draft.projects.find((item) => item.id === projectId);
+        if (project && !projectVersions(project).includes(version)) {
+          project.planning_versions = [...projectVersions(project), version];
+        }
         draft.categories.push(category);
         markDirty(projectId);
-        if (useSupabase) void saveSupabase('category', supabase.from('categories').insert(dbCategory(category)));
+        if (useSupabase) {
+          void (async () => {
+            if (project) {
+              await saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: project.planning_versions }).eq('id', projectId));
+            }
+            await saveSupabase('category', supabase.from('categories').upsert(dbCategory(category), { onConflict: 'id' }));
+          })();
+        }
+        return category.id;
       }),
       updateCategory: (categoryId, patch) => mutate((draft) => {
         const category = draft.categories.find((item) => item.id === categoryId);
