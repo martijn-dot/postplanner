@@ -135,16 +135,24 @@ function writeShares(shares) {
   localStorage.setItem(SHARE_STORAGE_KEY, JSON.stringify(shares));
 }
 
-function hydrateDefaults(userId) {
-  const profile = {
-    id: userId,
-    email: 'demo@planner.local',
-    display_name: 'Martijn',
-    avatar_url: '',
-    role: 'admin',
+function profileFromUser(user, fallbackRole = 'admin') {
+  return {
+    id: user.id,
+    email: user.email ?? 'demo@planner.local',
+    display_name: user.user_metadata?.display_name ?? user.email?.split('@')[0] ?? 'Martijn',
+    avatar_url: user.user_metadata?.avatar_url ?? '',
+    role: user.user_metadata?.role ?? fallbackRole,
     created_at: new Date().toISOString(),
     invited_by: null,
     is_active: true,
+  };
+}
+
+function hydrateDefaults(user) {
+  const userId = user.id;
+  const profile = {
+    ...profileFromUser(user, 'admin'),
+    role: user.user_metadata?.standard_login ? 'user' : (user.user_metadata?.role ?? 'admin'),
   };
   const projectId = id();
   const categoryA = id();
@@ -227,7 +235,8 @@ function resolveDefaultPlanning(settings, labels = []) {
     .filter(Boolean);
 }
 
-function normalizeLocalData(data, userId) {
+function normalizeLocalData(data, user) {
+  const userId = user.id;
   const now = new Date().toISOString();
   const defaultColorByKey = Object.fromEntries(DEFAULT_LABELS.map((label) => [`${label.column_type}:${label.value}`, label.color]));
   const profiles = data.profiles?.length ? data.profiles : [{
@@ -240,6 +249,9 @@ function normalizeLocalData(data, userId) {
     invited_by: null,
     is_active: true,
   }];
+  if (!profiles.some((profile) => profile.id === userId)) {
+    profiles.push(profileFromUser(user, user.user_metadata?.standard_login ? 'user' : 'admin'));
+  }
   const labelsByKey = new Map();
   (data.labels ?? []).forEach((label) => {
     const normalized = {
@@ -300,14 +312,14 @@ function normalizeLocalData(data, userId) {
   };
 }
 
-function readLocal(userId) {
+function readLocal(user) {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
-    const normalized = normalizeLocalData(JSON.parse(stored), userId);
+    const normalized = normalizeLocalData(JSON.parse(stored), user);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     return normalized;
   }
-  const seeded = hydrateDefaults(userId);
+  const seeded = hydrateDefaults(user);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
   return seeded;
 }
@@ -382,7 +394,7 @@ export function PlannerProvider({ children }) {
     let alive = true;
     setLoading(true);
     const load = async () => {
-      const next = useSupabase ? await loadSupabaseData() : readLocal(user.id);
+      const next = useSupabase ? await loadSupabaseData() : readLocal(user);
       if (alive) {
         setData(next);
         setLoading(false);
@@ -391,14 +403,14 @@ export function PlannerProvider({ children }) {
     load().catch((error) => {
       console.error(error);
       if (alive) {
-        setData(readLocal(user.id));
+        setData(readLocal(user));
         setLoading(false);
       }
     });
     return () => {
       alive = false;
     };
-  }, [useSupabase, user.id]);
+  }, [useSupabase, user]);
 
   useEffect(() => {
     if (!loading && !useSupabase) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));

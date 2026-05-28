@@ -4,6 +4,19 @@ import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 const AuthContext = createContext(null);
 const LOCALHOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const IDLE_LOGOUT_MS = 24 * 60 * 60 * 1000;
+const STANDARD_LOGIN = {
+  username: 'PostPlanner',
+  password: 'PostPlanner',
+  user: {
+    id: 'standard-postplanner-user',
+    email: 'postplanner@planner.local',
+    user_metadata: {
+      display_name: 'PostPlanner',
+      role: 'user',
+      standard_login: true,
+    },
+  },
+};
 
 function isLocalhost() {
   return typeof window !== 'undefined' && LOCALHOSTS.has(window.location.hostname);
@@ -59,12 +72,20 @@ export function AuthProvider({ children }) {
       hasSupabaseConfig,
       localAdminMode,
       user: session?.user ?? { id: 'demo-user', email: 'demo@planner.local' },
-      signIn: async (email, password) => supabase.auth.signInWithPassword({ email, password }),
+      signIn: async (email, password) => {
+        if (email === STANDARD_LOGIN.username && password === STANDARD_LOGIN.password) {
+          setSession({ user: STANDARD_LOGIN.user });
+          setDemoMode(true);
+          return { data: { session: { user: STANDARD_LOGIN.user }, user: STANDARD_LOGIN.user }, error: null };
+        }
+        return supabase.auth.signInWithPassword({ email, password });
+      },
       signUp: async (email, password, displayName) => supabase.auth.signUp({ email, password, options: { data: { display_name: displayName } } }),
       resetPassword: async (email) => supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login?mode=update-password` }),
       updatePassword: async (password) => supabase.auth.updateUser({ password }),
       signOut: async () => {
-        if (hasSupabaseConfig) await supabase.auth.signOut();
+        if (hasSupabaseConfig && !session?.user?.user_metadata?.standard_login) await supabase.auth.signOut();
+        setSession(null);
         setDemoMode(!hasSupabaseConfig || localAdminMode);
       },
       enterDemo: () => setDemoMode(true),

@@ -168,7 +168,7 @@ function measureTextWidth(text, min, max, charWidth = 8.2) {
   return Math.max(min, Math.min(max, Math.ceil(value.length * charWidth) + 42));
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, labelsAsText = false, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange }) {
   const [editingField, setEditingField] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
@@ -207,22 +207,21 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   );
   const todayVisible = rows.some((row) => row._isToday);
   const autoWidths = useMemo(() => {
-    const whoText = rows.map((row) => row.Who).concat(['Who']).join(' ');
-    const whatText = rows.map((row) => row.What).concat(['What']).join(' ');
-    const todoText = rows.map((row) => row.Todo).concat(['Todo']).join(' ');
-    const categoryText = rows.map((row) => row.Category).concat(['Category']).join(' ');
+    const maxText = (key, fallback) => rows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
     const longestAsset = rows.reduce((longest, row) => (String(row.Asset ?? '').length > String(longest ?? '').length ? row.Asset : longest), 'Asset');
+    const longestNotes = rows.reduce((longest, row) => (String(row.Notes ?? '').length > String(longest ?? '').length ? row.Notes : longest), 'Notes');
+    const labelExtra = labelsAsText ? 24 : 54;
     return {
-      time: 74,
-      category: measureTextWidth(categoryText, 120, 210, 6.5),
-      who: measureTextWidth(whoText, 96, 220, 6.1),
+      time: measureTextWidth(maxText('Time', 'Time'), 70, 96, 7.2),
+      category: measureTextWidth(maxText('Category', 'Category'), 120, 260, 7.2),
+      who: measureTextWidth(maxText('Who', 'Who'), 92, 260, 7.1) + labelExtra,
       asset: measureTextWidth(longestAsset, 170, String(longestAsset ?? '').length > 30 ? 260 : 420, 7.1),
       assetResizable: String(longestAsset ?? '').length > 30,
-      what: measureTextWidth(whatText, 118, 260, 6.1),
-      todo: measureTextWidth(todoText, 118, 280, 6.1),
-      notes: Math.max(260, prefs.widths.notes ?? 260),
+      what: measureTextWidth(maxText('What', 'What'), 110, 280, 7.1) + labelExtra,
+      todo: measureTextWidth(maxText('Todo', 'Todo'), 110, 300, 7.1) + labelExtra,
+      notes: measureTextWidth(longestNotes, 220, 520, 7.1),
     };
-  }, [prefs.widths.notes, rows]);
+  }, [labelsAsText, rows]);
   const widthForColumn = (column) => {
     if (column.key === 'asset' && autoWidths.assetResizable) return prefs.widths.asset ?? autoWidths.asset;
     if (column.key === 'notes') return autoWidths.notes;
@@ -239,10 +238,9 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   return (
     <>
       <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
-        <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
-          <table className={`client-planning-table w-full border-collapse text-sm ${todayVisible ? 'has-today-column' : ''}`} style={{ minWidth: (todayVisible ? 86 : 0) + 48 + 78 + 72 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
+        <div className={`client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto ${todayVisible ? 'has-today-marker' : ''}`}>
+          <table className={`client-planning-table w-full border-collapse text-sm ${todayVisible ? 'has-today-marker' : ''}`} style={{ minWidth: 48 + 78 + 72 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
             <colgroup>
-              {todayVisible && <col className="w-[86px]" />}
               <col className="w-[48px]" />
               <col className="w-[78px]" />
               <col className="w-[72px]" />
@@ -250,7 +248,6 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
             </colgroup>
             <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
-                {todayVisible && <th className="client-today-head px-2 py-3" aria-label="Today marker" />}
                 <th className="sticky-week px-2 py-3 text-center font-semibold">Week</th>
                 <th className="px-2 py-3 font-semibold">Day</th>
                 <th className="px-2 py-3 font-semibold">Date</th>
@@ -299,15 +296,6 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   key={`${row._item?.id ?? row._dateKey}-${index}`}
                   className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._item ? 'booking-row' : ''} ${row._showWeekDivider ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
                 >
-                  {todayVisible && row._showDateGroup && (
-                    <td rowSpan={row._dateRowSpan} className="client-today-cell px-2 py-2 align-middle">
-                      {row._isToday && (
-                        <span className="client-today-label">
-                          Today <ArrowRight size={13} />
-                        </span>
-                      )}
-                    </td>
-                  )}
                   {row._showWeek && (
                     <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono text-[1.5em]">
                       <span><em>WEEK</em>{row.Week}</span>
@@ -316,7 +304,14 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   {row._showDateGroup && (
                     <>
                       <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 text-xs font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
-                        <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>{row.Day}</span>
+                        <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>
+                          {row._isToday && (
+                            <span className="client-today-label">
+                              Today <ArrowRight size={13} />
+                            </span>
+                          )}
+                          {row.Day}
+                        </span>
                       </td>
                       <td rowSpan={row._dateRowSpan} className={`date-group-cell whitespace-nowrap p-0 font-mono text-xs font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
                         <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>{row.Date}</span>
@@ -326,10 +321,10 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   {orderedColumns.map((column) => {
                     if (column.key === 'category') return <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">{row.Category || <span className="text-ink-500">-</span>}</td>;
                     if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row.Time || <span className="text-ink-500">-</span>}</td>;
-                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{labelsAsText ? row.Who : row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : <span className="text-ink-500">-</span>}</td>;
                     if (column.key === 'asset') return <td key={column.key} className="overflow-visible px-4 py-3"><span className="note-preview group relative inline-flex w-full min-w-0 text-left"><span className="truncate font-semibold">{row.Asset || '-'}</span>{row.Asset && <span className="note-tooltip">{row.Asset}</span>}</span></td>;
-                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : <span className="text-ink-500">-</span>}</td>;
-                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.What : <Pill label={labelsById[row._item.what]} />) : <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.Todo : <Pill label={labelsById[row._item.todo]} subtle />) : <span className="text-ink-500">-</span>}</td>;
                     if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || 'Add note'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</button> : row.Notes || <span className="text-ink-500">-</span>}</td>;
                     return null;
                   })}
@@ -337,7 +332,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan={(todayVisible ? 1 : 0) + 3 + orderedColumns.length} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
+                  <td colSpan={3 + orderedColumns.length} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
                 </tr>
               )}
             </tbody>
@@ -471,6 +466,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
+  const [labelsAsText, setLabelsAsText] = useState(false);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
   const [viewMode, setViewMode] = useState(() => readClientViewMode(project.id));
@@ -592,6 +588,9 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
           <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
             {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
           </button>
+          <button type="button" onClick={() => setLabelsAsText((next) => !next)} className={`client-filter-pill ${labelsAsText ? 'is-active' : ''}`}>
+            {labelsAsText ? <Eye size={14} /> : <EyeOff size={14} />} Text labels
+          </button>
         </div>
       )}
 
@@ -620,6 +619,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
           labels={labels}
           categories={versionCategories}
           showEmptyDates={showEmptyDates}
+          labelsAsText={labelsAsText}
           onUpdateLineItem={updateLineItem}
           uncategorizedName={uncategorizedName}
           columnPrefs={columnPrefs}

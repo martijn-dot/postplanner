@@ -85,7 +85,7 @@ export default function AuthPage() {
           </div>
         ) : hasSupabaseConfig ? (
           <form onSubmit={submit} className="space-y-4">
-            {mode !== 'update-password' && <input className="field" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" required />}
+            {mode !== 'update-password' && <input className="field" type={mode === 'recover' ? 'email' : 'text'} value={email} onChange={(event) => setEmail(event.target.value)} placeholder={mode === 'recover' ? 'Email' : 'Email or username'} required />}
             {mode !== 'recover' && <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === 'update-password' ? 'New password' : 'Password'} required />}
             {error && <p className="text-sm text-red-300">{error}</p>}
             {notice && <p className="rounded-md border border-accent-400/30 bg-accent-500/10 px-3 py-2 text-sm text-accent-100">{notice}</p>}

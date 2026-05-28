@@ -995,6 +995,10 @@ input {
   scrollbar-width: none;
 }
 
+.client-table-scroll.has-today-marker {
+  padding-left: 90px;
+}
+
 .client-table-scroll::-webkit-scrollbar {
   height: 0;
   width: 0;
@@ -1021,38 +1025,8 @@ input {
   left: 0;
 }
 
-.client-planning-table.has-today-column .sticky-week {
-  left: 86px;
-}
-
-.client-planning-table .client-today-head,
-.client-planning-table .client-today-cell {
-  background: #ffffff;
-  left: 0;
-  position: sticky;
-  z-index: 7;
-}
-
-.client-planning-table thead .client-today-head {
-  background: #f4f4f5;
-  z-index: 36;
-}
-
-.dark .client-planning-table .client-today-head,
-.dark .client-planning-table .client-today-cell {
-  background: #171325;
-}
-
-.dark .client-planning-table thead .client-today-head {
-  background: #1d182e;
-}
-
-.client-planning-table tbody tr.bg-zinc-200\/70 .client-today-cell {
-  background: #e4e4e7;
-}
-
-.dark .client-planning-table tbody tr.bg-zinc-200\/70 .client-today-cell {
-  background: #242424;
+.client-table-scroll.has-today-marker .sticky-week {
+  left: 90px;
 }
 
 .client-today-label {
@@ -1068,8 +1042,13 @@ input {
   letter-spacing: 0.02em;
   line-height: 1;
   padding: 0.35rem 0.45rem 0.35rem 0.55rem;
+  position: absolute;
+  right: calc(100% + 20px);
+  top: 50%;
+  transform: translateY(-50%);
   text-transform: uppercase;
   white-space: nowrap;
+  z-index: 12;
 }
 
 .client-planning-table thead .sticky-week {
@@ -1175,7 +1154,7 @@ input {
 
 .client-planning-table .date-group-cell {
   border-right: 1px solid rgba(255, 255, 255, 0.045);
-  overflow: hidden;
+  overflow: visible;
   vertical-align: top;
 }
 

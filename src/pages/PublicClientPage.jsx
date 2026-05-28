@@ -113,6 +113,7 @@ export default function PublicClientPage() {
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
+  const [labelsAsText, setLabelsAsText] = useState(false);
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
@@ -214,6 +215,9 @@ export default function PublicClientPage() {
               <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
                 {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
               </button>
+              <button type="button" onClick={() => setLabelsAsText((next) => !next)} className={`client-filter-pill ${labelsAsText ? 'is-active' : ''}`}>
+                {labelsAsText ? <Eye size={14} /> : <EyeOff size={14} />} Text labels
+              </button>
             </div>
             <ClientPlanningTable
               project={payload.project}
@@ -221,6 +225,7 @@ export default function PublicClientPage() {
               labels={payload.labels}
               categories={payload.categories}
               showEmptyDates={showEmptyDates}
+              labelsAsText={labelsAsText}
               uncategorizedName={uncategorizedName}
             />
           </>
