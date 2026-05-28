@@ -723,12 +723,16 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
           <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
             {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
           </button>
-          <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
-            {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
-          </button>
-          <button type="button" onClick={() => setLabelsAsText((next) => !next)} className={`client-filter-pill ${labelsAsText ? 'is-active' : ''}`}>
-            {labelsAsText ? <Eye size={14} /> : <EyeOff size={14} />} Text labels
-          </button>
+          {viewMode === 'table' && (
+            <>
+              <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
+                {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
+              </button>
+              <button type="button" onClick={() => setLabelsAsText((next) => !next)} className={`client-filter-pill ${labelsAsText ? 'is-active' : ''}`}>
+                {labelsAsText ? <Eye size={14} /> : <EyeOff size={14} />} Text labels
+              </button>
+            </>
+          )}
           {versionCategories.length > 1 && (
             <button type="button" onClick={() => setCategoryMode((next) => (next === 'column' ? 'sections' : 'column'))} className={`client-filter-pill ${categoryMode === 'sections' ? 'is-active' : ''}`}>
               {categoryMode === 'sections' ? <Eye size={14} /> : <EyeOff size={14} />} Category sections
