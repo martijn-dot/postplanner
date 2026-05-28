@@ -9,6 +9,10 @@ import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPre
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
 const PLANNER_STORAGE_KEY = 'post-production-planner:v1';
 
+function tokenFromSlug(value) {
+  return String(value ?? '').split('-').at(-1) ?? value;
+}
+
 function readLocalShare(token) {
   const shares = JSON.parse(localStorage.getItem(SHARE_STORAGE_KEY) ?? '{}');
   const share = shares[token] ?? null;
@@ -105,7 +109,8 @@ function PublicAssetList({ project, assetLists = [] }) {
 }
 
 export default function PublicClientPage() {
-  const { token } = useParams();
+  const { token: routeToken } = useParams();
+  const token = tokenFromSlug(routeToken);
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

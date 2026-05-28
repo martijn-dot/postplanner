@@ -996,7 +996,7 @@ input {
 }
 
 .client-table-scroll.has-today-marker {
-  padding-left: 90px;
+  padding-left: 86px;
 }
 
 .client-table-scroll::-webkit-scrollbar {
@@ -1025,10 +1025,6 @@ input {
   left: 0;
 }
 
-.client-table-scroll.has-today-marker .sticky-week {
-  left: 90px;
-}
-
 .client-today-label {
   align-items: center;
   background: rgba(255, 77, 95, 0.13);
@@ -1043,7 +1039,7 @@ input {
   line-height: 1;
   padding: 0.35rem 0.45rem 0.35rem 0.55rem;
   position: absolute;
-  right: calc(100% + 20px);
+  right: calc(100% + 116px);
   top: 50%;
   transform: translateY(-50%);
   text-transform: uppercase;

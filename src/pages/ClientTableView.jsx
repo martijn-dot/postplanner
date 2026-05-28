@@ -42,6 +42,16 @@ function readClientViewMode(projectId) {
   return localStorage.getItem(`${CLIENT_VIEW_MODE_STORAGE_KEY}:${projectId}`) ?? 'table';
 }
 
+function slugifyProjectName(value) {
+  const slug = String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'planning';
+}
+
 function normalizeTimeInput(value) {
   const digits = value.replace(/\D/g, '').slice(0, 4);
   if (!digits) return '';
@@ -307,7 +317,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                         <span className={row._item ? 'date-group-chip date-booking-chip' : 'date-group-chip'}>
                           {row._isToday && (
                             <span className="client-today-label">
-                              Today <ArrowRight size={13} />
+                              Today <ArrowRight size={13} strokeWidth={2.5} />
                             </span>
                           )}
                           {row.Day}
@@ -496,7 +506,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
     setPublishing(true);
     try {
       const token = await createShareLink(project.id);
-      const url = `${window.location.origin}/share/${token}`;
+      const url = `${window.location.origin}/share/${slugifyProjectName(project.name)}-${token}`;
       setPublishedUrl(url);
       await navigator.clipboard?.writeText(url);
       setCopied(true);
