@@ -191,7 +191,7 @@ export default function Dashboard() {
   const versionMenuVersions = versionMenuProject ? versionsForProject(versionMenuProject, lineItems, categories) : [];
 
   return (
-    <div className="min-h-screen bg-[#ebeae4] text-ink-950">
+    <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar />
       <main className="mx-auto max-w-7xl px-5 py-8">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -221,8 +221,8 @@ export default function Dashboard() {
         {loading ? (
           <p className="text-ink-500">Loading projects...</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-[#d9d7ce] bg-white">
-            <div className="grid grid-cols-[84px_1.6fr_220px_180px_190px] border-b border-[#d9d7ce] bg-[#111111] px-4 py-3 text-xs font-semibold uppercase text-[#f7f6f0]">
+          <div className="overflow-hidden rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
+            <div className="grid grid-cols-[84px_1.6fr_220px_180px_190px] border-b border-black/10 px-4 py-3 text-xs font-semibold uppercase text-ink-500 dark:border-white/10">
               <span>Project #</span>
               <span>Project</span>
               <span>Post Producer</span>
@@ -357,7 +357,7 @@ export default function Dashboard() {
                 );
               }
               return (
-                <Link key={project.id} to={`/projects/${project.id}?version=V1`} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-[#e5e2d8] px-4 py-4 transition hover:bg-[#f4f3ee]">
+                <Link key={project.id} to={`/projects/${project.id}?version=V1`} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-4 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
                   {rowContent}
                 </Link>
               );

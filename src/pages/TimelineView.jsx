@@ -1178,7 +1178,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   return (
     <main className="h-[calc(100vh-7rem)] overflow-hidden">
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-[#d9d7ce] bg-[#f7f6f0] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold">{project.name}</h1>
@@ -1211,12 +1211,12 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
           </div>
         </div>
 
-        {infoVisible && <div className="grid gap-3 border-b border-[#d9d7ce] bg-[#f7f6f0] px-5 py-4 text-sm md:grid-cols-5">
-          <div className="rounded-md border border-[#d9d7ce] bg-white px-3 py-3"><span className="block text-xs font-semibold uppercase text-ink-500">Start</span>{projectInfo.start}</div>
-          <div className="rounded-md border border-[#d9d7ce] bg-white px-3 py-3"><span className="block text-xs font-semibold uppercase text-ink-500">Project running</span>{projectInfo.running}</div>
-          <div className="rounded-md border border-[#d9d7ce] bg-white px-3 py-3"><span className="block text-xs font-semibold uppercase text-ink-500">Offline lock</span>{projectInfo.offlineLock}</div>
-          <div className="rounded-md border border-[#d9d7ce] bg-white px-3 py-3"><span className="block text-xs font-semibold uppercase text-ink-500">Grading</span>{projectInfo.grading}</div>
-          <div className="rounded-md border border-[#d9d7ce] bg-white px-3 py-3"><span className="block text-xs font-semibold uppercase text-ink-500">Final delivery</span>{projectInfo.final}</div>
+        {infoVisible && <div className="grid gap-2 border-b border-black/10 bg-white px-5 py-3 text-sm dark:border-white/10 dark:bg-ink-950 md:grid-cols-5">
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Start</span>{projectInfo.start}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Project running</span>{projectInfo.running}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Offline lock</span>{projectInfo.offlineLock}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Grading</span>{projectInfo.grading}</div>
+          <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Final delivery</span>{projectInfo.final}</div>
         </div>}
 
         <div ref={scrollRef} className="timeline-scroll" onScroll={() => setVisibleMonth(monthAtScroll(timelineDays, scrollRef.current?.scrollLeft ?? 0, dayWidth))}>

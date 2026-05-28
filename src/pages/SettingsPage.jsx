@@ -254,7 +254,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ebeae4] text-ink-950">
+    <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar />
       {settingsNotice && (
         <div className="fixed right-5 top-20 z-[4000] rounded-lg border border-amber-400/30 bg-ink-900 px-4 py-3 text-sm font-semibold text-amber-200 shadow-glow">

@@ -184,7 +184,7 @@ export default function PublicClientPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#ebeae4] px-5 py-8 text-ink-950">
+    <main className="min-h-screen bg-zinc-50 px-5 py-8 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <div className="mx-auto max-w-[1600px]">
         <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>

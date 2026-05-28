@@ -51,9 +51,9 @@ export default function ProjectPage() {
   if (!project) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen bg-[#ebeae4] text-ink-950">
+    <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar project={project} />
-      <nav className="flex h-12 items-center gap-1 border-b border-[#2b2b2d] bg-[#111111] px-5">
+      <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
         <NavLink end to={`/projects/${projectId}?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
         <NavLink to={`/projects/${projectId}/client?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
         <NavLink to={`/projects/${projectId}/assets?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Asset List</NavLink>
