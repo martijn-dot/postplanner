@@ -1021,6 +1021,57 @@ input {
   left: 0;
 }
 
+.client-planning-table.has-today-column .sticky-week {
+  left: 86px;
+}
+
+.client-planning-table .client-today-head,
+.client-planning-table .client-today-cell {
+  background: #ffffff;
+  left: 0;
+  position: sticky;
+  z-index: 7;
+}
+
+.client-planning-table thead .client-today-head {
+  background: #f4f4f5;
+  z-index: 36;
+}
+
+.dark .client-planning-table .client-today-head,
+.dark .client-planning-table .client-today-cell {
+  background: #171325;
+}
+
+.dark .client-planning-table thead .client-today-head {
+  background: #1d182e;
+}
+
+.client-planning-table tbody tr.bg-zinc-200\/70 .client-today-cell {
+  background: #e4e4e7;
+}
+
+.dark .client-planning-table tbody tr.bg-zinc-200\/70 .client-today-cell {
+  background: #242424;
+}
+
+.client-today-label {
+  align-items: center;
+  background: rgba(255, 77, 95, 0.13);
+  border: 1px solid rgba(255, 77, 95, 0.56);
+  border-radius: 999px;
+  color: #ff4d5f;
+  display: inline-flex;
+  font-size: 0.66rem;
+  font-weight: 800;
+  gap: 0.25rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 0.35rem 0.45rem 0.35rem 0.55rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .client-planning-table thead .sticky-week {
   z-index: 35;
 }
@@ -1126,6 +1177,32 @@ input {
   border-right: 1px solid rgba(255, 255, 255, 0.045);
   overflow: hidden;
   vertical-align: top;
+}
+
+.client-filter-row {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.client-filter-pill {
+  align-items: center;
+  border: 1px solid rgba(129, 118, 156, 0.28);
+  border-radius: 999px;
+  color: #81769c;
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 800;
+  gap: 0.35rem;
+  line-height: 1;
+  min-height: 28px;
+  padding: 0 0.7rem;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.client-filter-pill:hover,
+.client-filter-pill.is-active {
+  background: rgba(109, 93, 252, 0.12);
+  border-color: rgba(109, 93, 252, 0.48);
+  color: #c7c0ff;
 }
 
 .note-preview .note-tooltip {

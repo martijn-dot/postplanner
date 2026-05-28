@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Download } from 'lucide-react';
+import { Download, Eye, EyeOff } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -110,9 +110,27 @@ export default function PublicClientPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('planning');
+  const [showEmptyDates, setShowEmptyDates] = useState(true);
+  const [showWennekerBookings, setShowWennekerBookings] = useState(true);
+  const [showClientBookings, setShowClientBookings] = useState(true);
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
+  const whoFilterIds = useMemo(() => ({
+    wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
+    client: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
+  }), [payload?.labels]);
+  const filteredLineItems = useMemo(() => (payload?.lineItems ?? []).filter((item) => {
+    if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
+    if (!showClientBookings && whoFilterIds.client && item.who?.includes(whoFilterIds.client)) return false;
+    return true;
+  }), [payload?.lineItems, showClientBookings, showWennekerBookings, whoFilterIds]);
+
+  useEffect(() => {
+    const storedTheme = localStorage.theme;
+    const dark = storedTheme ? storedTheme !== 'light' : window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', Boolean(dark));
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -172,7 +190,7 @@ export default function PublicClientPage() {
             type="button"
             onClick={() => downloadPlanningExcel(
               payload.project,
-              clientPlanningExportRows(payload.project, payload.lineItems, payload.labels, payload.categories, true, uncategorizedName),
+              clientPlanningExportRows(payload.project, filteredLineItems, payload.labels, payload.categories, showEmptyDates, uncategorizedName),
             )}
             className="primary-button"
           >
@@ -184,14 +202,28 @@ export default function PublicClientPage() {
           <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
         </div>
         {tab === 'planning' ? (
-          <ClientPlanningTable
-            project={payload.project}
-            lineItems={payload.lineItems}
-            labels={payload.labels}
-            categories={payload.categories}
-            showEmptyDates
-            uncategorizedName={uncategorizedName}
-          />
+          <>
+            <div className="client-filter-row mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-ink-900">
+              <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
+              <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
+                {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
+              </button>
+              <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
+                {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
+              </button>
+              <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
+                {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
+              </button>
+            </div>
+            <ClientPlanningTable
+              project={payload.project}
+              lineItems={filteredLineItems}
+              labels={payload.labels}
+              categories={payload.categories}
+              showEmptyDates={showEmptyDates}
+              uncategorizedName={uncategorizedName}
+            />
+          </>
         ) : (
           <PublicAssetList project={payload.project} assetLists={assetLists} />
         )}
