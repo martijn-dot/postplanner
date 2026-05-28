@@ -128,6 +128,7 @@ function formatAssetFilename(project, list, row) {
   const columns = visibleColumns(list);
   const baseParts = [project.project_number, project.client, project.name, row.number].filter((part) => String(part ?? '').trim());
   const columnParts = columns
+    .filter((column) => column.label_type !== 'asset_unique_ratio' && !/^unique\b/i.test(column.name ?? ''))
     .map((column) => ({ column, value: formatAssetValue(row.values?.[column.id], column) }))
     .filter((item) => item.value);
   const parts = [

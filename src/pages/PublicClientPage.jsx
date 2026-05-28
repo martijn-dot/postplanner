@@ -49,7 +49,8 @@ function assetValue(value, column) {
 
 function assetFilename(project, list, row) {
   const columns = assetColumns(list);
-  const parts = [project.project_number, project.client, project.name, row.number, ...columns.map((column) => assetValue(row.values?.[column.id], column))]
+  const filenameColumns = columns.filter((column) => column.label_type !== 'asset_unique_ratio' && !/^unique\b/i.test(column.name ?? ''));
+  const parts = [project.project_number, project.client, project.name, row.number, ...filenameColumns.map((column) => assetValue(row.values?.[column.id], column))]
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   return parts.join(list.global_separator ?? '_');

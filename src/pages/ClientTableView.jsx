@@ -86,6 +86,16 @@ function dateRangeFromMilestones(milestones) {
   });
 }
 
+function dateRangeFromBookings(items) {
+  const bookings = items.filter((item) => item.start_date && item.end_date);
+  if (!bookings.length) return [];
+  const dates = bookings.flatMap((item) => [parseISO(item.start_date), parseISO(item.end_date)]);
+  return eachDayOfInterval({
+    start: startOfWeek(min(dates), { weekStartsOn: 1 }),
+    end: endOfWeek(max(dates), { weekStartsOn: 1 }),
+  });
+}
+
 export function buildClientPlanningRows(project, items, categories, labelsById, showEmptyDates, uncategorizedName = 'Uncategorized') {
   const milestones = projectMilestones(project, items);
   const days = dateRangeFromMilestones(milestones);
@@ -183,6 +193,14 @@ export function clientPlanningExportRows(project, lineItems, labels, categories,
   }));
 }
 
+function categoryNameForItem(item, categoriesById, uncategorizedName) {
+  return item.category_id ? categoriesById[item.category_id]?.name ?? uncategorizedName : uncategorizedName;
+}
+
+function categoryKeyForItem(item) {
+  return item.category_id ?? 'uncategorized';
+}
+
 function measureTextWidth(text, min, max, charWidth = 8.2) {
   const value = String(text ?? '');
   return Math.max(min, Math.min(max, Math.ceil(value.length * charWidth) + 42));
@@ -217,7 +235,7 @@ function RowColorSelect({ value, onChange, readOnly = false }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, labelsAsText = false, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, labelsAsText = false, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false }) {
   const [editingField, setEditingField] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
@@ -228,7 +246,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     const categoryIds = new Set(lineItems.map((item) => item.category_id).filter(Boolean));
     return Math.max(categories.length, categoryIds.size);
   }, [categories.length, lineItems]);
-  const showCategoryColumn = visibleCategoryCount > 1;
+  const showCategoryColumn = visibleCategoryCount > 1 && !forceHideCategoryColumn;
   const orderedColumns = prefs.order
     .map((key) => CLIENT_COLUMNS.find((column) => column.key === key))
     .filter((column) => column && prefs.visible[column.key] !== false && (column.key !== 'category' || showCategoryColumn));
@@ -361,14 +379,14 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     </>
                   )}
                   {orderedColumns.map((column) => {
-                    if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : <span className="text-ink-500">-</span>}</td>;
-                    if (column.key === 'category') return <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">{row.Category || <span className="text-ink-500">-</span>}</td>;
-                    if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row.Time || <span className="text-ink-500">-</span>}</td>;
-                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{labelsAsText ? row.Who : row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : <span className="text-ink-500">-</span>}</td>;
-                    if (column.key === 'asset') return <td key={column.key} className="overflow-visible px-4 py-3"><span className="note-preview group relative inline-flex w-full min-w-0 text-left"><span className="truncate font-semibold">{row.Asset || '-'}</span>{row.Asset && <span className="note-tooltip">{row.Asset}</span>}</span></td>;
-                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.What : <Pill label={labelsById[row._item.what]} />) : <span className="text-ink-500">-</span>}</td>;
-                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.Todo : <Pill label={labelsById[row._item.todo]} subtle />) : <span className="text-ink-500">-</span>}</td>;
-                    if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || 'Add note'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</button> : row.Notes || <span className="text-ink-500">-</span>}</td>;
+                    if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : null}</td>;
+                    if (column.key === 'category') return <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">{row._item ? row.Category : ''}</td>;
+                    if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row._item ? row.Time : ''}</td>;
+                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{labelsAsText ? row.Who : row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
+                    if (column.key === 'asset') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item ? <span className="note-preview group relative inline-flex w-full min-w-0 text-left"><span className="truncate font-semibold">{row.Asset || '-'}</span>{row.Asset && <span className="note-tooltip">{row.Asset}</span>}</span> : null}</td>;
+                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.What : <Pill label={labelsById[row._item.what]} />) : null}</td>;
+                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.Todo : <Pill label={labelsById[row._item.todo]} subtle />) : null}</td>;
+                    if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || 'Add note'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</button> : row._item ? row.Notes : null}</td>;
                     return null;
                   })}
                 </tr>
@@ -425,8 +443,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
 
 function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized' }) {
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
-  const milestones = useMemo(() => projectMilestones(project, lineItems), [project, lineItems]);
-  const days = useMemo(() => dateRangeFromMilestones(milestones), [milestones]);
+  const bookings = useMemo(() => lineItems.filter((item) => item.project_id === project.id && item.start_date && item.end_date).sort((a, b) => a.start_date.localeCompare(b.start_date) || a.sort_order - b.sort_order), [project.id, lineItems]);
+  const days = useMemo(() => dateRangeFromBookings(bookings), [bookings]);
   const categoriesById = useMemo(() => Object.fromEntries(categories.filter((category) => category.project_id === project.id).map((category) => [category.id, category])), [categories, project.id]);
   const dayWidth = 58;
   const leftWidth = 320;
@@ -470,11 +488,13 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
               </div>
             </div>
           </div>
-          {milestones.map((item) => {
-            const offset = differenceInCalendarDays(parseISO(item.end_date), days[0]);
+          {bookings.map((item) => {
+            const offset = differenceInCalendarDays(parseISO(item.start_date), days[0]);
+            const duration = Math.max(1, differenceInCalendarDays(parseISO(item.end_date), parseISO(item.start_date)) + 1);
             const what = labelsById[item.what];
             const todo = labelsById[item.todo];
             const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
+            const blockColor = labelsById[item.who?.[0]]?.color ?? what?.color ?? '#6d5dfc';
             return (
               <div key={item.id} className="client-gantt-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
                 <div className="sticky left-0 z-10 grid grid-cols-[110px_1fr] border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
@@ -486,8 +506,18 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
                 </div>
                 <div className="relative min-h-14">
                   {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
-                  <div className="client-gantt-dot-wrap" style={{ left: offset * dayWidth + dayWidth / 2 }}>
-                    <span className="client-gantt-dot" style={{ backgroundColor: what?.color ?? '#6d5dfc' }} />
+                  <div className="client-gantt-booking" style={{ left: offset * dayWidth + 4, width: duration * dayWidth - 8, '--client-gantt-color': blockColor }}>
+                    {Array.from({ length: duration }, (_, index) => {
+                      const day = parseISO(item.start_date);
+                      day.setDate(day.getDate() + index);
+                      const isLast = index === duration - 1;
+                      return (
+                        <span key={index} className={`client-gantt-booking-day ${isLast ? 'is-last' : ''}`}>
+                          <strong>{format(day, 'd')}</strong>
+                          <em>{format(day, 'MMM')}</em>
+                        </span>
+                      );
+                    })}
                     <span className="client-gantt-labels">
                       {what && <Pill label={what} />}
                       {todo && <Pill label={todo} subtle />}
@@ -510,6 +540,8 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
   const [labelsAsText, setLabelsAsText] = useState(false);
+  const [categoryMode, setCategoryMode] = useState('column');
+  const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
   const [viewMode, setViewMode] = useState(() => readClientViewMode(project.id));
@@ -525,6 +557,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   }), [labels]);
   const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === planningVersion), [lineItems, planningVersion, project.id]);
   const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === planningVersion), [categories, planningVersion, project.id]);
+  const categoriesById = useMemo(() => Object.fromEntries(versionCategories.map((category) => [category.id, category])), [versionCategories]);
   const filteredLineItems = useMemo(() => versionLineItems.filter((item) => {
     if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
     if (!showClientBookings && whoFilterIds.client && item.who?.includes(whoFilterIds.client)) return false;
@@ -534,6 +567,19 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
     () => clientPlanningExportRows(project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName),
     [project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName],
   );
+  const categoryGroups = useMemo(() => {
+    const groups = new Map();
+    filteredLineItems.forEach((item) => {
+      const key = categoryKeyForItem(item);
+      if (!groups.has(key)) groups.set(key, { key, name: categoryNameForItem(item, categoriesById, uncategorizedName), items: [] });
+      groups.get(key).items.push(item);
+    });
+    return [...groups.values()].sort((a, b) => {
+      const aOrder = a.key === 'uncategorized' ? 99999 : categoriesById[a.key]?.sort_order ?? 9999;
+      const bOrder = b.key === 'uncategorized' ? 99999 : categoriesById[b.key]?.sort_order ?? 9999;
+      return aOrder - bOrder || a.name.localeCompare(b.name);
+    });
+  }, [categoriesById, filteredLineItems, uncategorizedName]);
 
   const publish = async () => {
     setPublishing(true);
@@ -575,6 +621,10 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
 
   const keepColumnMenuOpen = () => {
     window.clearTimeout(columnMenuCloseTimer.current);
+  };
+
+  const toggleHiddenCategory = (key) => {
+    setHiddenCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
 
   return (
@@ -634,6 +684,16 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
           <button type="button" onClick={() => setLabelsAsText((next) => !next)} className={`client-filter-pill ${labelsAsText ? 'is-active' : ''}`}>
             {labelsAsText ? <Eye size={14} /> : <EyeOff size={14} />} Text labels
           </button>
+          {versionCategories.length > 1 && (
+            <button type="button" onClick={() => setCategoryMode((next) => (next === 'column' ? 'sections' : 'column'))} className={`client-filter-pill ${categoryMode === 'sections' ? 'is-active' : ''}`}>
+              {categoryMode === 'sections' ? <Eye size={14} /> : <EyeOff size={14} />} Category sections
+            </button>
+          )}
+          {categoryMode === 'sections' && categoryGroups.map((group) => (
+            <button key={group.key} type="button" onClick={() => toggleHiddenCategory(group.key)} className={`client-filter-pill ${!hiddenCategoryKeys.includes(group.key) ? 'is-active' : ''}`}>
+              {!hiddenCategoryKeys.includes(group.key) ? <Eye size={14} /> : <EyeOff size={14} />} {group.name}
+            </button>
+          ))}
         </div>
       )}
 
@@ -656,18 +716,41 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
       )}
 
       {viewMode === 'table' ? (
-        <ClientPlanningTable
-          project={project}
-          lineItems={filteredLineItems}
-          labels={labels}
-          categories={versionCategories}
-          showEmptyDates={showEmptyDates}
-          labelsAsText={labelsAsText}
-          onUpdateLineItem={updateLineItem}
-          uncategorizedName={uncategorizedName}
-          columnPrefs={columnPrefs}
-          onColumnPrefsChange={updateColumnPrefs}
-        />
+        categoryMode === 'sections' ? (
+          <div className="space-y-4">
+            {categoryGroups.filter((group) => !hiddenCategoryKeys.includes(group.key)).map((group) => (
+              <section key={group.key} className="client-category-section">
+                <div className="client-category-section-title">{group.name}</div>
+                <ClientPlanningTable
+                  project={project}
+                  lineItems={group.items}
+                  labels={labels}
+                  categories={versionCategories}
+                  showEmptyDates={showEmptyDates}
+                  labelsAsText={labelsAsText}
+                  onUpdateLineItem={updateLineItem}
+                  uncategorizedName={uncategorizedName}
+                  columnPrefs={columnPrefs}
+                  onColumnPrefsChange={updateColumnPrefs}
+                  forceHideCategoryColumn
+                />
+              </section>
+            ))}
+          </div>
+        ) : (
+          <ClientPlanningTable
+            project={project}
+            lineItems={filteredLineItems}
+            labels={labels}
+            categories={versionCategories}
+            showEmptyDates={showEmptyDates}
+            labelsAsText={labelsAsText}
+            onUpdateLineItem={updateLineItem}
+            uncategorizedName={uncategorizedName}
+            columnPrefs={columnPrefs}
+            onColumnPrefsChange={updateColumnPrefs}
+          />
+        )
       ) : (
         <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} />
       )}

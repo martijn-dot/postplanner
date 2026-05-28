@@ -124,7 +124,7 @@ function HeaderCell({ children, columnKey, onResizeStart }) {
   );
 }
 
-function ToolbarMenu({ id, openMenu, setOpenMenu, icon, label, children, buttonClassName = 'timeline-header-chip' }) {
+function ToolbarMenu({ id, openMenu, setOpenMenu, icon, label, children, buttonClassName = 'timeline-header-chip', tooltip }) {
   const menuRef = useRef(null);
   const open = openMenu === id;
   const MenuIcon = icon;
@@ -148,7 +148,7 @@ function ToolbarMenu({ id, openMenu, setOpenMenu, icon, label, children, buttonC
 
   return (
     <div ref={menuRef} className="relative">
-      <button type="button" onClick={() => setOpenMenu(open ? null : id)} className={buttonClassName}>
+      <button type="button" onClick={() => setOpenMenu(open ? null : id)} className={buttonClassName} data-tooltip={tooltip}>
         {MenuIcon && <MenuIcon size={13} />} {label}
       </button>
       {open && (
@@ -205,7 +205,7 @@ function SortableLine({
   onResizeStart,
   selected,
   selectedIds,
-  onSelect,
+  onSelectionDragStart,
   duplicated,
   onDuplicate,
   onFocusBlock,
@@ -361,13 +361,13 @@ function SortableLine({
               <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button mx-auto" aria-label="Focus booking on timeline">F</button>
               <button
                 type="button"
-                onClick={() => onSelect(item.id, !selected)}
-                className={`icon-button mx-auto ${selected ? 'is-active' : ''}`}
+                onPointerDown={(event) => onSelectionDragStart(event, item.id, !selected)}
+                className={`focus-button row-link-button mx-auto ${selected ? 'is-active' : ''}`}
                 aria-pressed={selected}
                 aria-label={selected ? 'Unlink row from selected rows' : 'Link row to selected rows'}
                 title="lock bookings togehtor"
               >
-                {selected ? <Link2 size={16} /> : <Link2Off size={16} />}
+                {selected ? <Link2 size={13} /> : <Link2Off size={13} />}
               </button>
             </>
           )}
@@ -451,6 +451,7 @@ function CategoryBlock({
   onAddLineItem,
   selectedIds,
   onSelect,
+  onSelectionDragStart,
   duplicatedIds,
   onDuplicate,
   onFocusBlock,
@@ -548,20 +549,33 @@ function CategoryBlock({
             </button>
             {categoryNameInput()}
             {!isUncategorized && (
-              <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button mx-auto" aria-label="Add default bookings to category"><ListPlus size={16} /></button>
+              <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button category-action-button mx-auto" aria-label="Add default bookings to category" data-tooltip="Add default planning"><ListPlus size={16} /></button>
             )}
             {!isUncategorized && (
-              <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button mx-auto" aria-label="Add one row to category"><Plus size={16} /></button>
+              <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button category-action-button mx-auto" aria-label="Add one row to category" data-tooltip="Add row"><Plus size={16} /></button>
             )}
             {!isUncategorized && (
-              <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" buttonClassName="icon-button mx-auto">
+              <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" buttonClassName="icon-button category-action-button mx-auto" tooltip="Client reviews">
                 <button type="button" onClick={() => { onAddClientReviewRows(category.id, 1); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 24h</button>
                 <button type="button" onClick={() => { onAddClientReviewRows(category.id, 2); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 48h</button>
                 <button type="button" onClick={() => { onRemoveClientReviewRows(category.id); setOpenCategoryMenu(null); }} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
               </ToolbarMenu>
             )}
             {!isUncategorized && categoryCount > 1 && (
-              <button type="button" onClick={() => window.confirm('Delete this category? Items will move to Uncategorized.') && deleteCategory(category.id)} className="icon-button mx-auto" aria-label="Delete category"><Trash2 size={15} /></button>
+              <button
+                type="button"
+                onClick={() => {
+                  const bookingText = rows.length === 1 ? '1 booking' : `${rows.length} bookings`;
+                  if (window.confirm(`Delete "${category.name}" and ${bookingText}? This cannot be undone.`)) {
+                    deleteCategory(category.id);
+                  }
+                }}
+                className="icon-button category-action-button mx-auto"
+                aria-label="Delete category"
+                data-tooltip="Delete category"
+              >
+                <Trash2 size={15} />
+              </button>
             )}
           </div>
         )}
@@ -602,6 +616,7 @@ function CategoryBlock({
                 selected={selectedIds.includes(item.id)}
                 selectedIds={selectedIds}
                 onSelect={onSelect}
+                onSelectionDragStart={onSelectionDragStart}
                 duplicated={duplicatedIds.includes(item.id)}
                 onDuplicate={onDuplicate}
                 onFocusBlock={onFocusBlock}
@@ -1036,6 +1051,45 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
     setSelectedIds(checked ? rows.map((item) => item.id) : []);
   };
 
+  const startSelectionDrag = (event, itemId, checked) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const selectableIds = new Set(rows.map((row) => row.id));
+    const visited = new Set();
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+
+    const applyToRow = (rowId) => {
+      if (!rowId || !selectableIds.has(rowId) || visited.has(rowId)) return;
+      visited.add(rowId);
+      setSelectedIds((current) => (
+        checked
+          ? [...new Set([...current, rowId])]
+          : current.filter((id) => id !== rowId)
+      ));
+    };
+
+    applyToRow(itemId);
+
+    const move = (moveEvent) => {
+      const targetLine = document
+        .elementFromPoint(moveEvent.clientX, moveEvent.clientY)
+        ?.closest?.('.timeline-line[data-line-id]');
+      applyToRow(targetLine?.dataset.lineId);
+    };
+
+    const up = () => {
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  };
+
   const duplicateRow = (itemId) => {
     const duplicatedId = duplicateLineItem(itemId);
     if (!duplicatedId) return;
@@ -1253,12 +1307,12 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                           type="button"
                           onClick={() => toggleSelectAll(selectedVisibleCount !== rows.length)}
                           disabled={!rows.length}
-                          className={`icon-button ${rows.length > 0 && selectedVisibleCount === rows.length ? 'is-active' : ''}`}
+                          className={`focus-button row-link-button ${rows.length > 0 && selectedVisibleCount === rows.length ? 'is-active' : ''}`}
                           aria-pressed={rows.length > 0 && selectedVisibleCount === rows.length}
                           aria-label={rows.length > 0 && selectedVisibleCount === rows.length ? 'Unlink all rows' : 'Link all rows'}
                           title="lock bookings togehtor"
                         >
-                          {rows.length > 0 && selectedVisibleCount === rows.length ? <Link2 size={16} /> : <Link2Off size={16} />}
+                          {rows.length > 0 && selectedVisibleCount === rows.length ? <Link2 size={13} /> : <Link2Off size={13} />}
                         </button>
                       </span>
                     </>
@@ -1352,6 +1406,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                       onAddLineItem={addItemToday}
                       selectedIds={selectedIds}
                       onSelect={toggleSelect}
+                      onSelectionDragStart={startSelectionDrag}
                       duplicatedIds={duplicatedIds}
                       onDuplicate={duplicateRow}
                       onFocusBlock={focusBlock}
@@ -1396,6 +1451,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                   onAddLineItem={addItemToday}
                   selectedIds={selectedIds}
                   onSelect={toggleSelect}
+                  onSelectionDragStart={startSelectionDrag}
                   duplicatedIds={duplicatedIds}
                   onDuplicate={duplicateRow}
                   onFocusBlock={focusBlock}

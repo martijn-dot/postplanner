@@ -799,14 +799,14 @@ export function PlannerProvider({ children }) {
       }),
       deleteCategory: (categoryId) => mutate((draft) => {
         const category = draft.categories.find((item) => item.id === categoryId);
-        draft.lineItems.forEach((item) => {
-          if (item.category_id === categoryId) item.category_id = null;
-        });
+        draft.lineItems = draft.lineItems.filter((item) => item.category_id !== categoryId);
         draft.categories = draft.categories.filter((item) => item.id !== categoryId);
         markDirty(category?.project_id);
         if (useSupabase) {
-          void saveSupabase('uncategorized rows', supabase.from('line_items').update({ category_id: null }).eq('category_id', categoryId));
-          void saveSupabase('category delete', supabase.from('categories').delete().eq('id', categoryId));
+          void (async () => {
+            await saveSupabase('category line items delete', supabase.from('line_items').delete().eq('category_id', categoryId));
+            await saveSupabase('category delete', supabase.from('categories').delete().eq('id', categoryId));
+          })();
         }
       }),
       updateDefaultPlanning: (labelIds) => mutate((draft) => {
