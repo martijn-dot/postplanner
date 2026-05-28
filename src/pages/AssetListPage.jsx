@@ -604,8 +604,8 @@ export default function AssetListPage({ project }) {
   const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} minmax(320px, 1fr) 220px`;
 
   return (
-    <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
-      <div className="border-b border-black/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-ink-900">
+    <main className="flex h-[calc(100vh-6rem)] flex-col bg-[#ebeae4] text-ink-950">
+      <div className="border-b border-[#d9d7ce] bg-white px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Asset list</h1>
@@ -638,7 +638,7 @@ export default function AssetListPage({ project }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-900">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#d9d7ce] bg-white px-5 py-3">
         <button type="button" onClick={addColumn} className="primary-button"><Plus size={16} /> Column</button>
         <button type="button" onClick={addRow} className="secondary-button"><Plus size={16} /> Row</button>
         <button type="button" onClick={addCategory} className="secondary-button"><Plus size={16} /> Category</button>

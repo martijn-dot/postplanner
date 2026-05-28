@@ -4,18 +4,18 @@ import { createPortal } from 'react-dom';
 import Pill from './Pill.jsx';
 
 const COLORS = [
-  '#6d5dfc',
-  '#28b8ff',
-  '#31d0aa',
-  '#ff5e84',
-  '#ff8f4f',
-  '#ffcf5c',
-  '#b793ff',
-  '#9ee66b',
-  '#f45fd2',
-  '#4aa3ff',
-  '#ffb257',
-  '#85dfb7',
+  '#111111',
+  '#37B6FF',
+  '#A7D4FF',
+  '#8FE5A1',
+  '#F5D900',
+  '#FF9B42',
+  '#FF6F91',
+  '#FF9CCC',
+  '#B9A4FF',
+  '#D8D8D0',
+  '#C28A56',
+  '#D8FF54',
 ];
 
 export default function LabelSelect({
@@ -171,7 +171,7 @@ export default function LabelSelect({
   }, [multiple, multipleModeToggle, value]);
 
   const menu = open ? (
-    <div ref={menuRef} className="fixed z-[9999] overflow-hidden rounded-lg border border-white/10 bg-ink-850 shadow-glow" style={menuStyle} tabIndex={-1} onKeyDown={handleMenuKeyDown}>
+    <div ref={menuRef} className="fixed z-[9999] overflow-hidden rounded-lg border border-[#303033] bg-[#111111] shadow-glow" style={menuStyle} tabIndex={-1} onKeyDown={handleMenuKeyDown}>
       <div className="max-h-64 overflow-auto p-1">
         {labels.map((label) => {
           if (label.is_divider) {
@@ -191,7 +191,7 @@ export default function LabelSelect({
               type="button"
               onMouseEnter={() => setHighlightedId(label.id)}
               onClick={() => toggle(label.id)}
-              className={`flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-sm text-ink-100 hover:bg-white/5 ${highlightedId === label.id ? 'bg-white/10' : ''}`}
+              className={`flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-sm text-[#f7f6f0] hover:bg-[#303033] ${highlightedId === label.id ? 'bg-[#303033]' : ''}`}
             >
               <span className="flex items-center gap-2">
                 <Pill label={label} />
@@ -284,7 +284,7 @@ export default function LabelSelect({
             }, 0);
           }
         }}
-        className="flex min-h-9 w-full min-w-0 items-center gap-1 overflow-hidden rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-left text-sm text-ink-100 hover:border-white/20"
+        className="flex min-h-9 w-full min-w-0 items-center gap-1 overflow-hidden rounded-md border border-[#d9d7ce] bg-white px-2 py-1 text-left text-sm text-[#19191b] hover:border-[#111111]"
       >
         {selected.length ? (
           <span className="flex min-w-0 max-w-full flex-nowrap gap-1 overflow-hidden">

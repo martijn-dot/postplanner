@@ -44,6 +44,17 @@ function labelKey(label) {
   return `${label.project_id ?? 'global'}:${label.column_type}:${normalizedName(label.value)}`;
 }
 
+const DEFAULT_LABEL_COLOR_BY_KEY = Object.fromEntries(DEFAULT_LABELS.map((label) => [`${label.column_type}:${label.value}`, label.color]));
+
+function applyDefaultLabelColor(label) {
+  const defaultColor = DEFAULT_LABEL_COLOR_BY_KEY[`${label.column_type}:${label.value}`];
+  if (!defaultColor || label.project_id) return label;
+  return {
+    ...label,
+    color: label.is_default || defaultColor ? defaultColor : label.color,
+  };
+}
+
 function profileDisplayValue(value, profiles = []) {
   return profiles.find((profile) => profile.id === value)?.display_name ?? value ?? '';
 }
@@ -238,7 +249,6 @@ function resolveDefaultPlanning(settings, labels = []) {
 function normalizeLocalData(data, user) {
   const userId = user.id;
   const now = new Date().toISOString();
-  const defaultColorByKey = Object.fromEntries(DEFAULT_LABELS.map((label) => [`${label.column_type}:${label.value}`, label.color]));
   const profiles = data.profiles?.length ? data.profiles : [{
     id: userId,
     email: 'demo@planner.local',
@@ -254,15 +264,12 @@ function normalizeLocalData(data, user) {
   }
   const labelsByKey = new Map();
   (data.labels ?? []).forEach((label) => {
-    const normalized = {
+    const normalized = applyDefaultLabelColor({
       ...label,
-      color: label.is_default || (!label.project_id && defaultColorByKey[`${label.column_type}:${label.value}`])
-        ? defaultColorByKey[`${label.column_type}:${label.value}`] ?? label.color
-        : label.color,
       scope: label.scope ?? (label.project_id ? 'project' : 'global'),
       sort_order: label.sort_order ?? 0,
       is_divider: label.is_divider ?? false,
-    };
+    });
     const key = labelKey(normalized);
     if (!labelsByKey.has(key)) labelsByKey.set(key, normalized);
   });
@@ -355,7 +362,7 @@ async function loadSupabaseData() {
     planning_versions: projectVersions(project),
     preferred_planning_version: project.preferred_planning_version ?? projectVersions(project)[0] ?? DEFAULT_PLANNING_VERSION,
   }));
-  const loadedLabels = mergeDefaultAssetLabels(labels.data.map((label) => ({ ...label, sort_order: label.sort_order ?? 0, is_divider: label.is_divider ?? false })));
+  const loadedLabels = mergeDefaultAssetLabels(labels.data.map((label) => applyDefaultLabelColor({ ...label, sort_order: label.sort_order ?? 0, is_divider: label.is_divider ?? false })));
   return {
     projects: loadedProjects,
     categories: categories.data.map((category) => ({ ...category, planning_version: category.planning_version ?? DEFAULT_PLANNING_VERSION, collapsed: false })),
