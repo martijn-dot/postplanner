@@ -215,9 +215,19 @@ create table if not exists public.invitations (
 create table if not exists public.clients (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
+  abbreviation text check (abbreviation is null or abbreviation ~ '^[A-Z]{2}$'),
   created_by uuid references public.profiles(id),
   created_at timestamptz default now()
 );
+
+alter table public.clients
+  add column if not exists abbreviation text;
+
+alter table public.clients
+  drop constraint if exists clients_abbreviation_check;
+
+alter table public.clients
+  add constraint clients_abbreviation_check check (abbreviation is null or abbreviation ~ '^[A-Z]{2}$');
 
 create table if not exists public.producers (
   id uuid primary key default gen_random_uuid(),
@@ -368,6 +378,7 @@ drop policy if exists "Admins read invitations" on public.invitations;
 drop policy if exists "Admins create invitations" on public.invitations;
 drop policy if exists "Users can read clients" on public.clients;
 drop policy if exists "Users can create clients" on public.clients;
+drop policy if exists "Admins can update clients" on public.clients;
 drop policy if exists "Admins can delete clients" on public.clients;
 drop policy if exists "Users can read producers" on public.producers;
 drop policy if exists "Users can create producers" on public.producers;
@@ -512,6 +523,11 @@ create policy "Users can create clients"
 on public.clients for insert
 with check (auth.role() = 'authenticated');
 
+create policy "Admins can update clients"
+on public.clients for update
+using (public.is_admin())
+with check (public.is_admin());
+
 create policy "Admins can delete clients"
 on public.clients for delete
 using (public.is_admin());
@@ -568,6 +584,10 @@ as $$
       select jsonb_agg(to_jsonb(al) order by al.sort_order)
       from public.asset_lists al
       join share s on s.project_id = al.project_id
+    ), '[]'::jsonb),
+    'clients', coalesce((
+      select jsonb_agg(to_jsonb(cl) order by cl.name)
+      from public.clients cl
     ), '[]'::jsonb)
   )
   from share;

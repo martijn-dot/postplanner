@@ -24,6 +24,7 @@ function readLocalShare(token) {
     lineItems: planner.lineItems?.filter((item) => item.project_id === share.projectId) ?? [],
     labels: planner.labels?.filter((label) => !label.project_id || label.project_id === share.projectId) ?? [],
     assetLists: planner.assetLists?.filter((list) => list.project_id === share.projectId) ?? [],
+    clients: planner.clients ?? [],
   };
 }
 
@@ -47,16 +48,22 @@ function assetValue(value, column) {
   return text;
 }
 
-function assetFilename(project, list, row) {
+function projectClientCode(project, clients = []) {
+  const client = clients.find((item) => item.name?.trim().toLowerCase() === project.client?.trim().toLowerCase());
+  const abbreviation = client?.abbreviation?.trim().toUpperCase();
+  return abbreviation?.length === 2 ? abbreviation : project.client;
+}
+
+function assetFilename(project, list, row, clients = []) {
   const columns = assetColumns(list);
   const filenameColumns = columns.filter((column) => column.label_type !== 'asset_unique_ratio' && !/^unique\b/i.test(column.name ?? ''));
-  const parts = [project.project_number, project.client, project.name, row.number, ...filenameColumns.map((column) => assetValue(row.values?.[column.id], column))]
+  const parts = [project.project_number, projectClientCode(project, clients), project.name, row.number, ...filenameColumns.map((column) => assetValue(row.values?.[column.id], column))]
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   return parts.join(list.global_separator ?? '_');
 }
 
-function PublicAssetList({ project, assetLists = [] }) {
+function PublicAssetList({ project, assetLists = [], clients = [] }) {
   const [activeId, setActiveId] = useState(assetLists[0]?.id ?? '');
   const activeList = assetLists.find((list) => list.id === activeId) ?? assetLists[0];
   useEffect(() => {
@@ -96,7 +103,7 @@ function PublicAssetList({ project, assetLists = [] }) {
                   <tr key={row.id} className="border-t border-black/5 dark:border-white/5">
                     <td className="px-3 py-2 font-mono">{row.number}</td>
                     {columns.map((column) => <td key={column.id} className="px-3 py-2">{assetValue(row.values?.[column.id], column) || '-'}</td>)}
-                    <td className="px-3 py-2 font-mono text-xs">{assetFilename(project, activeList, row)}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{assetFilename(project, activeList, row, clients)}</td>
                     <td className="px-3 py-2">{row.notes || '-'}</td>
                   </tr>
                 ))}
@@ -123,6 +130,7 @@ export default function PublicClientPage() {
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
+  const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
@@ -236,7 +244,7 @@ export default function PublicClientPage() {
             />
           </>
         ) : (
-          <PublicAssetList project={payload.project} assetLists={assetLists} />
+          <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} />
         )}
       </div>
     </main>

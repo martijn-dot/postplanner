@@ -123,10 +123,16 @@ function visibleColumns(list) {
   return [...(list.columns ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
 
-function formatAssetFilename(project, list, row) {
+function projectClientCode(project, clients = []) {
+  const client = clients.find((item) => item.name?.trim().toLowerCase() === project.client?.trim().toLowerCase());
+  const abbreviation = client?.abbreviation?.trim().toUpperCase();
+  return abbreviation?.length === 2 ? abbreviation : project.client;
+}
+
+function formatAssetFilename(project, list, row, clients = []) {
   const options = list.filename_options ?? {};
   const columns = visibleColumns(list);
-  const baseParts = [project.project_number, project.client, project.name, row.number].filter((part) => String(part ?? '').trim());
+  const baseParts = [project.project_number, projectClientCode(project, clients), project.name, row.number].filter((part) => String(part ?? '').trim());
   const columnParts = columns
     .filter((column) => column.label_type !== 'asset_unique_ratio' && !/^unique\b/i.test(column.name ?? ''))
     .map((column) => ({ column, value: formatAssetValue(row.values?.[column.id], column) }))
@@ -153,7 +159,7 @@ function formatAssetValue(value, column) {
   return text;
 }
 
-function assetSheetRows(project, list) {
+function assetSheetRows(project, list, clients = []) {
   const columns = visibleColumns(list);
   const headers = ['Number', ...columns.map((column) => column.name), 'Filename', 'Notes'];
   const sortedRows = [...(list.rows ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
@@ -166,7 +172,7 @@ function assetSheetRows(project, list) {
       ...groupRows.map((row) => [
         row.number ?? '',
         ...columns.map((column) => formatAssetValue(row.values?.[column.id], column)),
-        formatAssetFilename(project, list, row),
+        formatAssetFilename(project, list, row, clients),
         row.notes ?? '',
       ]),
     ];
@@ -174,8 +180,8 @@ function assetSheetRows(project, list) {
   return { headers, rows, columns };
 }
 
-function appendAssetSheet(XLSX, workbook, project, list) {
-  const { headers, rows, columns } = assetSheetRows(project, list);
+function appendAssetSheet(XLSX, workbook, project, list, clients = []) {
+  const { headers, rows, columns } = assetSheetRows(project, list, clients);
   const metadata = [
     ['ASSET LIST:', '', list.name || 'Asset list'],
     ['Project number:', '', project.project_number || '-'],
@@ -194,11 +200,11 @@ function appendAssetSheet(XLSX, workbook, project, list) {
   XLSX.utils.book_append_sheet(workbook, worksheet, (list.name || 'Asset list').slice(0, 31));
 }
 
-export async function downloadAssetListExcel(project, lists, mode = 'active') {
+export async function downloadAssetListExcel(project, lists, mode = 'active', clients = []) {
   const XLSX = await import('xlsx');
   const workbook = XLSX.utils.book_new();
   const exportLists = Array.isArray(lists) ? lists : [lists];
-  exportLists.forEach((list) => appendAssetSheet(XLSX, workbook, project, list));
+  exportLists.forEach((list) => appendAssetSheet(XLSX, workbook, project, list, clients));
   XLSX.writeFile(workbook, assetFileName(project, mode === 'all' ? 'asset-lists' : 'asset-list'), {
     bookType: 'xlsx',
     cellStyles: true,

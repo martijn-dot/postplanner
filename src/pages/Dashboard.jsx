@@ -112,6 +112,24 @@ export default function Dashboard() {
   const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name)].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
   const profileByName = Object.fromEntries((profiles ?? []).map((profile) => [profile.display_name, profile]));
   const labelsById = Object.fromEntries((labels ?? []).map((label) => [label.id, label]));
+  const activeProjects = projects.filter((project) => !project.is_archived);
+  const activeUserOptions = [...new Set(activeProjects.flatMap((project) => [
+    project.post_producer,
+    project.producer,
+    profiles.find((profile) => profile.id === project.created_by)?.display_name,
+  ]).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const activeClientOptions = [...new Set(activeProjects.map((project) => project.client).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const activeNamesForProject = (projectId) => (presence ?? [])
+    .filter((item) => item.project_id === projectId && item.user_id !== user.id && Date.now() - new Date(item.last_seen_at).getTime() < 90_000)
+    .map((item) => (profiles ?? []).find((profile) => profile.id === item.user_id)?.display_name)
+    .filter(Boolean);
+  const guardProjectOpen = (event, projectId) => {
+    const activeNames = activeNamesForProject(projectId);
+    if (!activeNames.length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.alert(`${activeNames.join(', ')} ${activeNames.length === 1 ? 'is' : 'are'} working in this project.`);
+  };
   const resetForm = () => {
     setOpen(false);
     setEditingProject(null);
@@ -210,11 +228,11 @@ export default function Dashboard() {
           </label>
           <select className="field !py-2" value={userFilter} onChange={(event) => setUserFilter(event.target.value)}>
             <option value="">Filter user</option>
-            {producers.map((name) => <option key={name} value={name}>{name}</option>)}
+            {activeUserOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
           <select className="field !py-2" value={clientFilter} onChange={(event) => setClientFilter(event.target.value)}>
             <option value="">Filter client</option>
-            {clients.map((item) => <option key={item} value={item}>{item}</option>)}
+            {activeClientOptions.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         </div>
 
@@ -244,8 +262,7 @@ export default function Dashboard() {
                 labelsById,
                 categories: (categories ?? []).filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === preferredVersion),
               });
-              const activePresence = (presence ?? []).filter((item) => item.project_id === project.id && item.user_id !== user.id && Date.now() - new Date(item.last_seen_at).getTime() < 90_000);
-              const activeNames = activePresence.map((item) => (profiles ?? []).find((profile) => profile.id === item.user_id)?.display_name).filter(Boolean);
+              const activeNames = activeNamesForProject(project.id);
               const locked = activeNames.length > 0;
               const rowContent = (
                 <>
@@ -262,6 +279,11 @@ export default function Dashboard() {
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
+                              const currentActiveNames = activeNamesForProject(project.id);
+                              if (currentActiveNames.length) {
+                                window.alert(`${currentActiveNames.join(', ')} ${currentActiveNames.length === 1 ? 'is' : 'are'} working in this project.`);
+                                return;
+                              }
                               window.location.href = `/projects/${project.id}?version=${version}`;
                             }}
                             className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-semibold text-ink-400 transition hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100"
@@ -351,13 +373,22 @@ export default function Dashboard() {
               );
               if (locked) {
                 return (
-                  <div key={project.id} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-4 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]">
+                  <div
+                    key={project.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => guardProjectOpen(event, project.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') guardProjectOpen(event, project.id);
+                    }}
+                    className="grid cursor-not-allowed grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-4 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]"
+                  >
                     {rowContent}
                   </div>
                 );
               }
               return (
-                <Link key={project.id} to={`/projects/${project.id}?version=V1`} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-4 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
+                <Link key={project.id} to={`/projects/${project.id}?version=V1`} onClick={(event) => guardProjectOpen(event, project.id)} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-4 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
                   {rowContent}
                 </Link>
               );

@@ -270,6 +270,10 @@ nav .tab-active {
   min-height: 42px;
 }
 
+.asset-list-row.sticky {
+  z-index: 1200;
+}
+
 .asset-list-header {
   align-items: center;
   border-right: 1px solid rgba(0, 0, 0, 0.08);
@@ -438,7 +442,7 @@ nav .tab-active {
   text-transform: none;
   transform: translateX(-50%);
   white-space: nowrap;
-  z-index: 5000;
+  z-index: 9999;
 }
 
 .asset-row-actions {
@@ -458,7 +462,26 @@ nav .tab-active {
   min-width: 0;
   outline: none;
   padding: 0 8px;
+  text-overflow: ellipsis;
   width: 100%;
+}
+
+.asset-copy-filename {
+  background: rgba(109, 93, 252, 0.14);
+  border: 1px solid rgba(109, 93, 252, 0.32);
+  border-radius: 999px;
+  color: #c7c0ff;
+  flex: 0 0 auto;
+  font-size: 0.65rem;
+  font-weight: 850;
+  height: 22px;
+  line-height: 1;
+  padding: 0 8px;
+}
+
+.asset-copy-filename:hover {
+  background: rgba(109, 93, 252, 0.24);
+  border-color: rgba(109, 93, 252, 0.72);
 }
 
 .asset-column-order-row {
@@ -542,6 +565,11 @@ nav .tab-active {
   padding: 5px 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.asset-label-chip.is-none {
+  background: #2c3346;
+  color: #aeb6ca;
 }
 
 .asset-label-menu {
@@ -1252,11 +1280,27 @@ nav .tab-active {
   display: flex;
   font-size: 0.82rem;
   font-weight: 800;
+  gap: 0.45rem;
   letter-spacing: 0.02em;
   margin-bottom: 0.5rem;
   min-height: 38px;
   padding: 0 0.9rem;
   text-transform: uppercase;
+  width: 100%;
+}
+
+.client-category-pill {
+  border: 1px solid;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 5px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .client-planning-table .week-divider > td {
@@ -1467,16 +1511,16 @@ nav .tab-active {
   height: 40px;
   justify-content: center;
   min-width: 58px;
-  opacity: 0.5;
+  opacity: 0.42;
 }
 
 .client-gantt-booking-day strong {
-  font-size: 0.8rem;
+  font-size: 0.66rem;
   line-height: 1;
 }
 
 .client-gantt-booking-day em {
-  font-size: 0.55rem;
+  font-size: 0.48rem;
   font-style: normal;
   font-weight: 800;
   line-height: 1;
@@ -1492,14 +1536,25 @@ nav .tab-active {
 }
 
 .client-gantt-booking .client-gantt-labels {
-  left: calc(100% + 8px);
+  left: calc(100% + 10px);
   position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .client-gantt-labels {
   align-items: center;
   display: inline-flex;
   gap: 0.25rem;
+  max-width: 420px;
+  white-space: nowrap;
+}
+
+.client-gantt-category-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f3f0ff;
+  min-height: 38px;
+  text-align: left;
 }
 
 /* 2026 dark control-room polish using the original ROVAL palette. */

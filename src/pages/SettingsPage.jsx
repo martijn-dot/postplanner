@@ -58,6 +58,36 @@ function SortableDefaultPlanningRow({ label, onRemove }) {
   );
 }
 
+function ClientAbbreviationInput({ client, onUpdate }) {
+  const [draft, setDraft] = useState(client.abbreviation ?? '');
+
+  const commit = () => {
+    const value = draft.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+    setDraft(value);
+    if (value && value.length !== 2) return;
+    if (value !== (client.abbreviation ?? '')) onUpdate(client.id ?? client.name, { abbreviation: value });
+  };
+
+  return (
+    <input
+      className="field !h-8 !w-16 !px-2 !py-1 text-center text-xs uppercase"
+      value={draft}
+      onChange={(event) => setDraft(event.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2))}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Escape') {
+          setDraft(client.abbreviation ?? '');
+          event.currentTarget.blur();
+        }
+      }}
+      placeholder="AB"
+      maxLength={2}
+      aria-label={`${client.name} abbreviation`}
+    />
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const {
@@ -79,6 +109,7 @@ export default function SettingsPage() {
     deleteUser,
     updateUserRole,
     addClient,
+    updateClient,
     deleteClient,
     addProducer,
     deleteProducer,
@@ -90,6 +121,7 @@ export default function SettingsPage() {
   const [drafts, setDrafts] = useState({});
   const [inviteEmail, setInviteEmail] = useState('');
   const [clientName, setClientName] = useState('');
+  const [clientAbbreviation, setClientAbbreviation] = useState('');
   const [producerName, setProducerName] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [userNotice, setUserNotice] = useState('');
@@ -202,14 +234,20 @@ export default function SettingsPage() {
     event.preventDefault();
     const value = clientName.trim();
     if (!value) return;
+    if (clientAbbreviation && !/^[A-Z]{2}$/.test(clientAbbreviation)) {
+      setSettingsNotice('abbreviation needs 2 letters');
+      window.setTimeout(() => setSettingsNotice(''), 2500);
+      return;
+    }
     if ((clients ?? []).some((client) => client.name.trim().toLowerCase() === value.toLowerCase())) {
       setSettingsNotice('already exist');
       window.setTimeout(() => setSettingsNotice(''), 2500);
       return;
     }
-    addClient(value);
+    addClient(value, clientAbbreviation);
     setSettingsNotice('');
     setClientName('');
+    setClientAbbreviation('');
   };
 
   const submitProducer = (event) => {
@@ -479,14 +517,23 @@ export default function SettingsPage() {
 
         {tab === 'clients' && (
           <section className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
-            <form onSubmit={submitClient} className="mb-5 flex max-w-xl gap-2">
+            <form onSubmit={submitClient} className="mb-5 flex max-w-2xl gap-2">
               <input className="field !py-2" value={clientName} onChange={(event) => setClientName(event.target.value)} placeholder="Add client" />
+              <input
+                className="field !w-24 !py-2 uppercase"
+                value={clientAbbreviation}
+                onChange={(event) => setClientAbbreviation(event.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2))}
+                placeholder="AB"
+                maxLength={2}
+                aria-label="Client abbreviation"
+              />
               <button type="submit" className="primary-button shrink-0 whitespace-nowrap"><Plus size={16} /> Add Client</button>
             </form>
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {(clients ?? []).map((client) => (
                 <div key={client.id ?? client.name} className="flex items-center justify-between gap-3 rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
                   <span className="min-w-0 truncate">{client.name}</span>
+                  <ClientAbbreviationInput client={client} onUpdate={updateClient} />
                   <button type="button" onClick={() => deleteClient(client.id ?? client.name)} className="icon-button !h-7 !w-7 shrink-0" aria-label={`Remove ${client.name}`}>
                     <Trash2 size={14} />
                   </button>

@@ -225,7 +225,7 @@ function hydrateDefaults(user) {
     lineItems,
     labels,
     profiles: [profile],
-    clients: [{ id: id(), name: DEFAULT_PROJECT.client, created_by: userId, created_at: new Date().toISOString() }],
+    clients: [{ id: id(), name: DEFAULT_PROJECT.client, abbreviation: '', created_by: userId, created_at: new Date().toISOString() }],
     producers: [{ id: id(), name: profile.display_name, created_by: userId, created_at: new Date().toISOString() }],
     presence: [],
     invitations: [],
@@ -308,7 +308,7 @@ function normalizeLocalData(data, user) {
     lineItems,
     labels,
     profiles,
-    clients: data.clients ?? [...new Set(projects.map((project) => project.client).filter(Boolean))].map((name) => ({ id: id(), name, created_by: userId, created_at: now })),
+    clients: data.clients ?? [...new Set(projects.map((project) => project.client).filter(Boolean))].map((name) => ({ id: id(), name, abbreviation: '', created_by: userId, created_at: now })),
     producers: data.producers ?? [...new Set(profiles.map((profile) => profile.display_name).filter(Boolean))].map((name) => ({ id: id(), name, created_by: userId, created_at: now })),
     presence: data.presence ?? [],
     invitations: data.invitations ?? [],
@@ -356,7 +356,7 @@ async function loadSupabaseData() {
   if (appSettings.error && appSettings.error.code !== '42P01' && appSettings.error.code !== '42501' && appSettings.error.code !== 'PGRST205') throw appSettings.error;
   if (assetLists.error && assetLists.error.code !== '42P01' && assetLists.error.code !== '42501' && assetLists.error.code !== 'PGRST205') throw assetLists.error;
   const loadedProfiles = profiles.data ?? [];
-  const loadedClients = clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name }));
+  const loadedClients = (clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name, abbreviation: '' }))).map((client) => ({ ...client, abbreviation: client.abbreviation ?? '' }));
   const loadedProjects = projects.data.map((project) => ({
     ...project,
     post_producer: profileDisplayValue(project.post_producer, loadedProfiles),
@@ -513,7 +513,7 @@ export function PlannerProvider({ children }) {
           draft.projects.unshift(project);
           draft.categories.push(category);
           if (client && !draft.clients.some((item) => normalizedName(item.name) === normalizedName(client))) {
-            draft.clients.push({ id: id(), name: client, created_by: user.id, created_at: now });
+            draft.clients.push({ id: id(), name: client, abbreviation: '', created_by: user.id, created_at: now });
           }
           [postProducer, producer].filter(Boolean).forEach((producerName) => {
             if (!draft.producers.some((item) => normalizedName(item.name) === normalizedName(producerName))) {
@@ -533,7 +533,7 @@ export function PlannerProvider({ children }) {
         const project = draft.projects.find((item) => item.id === projectId);
         Object.assign(project, patch);
         if (patch.client && !draft.clients.some((item) => normalizedName(item.name) === normalizedName(patch.client))) {
-          draft.clients.push({ id: id(), name: patch.client, created_by: user.id, created_at: new Date().toISOString() });
+          draft.clients.push({ id: id(), name: patch.client, abbreviation: '', created_by: user.id, created_at: new Date().toISOString() });
         }
         [patch.post_producer, patch.producer].filter(Boolean).forEach((producerName) => {
           if (!draft.producers.some((item) => normalizedName(item.name) === normalizedName(producerName))) {
@@ -1153,18 +1153,29 @@ export function PlannerProvider({ children }) {
         Object.assign(profile, cleanPatch);
         if (useSupabase) void saveSupabase('profile', supabase.from('profiles').update(cleanPatch).eq('id', user.id));
       }),
-      addClient: (name) => {
+      addClient: (name, abbreviation = '') => {
         const trimmed = name.trim();
         if (!trimmed) return null;
         const existing = data.clients.find((item) => normalizedName(item.name) === normalizedName(trimmed));
         if (existing) return existing;
-        const client = { id: id(), name: trimmed, created_by: user.id, created_at: new Date().toISOString() };
+        const cleanAbbreviation = abbreviation.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+        const client = { id: id(), name: trimmed, abbreviation: cleanAbbreviation, created_by: user.id, created_at: new Date().toISOString() };
         mutate((draft) => {
           if (!draft.clients.some((item) => normalizedName(item.name) === normalizedName(trimmed))) draft.clients.push(client);
         });
-        if (useSupabase) void saveSupabase('client', supabase.from('clients').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }));
+        if (useSupabase) void saveSupabase('client', supabase.from('clients').upsert({ name: trimmed, abbreviation: cleanAbbreviation || null, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }));
         return client;
       },
+      updateClient: (clientId, patch) => mutate((draft) => {
+        const client = draft.clients.find((item) => item.id === clientId || item.name === clientId);
+        if (!client) return;
+        const nextPatch = { ...patch };
+        if (Object.hasOwn(nextPatch, 'abbreviation')) nextPatch.abbreviation = nextPatch.abbreviation.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+        Object.assign(client, nextPatch);
+        const dbPatch = { ...nextPatch };
+        if (Object.hasOwn(dbPatch, 'abbreviation')) dbPatch.abbreviation = dbPatch.abbreviation || null;
+        if (useSupabase) void saveSupabase('client', supabase.from('clients').update(dbPatch).eq('name', client.name));
+      }),
       deleteClient: (clientId) => mutate((draft) => {
         const client = draft.clients.find((item) => item.id === clientId || item.name === clientId);
         if (!client) return;

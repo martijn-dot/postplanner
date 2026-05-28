@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { Check, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -201,6 +201,16 @@ function categoryKeyForItem(item) {
   return item.category_id ?? 'uncategorized';
 }
 
+function categoryShade(key, categories = []) {
+  const index = Math.max(0, categories.findIndex((category) => category.id === key));
+  const lightness = Math.max(18, 42 - index * 5);
+  return {
+    backgroundColor: `hsl(235 10% ${lightness}%)`,
+    borderColor: `hsl(235 10% ${Math.min(58, lightness + 14)}%)`,
+    color: '#f3f0ff',
+  };
+}
+
 function measureTextWidth(text, min, max, charWidth = 8.2) {
   const value = String(text ?? '');
   return Math.max(min, Math.min(max, Math.ceil(value.length * charWidth) + 42));
@@ -380,7 +390,11 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   )}
                   {orderedColumns.map((column) => {
                     if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : null}</td>;
-                    if (column.key === 'category') return <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">{row._item ? row.Category : ''}</td>;
+                    if (column.key === 'category') return (
+                      <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">
+                        {row._item ? <span className="client-category-pill" style={categoryShade(categoryKeyForItem(row._item), categories)}>{row.Category}</span> : ''}
+                      </td>
+                    );
                     if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row._item ? row.Time : ''}</td>;
                     if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{labelsAsText ? row.Who : row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
                     if (column.key === 'asset') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item ? <span className="note-preview group relative inline-flex w-full min-w-0 text-left"><span className="truncate font-semibold">{row.Asset || '-'}</span>{row.Asset && <span className="note-tooltip">{row.Asset}</span>}</span> : null}</td>;
@@ -441,11 +455,25 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   );
 }
 
-function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized' }) {
+function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized', categoryMode = 'column', collapsedCategoryKeys = [], onToggleCategory }) {
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const bookings = useMemo(() => lineItems.filter((item) => item.project_id === project.id && item.start_date && item.end_date).sort((a, b) => a.start_date.localeCompare(b.start_date) || a.sort_order - b.sort_order), [project.id, lineItems]);
   const days = useMemo(() => dateRangeFromBookings(bookings), [bookings]);
   const categoriesById = useMemo(() => Object.fromEntries(categories.filter((category) => category.project_id === project.id).map((category) => [category.id, category])), [categories, project.id]);
+  const bookingGroups = useMemo(() => {
+    if (categoryMode !== 'sections') return [{ key: 'all', name: '', items: bookings }];
+    const groups = new Map();
+    bookings.forEach((item) => {
+      const key = categoryKeyForItem(item);
+      if (!groups.has(key)) groups.set(key, { key, name: categoryNameForItem(item, categoriesById, uncategorizedName), items: [] });
+      groups.get(key).items.push(item);
+    });
+    return [...groups.values()].sort((a, b) => {
+      const aOrder = a.key === 'uncategorized' ? 99999 : categoriesById[a.key]?.sort_order ?? 9999;
+      const bOrder = b.key === 'uncategorized' ? 99999 : categoriesById[b.key]?.sort_order ?? 9999;
+      return aOrder - bOrder || a.name.localeCompare(b.name);
+    });
+  }, [bookings, categoriesById, categoryMode, uncategorizedName]);
   const dayWidth = 58;
   const leftWidth = 320;
   const weeks = useMemo(() => {
@@ -488,46 +516,63 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
               </div>
             </div>
           </div>
-          {bookings.map((item) => {
-            const offset = differenceInCalendarDays(parseISO(item.start_date), days[0]);
-            const duration = Math.max(1, differenceInCalendarDays(parseISO(item.end_date), parseISO(item.start_date)) + 1);
-            const what = labelsById[item.what];
-            const todo = labelsById[item.todo];
-            const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
-            const blockColor = labelsById[item.who?.[0]]?.color ?? what?.color ?? '#6d5dfc';
-            return (
-              <div key={item.id} className="client-gantt-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
-                <div className="sticky left-0 z-10 grid grid-cols-[110px_1fr] border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
-                  <div className="flex flex-wrap content-center gap-1 px-3 py-3">{item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>
-                  <div className="min-w-0 px-3 py-3">
-                    <div className="truncate text-sm font-semibold">{item.asset || '-'}</div>
-                    <div className="truncate text-[0.65rem] text-ink-500">{category}</div>
-                  </div>
-                </div>
-                <div className="relative min-h-14">
-                  {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
-                  <div className="client-gantt-booking" style={{ left: offset * dayWidth + 4, width: duration * dayWidth - 8, '--client-gantt-color': blockColor }}>
-                    {Array.from({ length: duration }, (_, index) => {
-                      const day = parseISO(item.start_date);
-                      day.setDate(day.getDate() + index);
-                      const isLast = index === duration - 1;
-                      return (
-                        <span key={index} className={`client-gantt-booking-day ${isLast ? 'is-last' : ''}`}>
-                          <strong>{format(day, 'd')}</strong>
-                          <em>{format(day, 'MMM')}</em>
+          {bookingGroups.map((group) => (
+            <div key={group.key}>
+              {categoryMode === 'sections' && (
+                <button type="button" onClick={() => onToggleCategory?.(group.key)} className="client-gantt-category-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
+                  <span className="sticky left-0 z-20 flex items-center gap-2 border-r border-black/10 bg-white px-3 py-2 text-sm font-bold dark:border-white/10 dark:bg-ink-900">
+                    {collapsedCategoryKeys.includes(group.key) ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                    {group.name}
+                  </span>
+                  <span />
+                </button>
+              )}
+              {!collapsedCategoryKeys.includes(group.key) && group.items.map((item) => {
+                const offset = differenceInCalendarDays(parseISO(item.start_date), days[0]);
+                const duration = Math.max(1, differenceInCalendarDays(parseISO(item.end_date), parseISO(item.start_date)) + 1);
+                const what = labelsById[item.what];
+                const todo = labelsById[item.todo];
+                const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
+                const blockColor = labelsById[item.who?.[0]]?.color ?? what?.color ?? '#6d5dfc';
+                return (
+                  <div key={item.id} className="client-gantt-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
+                    <div className="sticky left-0 z-10 grid grid-cols-[110px_1fr] border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
+                      <div className="flex flex-wrap content-center gap-1 px-3 py-3">{item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>
+                      <div className="min-w-0 px-3 py-3">
+                        <div className="truncate text-sm font-semibold">{item.asset || '-'}</div>
+                        <div className="truncate text-[0.65rem] text-ink-500">{category}</div>
+                      </div>
+                    </div>
+                    <div className="relative min-h-14">
+                      {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
+                      <div className="client-gantt-booking" style={{ left: offset * dayWidth + 4, width: duration * dayWidth - 8, '--client-gantt-color': blockColor }}>
+                        {Array.from({ length: duration }, (_, index) => {
+                          const day = parseISO(item.start_date);
+                          day.setDate(day.getDate() + index);
+                          const isLast = index === duration - 1;
+                          return (
+                            <span key={index} className={`client-gantt-booking-day ${isLast ? 'is-last' : ''}`}>
+                              {isLast && (
+                                <>
+                                  <strong>{format(day, 'd')}</strong>
+                                  <em>{format(day, 'MMM')}</em>
+                                </>
+                              )}
+                            </span>
+                          );
+                        })}
+                        <span className="client-gantt-labels">
+                          {what && <Pill label={what} />}
+                          {todo && <Pill label={todo} subtle />}
+                          {item.time && <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-300">{item.time}</span>}
                         </span>
-                      );
-                    })}
-                    <span className="client-gantt-labels">
-                      {what && <Pill label={what} />}
-                      {todo && <Pill label={todo} subtle />}
-                      {item.time && <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-300">{item.time}</span>}
-                    </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -541,7 +586,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const [showClientBookings, setShowClientBookings] = useState(true);
   const [labelsAsText, setLabelsAsText] = useState(false);
   const [categoryMode, setCategoryMode] = useState('column');
-  const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
+  const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState([]);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
   const [viewMode, setViewMode] = useState(() => readClientViewMode(project.id));
@@ -623,8 +668,8 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
     window.clearTimeout(columnMenuCloseTimer.current);
   };
 
-  const toggleHiddenCategory = (key) => {
-    setHiddenCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  const toggleCollapsedCategory = (key) => {
+    setCollapsedCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
 
   return (
@@ -669,7 +714,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
         </div>
       </div>
 
-      {viewMode === 'table' && (
+      {(viewMode === 'table' || viewMode === 'gantt') && (
         <div className="client-filter-row mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-ink-900">
           <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
           <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
@@ -689,11 +734,6 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
               {categoryMode === 'sections' ? <Eye size={14} /> : <EyeOff size={14} />} Category sections
             </button>
           )}
-          {categoryMode === 'sections' && categoryGroups.map((group) => (
-            <button key={group.key} type="button" onClick={() => toggleHiddenCategory(group.key)} className={`client-filter-pill ${!hiddenCategoryKeys.includes(group.key) ? 'is-active' : ''}`}>
-              {!hiddenCategoryKeys.includes(group.key) ? <Eye size={14} /> : <EyeOff size={14} />} {group.name}
-            </button>
-          ))}
         </div>
       )}
 
@@ -718,22 +758,27 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
       {viewMode === 'table' ? (
         categoryMode === 'sections' ? (
           <div className="space-y-4">
-            {categoryGroups.filter((group) => !hiddenCategoryKeys.includes(group.key)).map((group) => (
+            {categoryGroups.map((group) => (
               <section key={group.key} className="client-category-section">
-                <div className="client-category-section-title">{group.name}</div>
-                <ClientPlanningTable
-                  project={project}
-                  lineItems={group.items}
-                  labels={labels}
-                  categories={versionCategories}
-                  showEmptyDates={showEmptyDates}
-                  labelsAsText={labelsAsText}
-                  onUpdateLineItem={updateLineItem}
-                  uncategorizedName={uncategorizedName}
-                  columnPrefs={columnPrefs}
-                  onColumnPrefsChange={updateColumnPrefs}
-                  forceHideCategoryColumn
-                />
+                <button type="button" onClick={() => toggleCollapsedCategory(group.key)} className="client-category-section-title">
+                  {collapsedCategoryKeys.includes(group.key) ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                  {group.name}
+                </button>
+                {!collapsedCategoryKeys.includes(group.key) && (
+                  <ClientPlanningTable
+                    project={project}
+                    lineItems={group.items}
+                    labels={labels}
+                    categories={versionCategories}
+                    showEmptyDates={showEmptyDates}
+                    labelsAsText={labelsAsText}
+                    onUpdateLineItem={updateLineItem}
+                    uncategorizedName={uncategorizedName}
+                    columnPrefs={columnPrefs}
+                    onColumnPrefsChange={updateColumnPrefs}
+                    forceHideCategoryColumn
+                  />
+                )}
               </section>
             ))}
           </div>
@@ -752,7 +797,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
           />
         )
       ) : (
-        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} />
+        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode={categoryMode} collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} />
       )}
     </main>
   );

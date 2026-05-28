@@ -47,9 +47,15 @@ function applyFilenameOptions(value, options = {}) {
   return output;
 }
 
-function generatedFilename(project, list, row) {
+function projectClientCode(project, clients = []) {
+  const client = clients.find((item) => item.name?.trim().toLowerCase() === project.client?.trim().toLowerCase());
+  const abbreviation = client?.abbreviation?.trim().toUpperCase();
+  return abbreviation?.length === 2 ? abbreviation : project.client;
+}
+
+function generatedFilename(project, list, row, clients = []) {
   const columns = orderedColumns(list);
-  const baseParts = [project.project_number, project.client, project.name, row.number]
+  const baseParts = [project.project_number, projectClientCode(project, clients), project.name, row.number]
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   const rowParts = columns
@@ -83,6 +89,7 @@ function updateRowsForColumn(rows, columnId, fallback = '') {
 }
 
 function labelColor(value = '') {
+  if (value.trim().toLowerCase() === 'unique') return '#ffcf5c';
   const colors = ['#6d5dfc', '#28b8ff', '#10b981', '#f59e0b', '#f466ae', '#ef4444'];
   const index = [...value].reduce((total, char) => total + char.charCodeAt(0), 0) % colors.length;
   return colors[index];
@@ -104,12 +111,12 @@ function LabelDropdown({ id, value, options, onChange, onMoveDown, openDropdownI
           }
         }}
       >
-        {value ? <span className="asset-label-chip" style={{ backgroundColor: labelColor(value) }}>{value}</span> : <span className="text-ink-500">-</span>}
+        {value ? <span className="asset-label-chip" style={{ backgroundColor: labelColor(value) }}>{value}</span> : <span className="asset-label-chip is-none">None</span>}
         <ChevronDown size={14} />
       </button>
       {open && (
         <div className="asset-label-menu">
-          <button type="button" className="asset-label-option" onClick={() => { onChange(''); setOpenDropdownId(''); }}>-</button>
+          <button type="button" className="asset-label-option" onClick={() => { onChange(''); setOpenDropdownId(''); }}><span className="asset-label-chip is-none">None</span></button>
           {options.map((option) => (
             <button key={option} type="button" className="asset-label-option" onClick={() => { onChange(option); setOpenDropdownId(''); }}>
               <span className="asset-label-chip" style={{ backgroundColor: labelColor(option) }}>{option}</span>
@@ -293,6 +300,7 @@ export default function AssetListPage({ project }) {
   const {
     assetLists = [],
     labels = [],
+    clients = [],
     ensureAssetList,
     createAssetListTab,
     updateAssetList,
@@ -311,6 +319,7 @@ export default function AssetListPage({ project }) {
   const [selectionAnchor, setSelectionAnchor] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState('');
   const fillSourceRef = useRef(null);
+  const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => ({
     asset_type: labels.filter((label) => !label.project_id && label.column_type === 'asset_type' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
     asset_ratio: labels.filter((label) => !label.project_id && label.column_type === 'asset_ratio' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
@@ -334,9 +343,21 @@ export default function AssetListPage({ project }) {
   const fallbackCategory = categories[0] ?? { id: 'default', name: 'Category 1', collapsed: false, sort_order: 0 };
   const settingsColumn = columns.find((column) => column.id === settingsColumnId);
 
-  const saveList = (patch) => {
+  useEffect(() => {
+    undoStackRef.current = [];
+  }, [activeList?.id]);
+
+  const saveList = (patch, { trackUndo = true } = {}) => {
     if (!activeList) return;
+    if (trackUndo) undoStackRef.current.push(structuredClone(activeList));
     updateAssetList(activeList.id, patch);
+  };
+
+  const undoAssetList = () => {
+    if (!activeList) return;
+    const previous = undoStackRef.current.pop();
+    if (!previous) return;
+    updateAssetList(activeList.id, previous);
   };
 
   const saveColumns = (nextColumns, nextRows = activeList.rows) => {
@@ -356,7 +377,7 @@ export default function AssetListPage({ project }) {
   const autoFitColumnWidth = (column) => {
     const values = rows.map((row) => String(row.values?.[column.id] ?? ''));
     const longest = [column.name, ...values].reduce((maxLength, value) => Math.max(maxLength, value.length), 0);
-    return Math.max(120, Math.min(360, longest * 8 + 88));
+    return Math.max(120, Math.min(520, longest * 8 + 128));
   };
 
   const addColumn = () => {
@@ -573,9 +594,30 @@ export default function AssetListPage({ project }) {
     });
   };
 
+  const clearSingleCell = (rowIndex, columnIndex) => {
+    if (columnIndex === columns.length) return;
+    const row = rows[rowIndex];
+    if (!row) return;
+    saveList({
+      rows: rows.map((item, index) => {
+        if (index !== rowIndex) return item;
+        const nextRow = { ...item, values: { ...(item.values ?? {}) } };
+        if (columnIndex === -1) nextRow.number = '';
+        else if (columnIndex === columns.length + 1) nextRow.notes = '';
+        else if (columns[columnIndex]) nextRow.values[columns[columnIndex].id] = '';
+        return nextRow;
+      }),
+    });
+  };
+
   useEffect(() => {
     const onPointerUp = () => setSelectionAnchor(null);
     const onKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        undoAssetList();
+        return;
+      }
       if (event.key === 'Escape') {
         setSelectedCells([]);
         setSelectedCell(null);
@@ -584,8 +626,8 @@ export default function AssetListPage({ project }) {
         return;
       }
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-      if (!selectedCells.length) return;
       if (event.target?.closest?.('input, textarea, [contenteditable="true"]')) return;
+      if (!selectedCells.length) return;
       event.preventDefault();
       clearSelectedCells();
     };
@@ -598,6 +640,7 @@ export default function AssetListPage({ project }) {
   });
 
   const cellSelectionProps = (rowIndex, columnIndex, rowId = null, columnId = null) => ({
+    tabIndex: 0,
     onPointerDown: (event) => {
       if (event.button !== 0) return;
       const anchor = { rowIndex, columnIndex };
@@ -607,6 +650,19 @@ export default function AssetListPage({ project }) {
     onPointerEnter: () => {
       if (selectionAnchor) selectRange(selectionAnchor, { rowIndex, columnIndex });
       if (rowId && columnId) fillTo(rowId, columnId);
+    },
+    onKeyDown: (event) => {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        if (selectedCells.length) clearSelectedCells();
+        else clearSingleCell(rowIndex, columnIndex);
+      }
+      if (event.key === 'Escape') {
+        setSelectedCells([]);
+        setSelectedCell(null);
+        setSelectionAnchor(null);
+        setOpenDropdownId('');
+      }
     },
   });
 
@@ -623,7 +679,7 @@ export default function AssetListPage({ project }) {
       const row = rows[selectedRowIndex];
       if (!row) return '';
       if (selectedColumnIndex === -1) return row.number ?? '';
-      if (selectedColumnIndex === columns.length) return generatedFilename(project, activeList, row);
+      if (selectedColumnIndex === columns.length) return generatedFilename(project, activeList, row, clients);
       if (selectedColumnIndex === columns.length + 1) return row.notes ?? '';
       const column = columns[selectedColumnIndex];
       return column ? formatCellValue(row.values?.[column.id], column) : '';
@@ -663,7 +719,7 @@ export default function AssetListPage({ project }) {
     return <div className="grid min-h-[60vh] place-items-center text-ink-500">Preparing asset list...</div>;
   }
 
-  const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} minmax(320px, 1fr) 220px`;
+  const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} minmax(320px, 100ch) 220px`;
 
   return (
     <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -680,8 +736,8 @@ export default function AssetListPage({ project }) {
                 <SeparatorDropdown value={activeList.global_separator ?? '_'} onChange={(global_separator) => saveList({ global_separator })} openDropdownId={openDropdownId} setOpenDropdownId={setOpenDropdownId} />
               </span>
             </label>
-            <button type="button" onClick={() => downloadAssetListExcel(project, activeList, 'active')} className="secondary-button"><Download size={16} /> Active tab</button>
-            <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all')} className="secondary-button"><FileSpreadsheet size={16} /> All tabs</button>
+            <button type="button" onClick={() => downloadAssetListExcel(project, activeList, 'active', clients)} className="secondary-button"><Download size={16} /> Active tab</button>
+            <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all', clients)} className="secondary-button"><FileSpreadsheet size={16} /> All tabs</button>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -711,7 +767,7 @@ export default function AssetListPage({ project }) {
       <div className="asset-list-scroll flex-1 overflow-auto">
         <div className="min-w-max">
           <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: fullGridTemplate }}>
-            <div className="asset-list-header locked"><span className="asset-header-label">Actions</span></div>
+            <div className="asset-list-header locked" aria-label="Actions" />
             <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
             {columns.map((column) => (
               <div
@@ -854,7 +910,7 @@ export default function AssetListPage({ project }) {
                         {...cellSelectionProps(absoluteRowIndex, columns.length)}
                         onCopy={(event) => {
                           event.preventDefault();
-                          copySelectedCells(event, absoluteRowIndex, columns.length, generatedFilename(project, activeList, row));
+                          copySelectedCells(event, absoluteRowIndex, columns.length, generatedFilename(project, activeList, row, clients));
                         }}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
@@ -863,7 +919,14 @@ export default function AssetListPage({ project }) {
                           }
                         }}
                       >
-                        <input className="asset-filename-input" readOnly value={generatedFilename(project, activeList, row)} />
+                        <input className="asset-filename-input" readOnly value={generatedFilename(project, activeList, row, clients)} />
+                        <button
+                          type="button"
+                          className="asset-copy-filename"
+                          onClick={() => navigator.clipboard?.writeText(generatedFilename(project, activeList, row, clients))}
+                        >
+                          Copy
+                        </button>
                       </div>
                       <div
                         className={`asset-cell copy-cell ${selectedCells.some((cell) => cell.rowIndex === absoluteRowIndex && cell.columnIndex === columns.length + 1) || (selectedCell?.rowId === row.id && selectedCell?.columnId === 'notes') ? 'copy-cell-selected' : ''}`}
