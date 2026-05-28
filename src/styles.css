@@ -294,7 +294,7 @@ nav .tab-active {
   border-right: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   justify-content: center;
   min-width: 0;
   padding: 6px 8px;
@@ -333,6 +333,15 @@ nav .tab-active {
   outline: none;
 }
 
+.asset-header-name-wrap {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
+}
+
 .asset-header-name:focus {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(109, 93, 252, 0.68);
@@ -345,6 +354,17 @@ nav .tab-active {
   gap: 3px;
   justify-content: flex-start;
   margin-left: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-3px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.asset-header-name-wrap:hover .asset-header-actions,
+.asset-header-name-wrap:focus-within .asset-header-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
 }
 
 .asset-tab {
@@ -561,6 +581,10 @@ nav .tab-active {
   height: 22px;
   line-height: 1;
   padding: 0 8px;
+}
+
+.asset-copy-cell {
+  justify-content: center;
 }
 
 .asset-copy-filename:hover {

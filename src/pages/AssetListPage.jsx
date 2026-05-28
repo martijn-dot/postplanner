@@ -23,6 +23,10 @@ const STANDARD_COLUMNS = [
 ];
 
 const SEPARATORS = ['-', '_', ' '];
+const FILENAME_COLUMN_OFFSET = 0;
+const COPY_COLUMN_OFFSET = 1;
+const NOTES_COLUMN_OFFSET = 2;
+
 function uid() {
   return crypto.randomUUID();
 }
@@ -562,7 +566,7 @@ export default function AssetListPage({ project }) {
       const selected = new Set(selectedCells.map((cell) => cellKey(cell.rowIndex, cell.columnIndex)));
       nextRows.forEach((row, selectedRowIndex) => {
         if (selected.has(cellKey(selectedRowIndex, -1))) row.number = text;
-        if (selected.has(cellKey(selectedRowIndex, columns.length + 1))) row.notes = text;
+        if (selected.has(cellKey(selectedRowIndex, columns.length + NOTES_COLUMN_OFFSET))) row.notes = text;
         columns.forEach((column, selectedColumnIndex) => {
           if (selected.has(cellKey(selectedRowIndex, selectedColumnIndex))) row.values[column.id] = text;
         });
@@ -587,7 +591,7 @@ export default function AssetListPage({ project }) {
       line.forEach((value, x) => {
         const targetColumnIndex = columnIndex + x;
         if (targetColumnIndex === -1) row.number = value;
-        if (targetColumnIndex === columns.length + 1) row.notes = value;
+        if (targetColumnIndex === columns.length + NOTES_COLUMN_OFFSET) row.notes = value;
         const column = columns[targetColumnIndex];
         if (column) row.values[column.id] = value;
       });
@@ -619,7 +623,7 @@ export default function AssetListPage({ project }) {
       rows: rows.map((row, rowIndex) => {
         const nextRow = { ...row, values: { ...(row.values ?? {}) } };
         if (selected.has(cellKey(rowIndex, -1))) nextRow.number = '';
-        if (selected.has(cellKey(rowIndex, columns.length + 1))) nextRow.notes = '';
+        if (selected.has(cellKey(rowIndex, columns.length + NOTES_COLUMN_OFFSET))) nextRow.notes = '';
         columns.forEach((column, columnIndex) => {
           if (selected.has(cellKey(rowIndex, columnIndex))) nextRow.values[column.id] = '';
         });
@@ -629,7 +633,7 @@ export default function AssetListPage({ project }) {
   };
 
   const clearSingleCell = (rowIndex, columnIndex) => {
-    if (columnIndex === columns.length) return;
+    if (columnIndex === columns.length + FILENAME_COLUMN_OFFSET || columnIndex === columns.length + COPY_COLUMN_OFFSET) return;
     const row = rows[rowIndex];
     if (!row) return;
     saveList({
@@ -637,7 +641,7 @@ export default function AssetListPage({ project }) {
         if (index !== rowIndex) return item;
         const nextRow = { ...item, values: { ...(item.values ?? {}) } };
         if (columnIndex === -1) nextRow.number = '';
-        else if (columnIndex === columns.length + 1) nextRow.notes = '';
+        else if (columnIndex === columns.length + NOTES_COLUMN_OFFSET) nextRow.notes = '';
         else if (columns[columnIndex]) nextRow.values[columns[columnIndex].id] = '';
         return nextRow;
       }),
@@ -664,7 +668,7 @@ export default function AssetListPage({ project }) {
     const direction = directions[event.key];
     if (!direction) return false;
     event.preventDefault();
-    const maxColumnIndex = columns.length + 1;
+    const maxColumnIndex = columns.length + NOTES_COLUMN_OFFSET;
     const nextRowIndex = Math.max(0, Math.min(rows.length - 1, rowIndex + direction[0]));
     const nextColumnIndex = Math.max(-1, Math.min(maxColumnIndex, columnIndex + direction[1]));
     const nextCell = { rowIndex: nextRowIndex, columnIndex: nextColumnIndex };
@@ -750,8 +754,9 @@ export default function AssetListPage({ project }) {
       const row = rows[selectedRowIndex];
       if (!row) return '';
       if (selectedColumnIndex === -1) return row.number ?? '';
-      if (selectedColumnIndex === columns.length) return generatedFilename(project, activeList, row, clients);
-      if (selectedColumnIndex === columns.length + 1) return row.notes ?? '';
+      if (selectedColumnIndex === columns.length + FILENAME_COLUMN_OFFSET) return generatedFilename(project, activeList, row, clients);
+      if (selectedColumnIndex === columns.length + COPY_COLUMN_OFFSET) return '';
+      if (selectedColumnIndex === columns.length + NOTES_COLUMN_OFFSET) return row.notes ?? '';
       const column = columns[selectedColumnIndex];
       return column ? formatCellValue(row.values?.[column.id], column) : '';
     }).join('\t')).join('\n');
@@ -785,7 +790,10 @@ export default function AssetListPage({ project }) {
     return <div className="grid min-h-[60vh] place-items-center text-ink-500">Preparing asset list...</div>;
   }
 
-  const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 50ch 220px`;
+  const filenameColumnIndex = columns.length + FILENAME_COLUMN_OFFSET;
+  const copyColumnIndex = columns.length + COPY_COLUMN_OFFSET;
+  const notesColumnIndex = columns.length + NOTES_COLUMN_OFFSET;
+  const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 50ch 74px 220px`;
 
   return (
     <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -829,10 +837,8 @@ export default function AssetListPage({ project }) {
               </span>
             ))}
             <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="secondary-button !px-3 !py-2">New tab</button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
             {projectLists.length > 1 && (
-              <button type="button" onClick={() => deleteAssetListTab(activeList.id)} className="icon-button" aria-label="Delete setup"><Trash2 size={16} /></button>
+              <button type="button" onClick={() => deleteAssetListTab(activeList.id)} className="icon-button" aria-label="Delete current tab" data-tooltip="Delete tab"><Trash2 size={16} /></button>
             )}
           </div>
         </div>
@@ -856,25 +862,27 @@ export default function AssetListPage({ project }) {
                 key={column.id}
                 className="asset-list-header"
               >
-                <span className="asset-header-actions">
-                  <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-icon" aria-label="Column settings" data-tooltip="Settings"><Settings size={11} /></button>
-                  <button type="button" onClick={() => deleteColumn(column.id)} className="asset-header-icon" aria-label="Delete column" data-tooltip="Delete"><Trash2 size={11} /></button>
+                <span className="asset-header-name-wrap">
+                  <input
+                    className="asset-header-name"
+                    defaultValue={column.name}
+                    style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter') return;
+                      event.preventDefault();
+                      updateColumnName(column.id, event.currentTarget.value);
+                      event.currentTarget.blur();
+                    }}
+                    onBlur={(event) => {
+                      if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
+                    }}
+                    draggable={false}
+                  />
+                  <span className="asset-header-actions">
+                    <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-icon" aria-label="Column settings" data-tooltip="Settings"><Settings size={11} /></button>
+                    <button type="button" onClick={() => deleteColumn(column.id)} className="asset-header-icon" aria-label="Delete column" data-tooltip="Delete"><Trash2 size={11} /></button>
+                  </span>
                 </span>
-                <input
-                  className="asset-header-name"
-                  defaultValue={column.name}
-                  style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter') return;
-                    event.preventDefault();
-                    updateColumnName(column.id, event.currentTarget.value);
-                    event.currentTarget.blur();
-                  }}
-                  onBlur={(event) => {
-                    if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
-                  }}
-                  draggable={false}
-                />
                 <button
                   type="button"
                   className="asset-column-resize-handle"
@@ -884,6 +892,7 @@ export default function AssetListPage({ project }) {
               </div>
             ))}
             <div className="asset-list-header locked"><span className="asset-header-label">Filename</span></div>
+            <div className="asset-list-header locked"><span className="asset-header-label">Copy</span></div>
             <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
           </div>
 
@@ -993,23 +1002,36 @@ export default function AssetListPage({ project }) {
                         );
                       })}
                       <div
-                        className={`asset-cell bg-zinc-50 font-mono text-xs text-ink-600 dark:bg-white/[0.035] dark:text-ink-300 ${isVisuallySelected(absoluteRowIndex, columns.length) ? 'copy-cell-selected' : ''}`}
+                        className={`asset-cell bg-zinc-50 font-mono text-xs text-ink-600 dark:bg-white/[0.035] dark:text-ink-300 ${isVisuallySelected(absoluteRowIndex, filenameColumnIndex) ? 'copy-cell-selected' : ''}`}
                         data-asset-row={absoluteRowIndex}
-                        data-asset-column={columns.length}
-                        {...cellSelectionProps(absoluteRowIndex, columns.length)}
+                        data-asset-column={filenameColumnIndex}
+                        {...cellSelectionProps(absoluteRowIndex, filenameColumnIndex)}
                         onCopy={(event) => {
                           event.preventDefault();
-                          copySelectedCells(event, absoluteRowIndex, columns.length, generatedFilename(project, activeList, row, clients));
+                          copySelectedCells(event, absoluteRowIndex, filenameColumnIndex, generatedFilename(project, activeList, row, clients));
                         }}
                         onKeyDown={(event) => {
-                          if (moveCellFocus(event, absoluteRowIndex, columns.length)) return;
+                          if (moveCellFocus(event, absoluteRowIndex, filenameColumnIndex)) return;
                           if (event.key === 'Enter') {
                             event.preventDefault();
-                            focusCellBelow(absoluteRowIndex, columns.length);
+                            focusCellBelow(absoluteRowIndex, filenameColumnIndex);
                           }
                         }}
                       >
                         <input className="asset-filename-input" readOnly value={generatedFilename(project, activeList, row, clients)} />
+                      </div>
+                      <div
+                        className="asset-cell asset-copy-cell"
+                        data-asset-row={absoluteRowIndex}
+                        data-asset-column={copyColumnIndex}
+                        onKeyDown={(event) => {
+                          if (moveCellFocus(event, absoluteRowIndex, copyColumnIndex)) return;
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            navigator.clipboard?.writeText(generatedFilename(project, activeList, row, clients));
+                          }
+                        }}
+                      >
                         <button
                           type="button"
                           className="asset-copy-filename"
@@ -1019,15 +1041,15 @@ export default function AssetListPage({ project }) {
                         </button>
                       </div>
                       <div
-                        className={`asset-cell copy-cell ${isVisuallySelected(absoluteRowIndex, columns.length + 1, selectedCell?.rowId === row.id && selectedCell?.columnId === 'notes') ? 'copy-cell-selected' : ''}`}
+                        className={`asset-cell copy-cell ${isVisuallySelected(absoluteRowIndex, notesColumnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === 'notes') ? 'copy-cell-selected' : ''}`}
                         data-asset-row={absoluteRowIndex}
-                        data-asset-column={columns.length + 1}
-                        {...cellSelectionProps(absoluteRowIndex, columns.length + 1)}
+                        data-asset-column={notesColumnIndex}
+                        {...cellSelectionProps(absoluteRowIndex, notesColumnIndex)}
                         onCopy={(event) => {
                           event.preventDefault();
-                          copySelectedCells(event, absoluteRowIndex, columns.length + 1, row.notes ?? '');
+                          copySelectedCells(event, absoluteRowIndex, notesColumnIndex, row.notes ?? '');
                         }}
-                        onPaste={(event) => pasteCells(event, absoluteRowIndex, columns.length + 1)}
+                        onPaste={(event) => pasteCells(event, absoluteRowIndex, notesColumnIndex)}
                       >
                         <input
                           className="table-input"
@@ -1035,10 +1057,10 @@ export default function AssetListPage({ project }) {
                           onChange={(event) => updateRow(row.id, { notes: event.target.value })}
                           onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'notes' })}
                           onKeyDown={(event) => {
-                            if (moveCellFocus(event, absoluteRowIndex, columns.length + 1)) return;
+                            if (moveCellFocus(event, absoluteRowIndex, notesColumnIndex)) return;
                             if (event.key === 'Enter') {
                               event.preventDefault();
-                              focusCellBelow(absoluteRowIndex, columns.length + 1);
+                              focusCellBelow(absoluteRowIndex, notesColumnIndex);
                             }
                           }}
                         />
