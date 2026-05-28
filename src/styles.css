@@ -238,6 +238,10 @@ nav .tab-active {
   background: rgba(109, 93, 252, 0.12);
 }
 
+.asset-cell.copy-cell-selected {
+  background: transparent;
+}
+
 .copy-cell-selected:focus {
   box-shadow: inset 0 0 0 1px #6d5dfc;
   --tw-ring-shadow: 0 0 #0000;
@@ -271,16 +275,29 @@ nav .tab-active {
 }
 
 .asset-list-row.sticky {
+  min-height: 58px;
   z-index: 1200;
 }
 
+.asset-list-row.sticky .asset-list-header {
+  background: #e5e0f6;
+  color: #201936;
+}
+
+.dark .asset-list-row.sticky .asset-list-header {
+  background: #1d2740;
+  color: #d8d2ff;
+}
+
 .asset-list-header {
-  align-items: center;
+  align-items: flex-start;
   border-right: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
+  flex-direction: column;
   gap: 6px;
+  justify-content: center;
   min-width: 0;
-  padding: 0 8px;
+  padding: 6px 8px;
   position: relative;
 }
 
@@ -295,20 +312,20 @@ nav .tab-active {
 .asset-header-label,
 .asset-header-name {
   align-items: center;
-  background: rgba(109, 93, 252, 0.14);
-  border: 1px solid rgba(109, 93, 252, 0.28);
-  border-radius: 999px;
-  color: #c7c0ff;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: inherit;
   display: inline-flex;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 850;
-  height: 22px;
+  height: 20px;
   letter-spacing: 0;
   line-height: 1;
   max-width: none;
   min-width: max-content;
   overflow: visible;
-  padding: 0 8px;
+  padding: 0;
   white-space: nowrap;
 }
 
@@ -317,15 +334,56 @@ nav .tab-active {
 }
 
 .asset-header-name:focus {
-  background: rgba(109, 93, 252, 0.22);
+  background: rgba(255, 255, 255, 0.08);
   border-color: rgba(109, 93, 252, 0.68);
+  padding: 0 5px;
 }
 
 .asset-header-actions {
   display: inline-flex;
   flex: 0 0 auto;
   gap: 3px;
-  margin-left: auto;
+  justify-content: flex-start;
+  margin-left: 0;
+}
+
+.asset-tab {
+  align-items: center;
+  border-radius: 6px;
+  color: #8b879c;
+  display: inline-flex;
+  min-height: 32px;
+  padding: 0 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.asset-tab:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #18131f;
+}
+
+.dark .asset-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f3f0ff;
+}
+
+.asset-tab-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  max-width: 18ch;
+  min-width: 7ch;
+  outline: none;
+  padding: 4px 2px;
+}
+
+.asset-tab-input:focus {
+  background: rgba(109, 93, 252, 0.12);
+  border-color: rgba(109, 93, 252, 0.55);
+  padding-inline: 6px;
 }
 
 .asset-column-resize-handle {

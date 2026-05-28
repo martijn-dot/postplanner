@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Download, GripVertical, RotateCcw, Settings, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Download, GripVertical, RotateCcw, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadAssetListExcel } from '../lib/exportExcel.js';
@@ -537,6 +537,21 @@ export default function AssetListPage({ project }) {
     saveList({ rows: rows.filter((row) => row.id !== rowId).map((row, index) => ({ ...row, sort_order: index })) });
   };
 
+  const duplicateRow = (rowId) => {
+    const sourceIndex = rows.findIndex((row) => row.id === rowId);
+    if (sourceIndex < 0) return;
+    const nextRows = rows.map((row, index) => ({ ...row, sort_order: index > sourceIndex ? index + 1 : index }));
+    nextRows.push({ ...structuredClone(rows[sourceIndex]), id: uid(), sort_order: sourceIndex + 1 });
+    saveList({ rows: nextRows.sort((a, b) => a.sort_order - b.sort_order) });
+  };
+
+  const renameAssetListTab = (listId, name) => {
+    const trimmed = name.trim();
+    const list = projectLists.find((item) => item.id === listId);
+    if (!list || !trimmed || trimmed === list.name) return;
+    updateAssetList(listId, { name: trimmed });
+  };
+
   const pasteCells = (event, rowIndex, columnIndex) => {
     const text = event.clipboardData.getData('text/plain');
     if (!text) return;
@@ -770,7 +785,7 @@ export default function AssetListPage({ project }) {
     return <div className="grid min-h-[60vh] place-items-center text-ink-500">Preparing asset list...</div>;
   }
 
-  const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} minmax(260px, 50ch) 220px`;
+  const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 50ch 220px`;
 
   return (
     <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -793,7 +808,25 @@ export default function AssetListPage({ project }) {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {projectLists.map((list) => (
-              <button key={list.id} type="button" onClick={() => setActiveId(list.id)} className={`tab ${list.id === activeList.id ? 'tab-active' : ''}`}>{list.name}</button>
+              <span key={list.id} className={`asset-tab ${list.id === activeList.id ? 'tab-active' : ''}`} onClick={() => setActiveId(list.id)}>
+                <input
+                  className="asset-tab-input"
+                  defaultValue={list.name}
+                  style={{ width: `${Math.max(7, Math.min(18, list.name.length + 1))}ch` }}
+                  onFocus={() => setActiveId(list.id)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return;
+                    event.preventDefault();
+                    renameAssetListTab(list.id, event.currentTarget.value);
+                    event.currentTarget.blur();
+                  }}
+                  onBlur={(event) => {
+                    renameAssetListTab(list.id, event.currentTarget.value);
+                    if (!event.currentTarget.value.trim()) event.currentTarget.value = list.name;
+                  }}
+                  aria-label={`Rename ${list.name}`}
+                />
+              </span>
             ))}
             <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="secondary-button !px-3 !py-2">New tab</button>
           </div>
@@ -823,6 +856,10 @@ export default function AssetListPage({ project }) {
                 key={column.id}
                 className="asset-list-header"
               >
+                <span className="asset-header-actions">
+                  <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-icon" aria-label="Column settings" data-tooltip="Settings"><Settings size={11} /></button>
+                  <button type="button" onClick={() => deleteColumn(column.id)} className="asset-header-icon" aria-label="Delete column" data-tooltip="Delete"><Trash2 size={11} /></button>
+                </span>
                 <input
                   className="asset-header-name"
                   defaultValue={column.name}
@@ -838,10 +875,6 @@ export default function AssetListPage({ project }) {
                   }}
                   draggable={false}
                 />
-                <span className="asset-header-actions">
-                  <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-icon" aria-label="Column settings" data-tooltip="Settings"><Settings size={11} /></button>
-                  <button type="button" onClick={() => deleteColumn(column.id)} className="asset-header-icon" aria-label="Delete column" data-tooltip="Delete"><Trash2 size={11} /></button>
-                </span>
                 <button
                   type="button"
                   className="asset-column-resize-handle"
@@ -877,6 +910,7 @@ export default function AssetListPage({ project }) {
                   return (
                     <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: fullGridTemplate }}>
                       <div className="asset-row-actions">
+                        <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
                       </div>
                       <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
