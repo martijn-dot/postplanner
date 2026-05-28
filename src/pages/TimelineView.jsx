@@ -1,7 +1,7 @@
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { addDays, differenceInCalendarDays, format, getISOWeek, isSameDay, isWeekend, nextMonday, parseISO } from 'date-fns';
+import { addDays, addMonths, differenceInCalendarDays, format, getISOWeek, isSameDay, isSameMonth, isWeekend, nextMonday, parseISO, startOfMonth } from 'date-fns';
 import {
   CalendarClock,
   ChevronDown,
@@ -135,8 +135,15 @@ function ToolbarMenu({ id, openMenu, setOpenMenu, icon, label, children, buttonC
       if (menuRef.current?.contains(event.target)) return;
       setOpenMenu(null);
     };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setOpenMenu(null);
+    };
     window.addEventListener('pointerdown', onPointerDown);
-    return () => window.removeEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, [open, setOpenMenu]);
 
   return (
@@ -213,8 +220,10 @@ function SortableLine({
   onSpreadsheetUpdate,
   showMetaLabels,
   showAssetLabels,
+  onUpdateLineItem,
+  endMarkerAnimating,
 }) {
-  const { updateLineItem, deleteLineItem, addLabel } = usePlanner();
+  const { deleteLineItem, addLabel } = usePlanner();
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
   const [openBlockMenu, setOpenBlockMenu] = useState(null);
   const block = hasBlock(item);
@@ -229,12 +238,21 @@ function SortableLine({
     gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth),
   };
 
+  useEffect(() => {
+    if (!openBlockMenu) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setOpenBlockMenu(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [openBlockMenu]);
+
   const scheduleOnClick = (event) => {
     if (block) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const dayIndex = Math.max(0, Math.floor((event.clientX - rect.left) / dayWidth));
     const date = iso(addDays(timelineStart, dayIndex));
-    updateLineItem(item.id, { start_date: date, end_date: date });
+    onUpdateLineItem(item.id, { start_date: date, end_date: date });
   };
 
   const copyCell = (event, column) => {
@@ -336,8 +354,8 @@ function SortableLine({
           <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
           <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
-          {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); updateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} /></div>}
-          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); updateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
+          {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} /></div>}
+          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
           {optionsVisible && (
             <>
               <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button mx-auto" aria-label="Focus booking on timeline">F</button>
@@ -347,6 +365,7 @@ function SortableLine({
                 className={`icon-button mx-auto ${selected ? 'is-active' : ''}`}
                 aria-pressed={selected}
                 aria-label={selected ? 'Unlink row from selected rows' : 'Link row to selected rows'}
+                title="lock bookings togehtor"
               >
                 {selected ? <Link2 size={16} /> : <Link2Off size={16} />}
               </button>
@@ -377,7 +396,7 @@ function SortableLine({
                   placeholder="What"
                   open={openBlockMenu === 'what'}
                   onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'what' : null)}
-                  onChange={(what) => { onInteract(item.id); updateLineItem(item.id, { what }); }}
+                  onChange={(what) => { onInteract(item.id); onUpdateLineItem(item.id, { what }); }}
                   onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)}
                 />
               </span>
@@ -388,7 +407,7 @@ function SortableLine({
                   placeholder="Todo"
                   open={openBlockMenu === 'todo'}
                   onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'todo' : null)}
-                  onChange={(todo) => { onInteract(item.id); updateLineItem(item.id, { todo }); }}
+                  onChange={(todo) => { onInteract(item.id); onUpdateLineItem(item.id, { todo }); }}
                   onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)}
                 />
               </span>
@@ -398,7 +417,11 @@ function SortableLine({
                 </button>
               )}
             </div>
-            <span className="timeline-end-marker" aria-hidden="true">///</span>
+            <span
+              className={`timeline-end-marker ${endMarkerAnimating ? 'is-animating' : ''}`}
+              style={{ '--end-marker-color': labelsById[item.what]?.color ?? whoLabels[0]?.color ?? '#6d5dfc' }}
+              aria-hidden="true"
+            />
             {showAssetLabels && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
             <button className="resize-grip right-0" onPointerDown={(event) => onResizeStart(event, item, 'end')} aria-label="Resize end" />
           </div>
@@ -448,6 +471,8 @@ function CategoryBlock({
   showMetaLabels,
   showAssetLabels,
   categoryCount,
+  onUpdateLineItem,
+  endMarkerIds,
 }) {
   const { updateCategory, deleteCategory } = usePlanner();
   const [openCategoryMenu, setOpenCategoryMenu] = useState(null);
@@ -464,6 +489,15 @@ function CategoryBlock({
   useEffect(() => {
     setDraftName(category.name);
   }, [category.name]);
+
+  useEffect(() => {
+    if (!openCategoryMenu) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setOpenCategoryMenu(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [openCategoryMenu]);
 
   const commitName = () => {
     const nextName = draftName.trim() || category.name;
@@ -505,7 +539,7 @@ function CategoryBlock({
     >
       <div className="timeline-category" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
         {tableVisible && (
-          <div className="timeline-table-panel sticky left-0 z-30 grid grid-cols-[34px_28px_1fr_34px_34px_34px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
+          <div className="timeline-table-panel sticky left-0 z-30 grid grid-cols-[34px_28px_1fr_34px_34px_34px_34px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
             <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button mx-auto" disabled={isUncategorized}>
               {category.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             </button>
@@ -515,6 +549,9 @@ function CategoryBlock({
             {categoryNameInput()}
             {!isUncategorized && (
               <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button mx-auto" aria-label="Add default bookings to category"><ListPlus size={16} /></button>
+            )}
+            {!isUncategorized && (
+              <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button mx-auto" aria-label="Add one row to category"><Plus size={16} /></button>
             )}
             {!isUncategorized && (
               <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" buttonClassName="icon-button mx-auto">
@@ -579,6 +616,8 @@ function CategoryBlock({
                 onSpreadsheetUpdate={onSpreadsheetUpdate}
                 showMetaLabels={showMetaLabels}
                 showAssetLabels={showAssetLabels}
+                onUpdateLineItem={onUpdateLineItem}
+                endMarkerAnimating={endMarkerIds.includes(item.id)}
               />
             ))}
           </SortableContext>
@@ -614,11 +653,14 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   const [fillCells, setFillCells] = useState([]);
   const [detailsItemId, setDetailsItemId] = useState(null);
   const [openTableMenu, setOpenTableMenu] = useState(null);
+  const [monthMenuOpen, setMonthMenuOpen] = useState(false);
+  const [endMarkerIds, setEndMarkerIds] = useState([]);
   const scrollRef = useRef(null);
+  const monthMenuRef = useRef(null);
   const didInitialFocus = useRef(false);
   const suppressDetailsOpen = useRef(false);
   const scrollAnchorRef = useRef(null);
-  const spreadsheetUndoRef = useRef([]);
+  const timelineUndoRef = useRef([]);
 
   const allRows = useMemo(() => lineItems.filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [lineItems, planningVersion, project.id]);
   const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [categories, planningVersion, project.id]);
@@ -655,6 +697,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
   const months = monthSegments(timelineDays);
   const weeks = weekSegments(timelineDays);
+  const upcomingMonths = useMemo(() => Array.from({ length: 6 }, (_, index) => startOfMonth(addMonths(new Date(), index))), []);
   const projectInfo = useMemo(
     () => buildProjectSummary({ lineItems: allRows, labelsById, categories: projectCategories, uncategorizedName }),
     [allRows, labelsById, projectCategories, uncategorizedName],
@@ -710,6 +753,79 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
     });
   };
 
+  const jumpToMonth = (monthDate) => {
+    const monthIndex = timelineDays.findIndex((day) => isSameMonth(day, monthDate));
+    if (monthIndex < 0 || !scrollRef.current) return;
+    scrollRef.current.scrollTo({
+      left: Math.max(0, monthIndex * dayWidth - 24),
+      behavior: 'smooth',
+    });
+    setVisibleMonth(format(monthDate, 'MMMM yyyy'));
+    setMonthMenuOpen(false);
+  };
+
+  useEffect(() => {
+    if (!monthMenuOpen) return undefined;
+    const onPointerDown = (event) => {
+      if (monthMenuRef.current?.contains(event.target)) return;
+      setMonthMenuOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setMonthMenuOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [monthMenuOpen]);
+
+  const cloneValue = (value) => (Array.isArray(value) ? [...value] : value);
+  const pushTimelineUndo = (changes) => {
+    const cleanChanges = changes.filter((change) => change?.itemId && change.previous && Object.keys(change.previous).length);
+    if (!cleanChanges.length) return;
+    timelineUndoRef.current.push(cleanChanges);
+  };
+  const updateLineItemWithUndo = (itemId, next) => {
+    const item = allRows.find((row) => row.id === itemId);
+    if (!item) {
+      updateLineItem(itemId, next);
+      return;
+    }
+    const previous = Object.fromEntries(
+      Object.keys(next)
+        .filter((key) => JSON.stringify(item[key]) !== JSON.stringify(next[key]))
+        .map((key) => [key, cloneValue(item[key])]),
+    );
+    pushTimelineUndo([{ itemId, previous }]);
+    updateLineItem(itemId, next);
+  };
+  const updateLineItemsWithUndo = (updates) => {
+    const changes = updates
+      .map(({ itemId, next }) => {
+        const item = allRows.find((row) => row.id === itemId);
+        if (!item) return null;
+        const previous = Object.fromEntries(
+          Object.keys(next)
+            .filter((key) => JSON.stringify(item[key]) !== JSON.stringify(next[key]))
+            .map((key) => [key, cloneValue(item[key])]),
+        );
+        return { itemId, previous };
+      })
+      .filter(Boolean);
+    pushTimelineUndo(changes);
+    updates.forEach(({ itemId, next }) => updateLineItem(itemId, next));
+  };
+  const flashEndMarkers = (itemIds) => {
+    const ids = [...new Set(itemIds)].filter(Boolean);
+    if (!ids.length) return;
+    setEndMarkerIds((current) => [...new Set([...current, ...ids])]);
+    window.setTimeout(() => {
+      setEndMarkerIds((current) => current.filter((id) => !ids.includes(id)));
+    }, 1500);
+  };
+
   const addItemToday = (projectId, categoryId) => {
     addLineItem(projectId, categoryId, iso(new Date()), {}, planningVersion);
   };
@@ -737,13 +853,13 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   };
 
   const shiftPlanning = (days) => {
-    allRows.forEach((item) => {
-      if (!item.start_date || !item.end_date) return;
-      updateLineItem(item.id, {
+    updateLineItemsWithUndo(allRows.filter((item) => item.start_date && item.end_date).map((item) => ({
+      itemId: item.id,
+      next: {
         start_date: shiftIsoDate(item.start_date, days),
         end_date: shiftIsoDate(item.end_date, days),
-      });
-    });
+      },
+    })));
   };
 
   const onColumnResizeStart = (event, columnKey) => {
@@ -794,10 +910,16 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
         };
       }
       if (linkedOriginals.length) {
-        linkedOriginals.forEach((row) => updateLineItem(row.id, { start_date: iso(addDays(row.start, delta)), end_date: iso(addDays(row.end, delta)) }));
+        updateLineItemsWithUndo(linkedOriginals.map((row) => ({
+          itemId: row.id,
+          next: { start_date: iso(addDays(row.start, delta)), end_date: iso(addDays(row.end, delta)) },
+        })));
         return;
       }
-      updateLineItem(item.id, { start_date: iso(addDays(originalStart, delta)), end_date: iso(addDays(originalEnd, delta)) });
+      updateLineItemsWithUndo([{
+        itemId: item.id,
+        next: { start_date: iso(addDays(originalStart, delta)), end_date: iso(addDays(originalEnd, delta)) },
+      }]);
     };
 
     const updateDrag = () => {
@@ -868,6 +990,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
       if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame);
       if (mode === 'move') {
         commitMove(latestDelta);
+        if (latestDelta !== 0) flashEndMarkers(previewIds);
         const targetLine = document
           .elementsFromPoint(currentX, currentY)
           .map((element) => element.closest?.('.timeline-line[data-line-id]'))
@@ -878,6 +1001,15 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
           const placement = currentY > rect.top + rect.height / 2 ? 'after' : 'before';
           moveLineItemRelative(project.id, item.id, targetId, placement, planningVersion);
         }
+      } else if (latestDelta !== 0) {
+        pushTimelineUndo([{
+          itemId: item.id,
+          previous: {
+            start_date: iso(originalStart),
+            end_date: iso(originalEnd),
+          },
+        }]);
+        flashEndMarkers([item.id]);
       }
       setDragPreview(null);
       setDropTarget(null);
@@ -966,7 +1098,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
       })
       .filter(Boolean);
     if (!changes.length) return;
-    spreadsheetUndoRef.current.push(changes);
+    pushTimelineUndo(changes);
     changes.forEach((change) => {
       clearDuplicateState(change.itemId);
       updateLineItem(change.itemId, change.next);
@@ -976,10 +1108,12 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   useEffect(() => {
     const onKeyDown = (event) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z' || event.shiftKey) return;
-      const changes = spreadsheetUndoRef.current.pop();
-      if (!changes?.length) return;
-      event.preventDefault();
-      changes.forEach((change) => updateLineItem(change.itemId, change.previous));
+      const timelineChanges = timelineUndoRef.current.pop();
+      if (timelineChanges?.length) {
+        event.preventDefault();
+        timelineChanges.forEach((change) => updateLineItem(change.itemId, change.previous));
+        return;
+      }
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -1122,6 +1256,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                           className={`icon-button ${rows.length > 0 && selectedVisibleCount === rows.length ? 'is-active' : ''}`}
                           aria-pressed={rows.length > 0 && selectedVisibleCount === rows.length}
                           aria-label={rows.length > 0 && selectedVisibleCount === rows.length ? 'Unlink all rows' : 'Link all rows'}
+                          title="lock bookings togehtor"
                         >
                           {rows.length > 0 && selectedVisibleCount === rows.length ? <Link2 size={16} /> : <Link2Off size={16} />}
                         </button>
@@ -1134,7 +1269,29 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                 <div className="flex h-10 border-b border-black/10 text-xs font-semibold text-ink-500 dark:border-white/10">
                   <div className="sticky z-20 grid place-items-center px-2" style={{ left: tableVisible ? leftWidth + 8 : 8 }}>
                     <div className="flex items-center gap-1">
-                      <span className="timeline-month-label">{visibleMonth || months[0]?.label}</span>
+                      <div ref={monthMenuRef} className="relative">
+                        <button type="button" onClick={() => setMonthMenuOpen((next) => !next)} className="timeline-month-label">
+                          {visibleMonth || months[0]?.label}
+                        </button>
+                        {monthMenuOpen && (
+                          <div className="absolute left-0 z-[500] mt-2 w-44 rounded-lg border border-white/10 bg-ink-850 p-2 text-sm text-ink-100 shadow-glow">
+                            {upcomingMonths.map((monthDate) => {
+                              const available = timelineDays.some((day) => isSameMonth(day, monthDate));
+                              return (
+                                <button
+                                  key={monthDate.toISOString()}
+                                  type="button"
+                                  onClick={() => jumpToMonth(monthDate)}
+                                  disabled={!available}
+                                  className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left font-semibold hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-35"
+                                >
+                                  {format(monthDate, 'MMMM yyyy')}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                       <button type="button" onClick={() => focusToday()} className="timeline-header-chip"><CalendarClock size={13} /> Today</button>
                       <button type="button" onClick={() => shiftPlanning(7)} className="timeline-header-chip">Move +1</button>
                       <button type="button" onClick={() => shiftPlanning(-7)} className="timeline-header-chip">Move -1</button>
@@ -1214,6 +1371,8 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                       showMetaLabels={showMetaLabels}
                       showAssetLabels={showAssetLabels}
                       categoryCount={projectCategories.length}
+                      onUpdateLineItem={updateLineItemWithUndo}
+                      endMarkerIds={endMarkerIds}
                     />
                   );
                 })}
@@ -1257,6 +1416,8 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                   showMetaLabels={showMetaLabels}
                   showAssetLabels={showAssetLabels}
                   categoryCount={projectCategories.length}
+                  onUpdateLineItem={updateLineItemWithUndo}
+                  endMarkerIds={endMarkerIds}
                 />
               )}
             </DndContext>
@@ -1277,7 +1438,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
               Time
               <input
                 value={detailsItem.time ?? ''}
-                onChange={(event) => updateLineItem(detailsItem.id, { time: normalizeTimeInput(event.target.value) })}
+                onChange={(event) => updateLineItemWithUndo(detailsItem.id, { time: normalizeTimeInput(event.target.value) })}
                 className="mt-2 w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
                 inputMode="numeric"
                 pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
@@ -1289,7 +1450,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
               Notes
               <textarea
                 value={detailsItem.notes ?? ''}
-                onChange={(event) => updateLineItem(detailsItem.id, { notes: event.target.value })}
+                onChange={(event) => updateLineItemWithUndo(detailsItem.id, { notes: event.target.value })}
                 className="mt-2 min-h-28 w-full resize-y rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
                 placeholder="Add notes for the client planning..."
               />

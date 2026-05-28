@@ -146,15 +146,22 @@ export default function LabelSelect({
       if (buttonRef.current?.contains(event.target) || menuRef.current?.contains(event.target)) return;
       setOpen(false);
     };
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      buttonRef.current?.focus();
+    };
 
     window.addEventListener('resize', placeMenu);
     window.addEventListener('scroll', placeMenu, true);
     window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
 
     return () => {
       window.removeEventListener('resize', placeMenu);
       window.removeEventListener('scroll', placeMenu, true);
       window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, [open, placeMenu, setOpen]);
 

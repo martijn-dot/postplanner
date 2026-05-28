@@ -686,26 +686,41 @@ input {
 }
 
 .timeline-end-marker {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 5px;
-  color: rgba(243, 240, 255, 0.58);
-  display: inline-flex;
-  font-family: JetBrains Mono, SFMono-Regular, Menlo, monospace;
-  font-size: 0.5rem;
-  font-weight: 800;
-  height: 18px;
-  justify-content: center;
-  letter-spacing: -0.08em;
-  line-height: 1;
-  padding-right: 1px;
+  background: color-mix(in srgb, var(--end-marker-color, #6d5dfc) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--end-marker-color, #6d5dfc) 72%, white 12%);
+  border-radius: 999px;
+  display: block;
+  height: 8px;
+  overflow: hidden;
   pointer-events: none;
   position: absolute;
   left: var(--marker-left, calc(100% - 15px));
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 20px;
+  width: 8px;
+}
+
+.timeline-end-marker::after {
+  background: var(--end-marker-color, #6d5dfc);
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  position: absolute;
+  transform: scale(1);
+}
+
+.timeline-end-marker.is-animating::after {
+  animation: timelineMarkerFill 1.5s ease forwards;
+  transform: scale(0);
+}
+
+@keyframes timelineMarkerFill {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
 }
 
 .timeline-who-badges {
