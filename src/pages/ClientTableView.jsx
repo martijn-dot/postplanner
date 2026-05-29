@@ -203,11 +203,19 @@ function categoryKeyForItem(item) {
 
 function categoryShade(key, categories = []) {
   const index = Math.max(0, categories.findIndex((category) => category.id === key));
-  const lightness = Math.max(18, 42 - index * 5);
+  const palette = [
+    ['#28b8ff', '#0f2339'],
+    ['#10b981', '#0d2d25'],
+    ['#f59e0b', '#35240b'],
+    ['#b793ff', '#251a3d'],
+    ['#f466ae', '#39182a'],
+    ['#ff8f4f', '#3a1f12'],
+  ];
+  const [accent, background] = palette[index % palette.length];
   return {
-    backgroundColor: `hsl(235 10% ${lightness}%)`,
-    borderColor: `hsl(235 10% ${Math.min(58, lightness + 14)}%)`,
-    color: '#f3f0ff',
+    backgroundColor: background,
+    borderColor: accent,
+    color: accent,
   };
 }
 
@@ -397,7 +405,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     );
                     if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row._item ? row.Time : ''}</td>;
                     if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{labelsAsText ? row.Who : row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
-                    if (column.key === 'asset') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item ? <span className="note-preview group relative inline-flex w-full min-w-0 text-left"><span className="truncate font-semibold">{row.Asset || '-'}</span>{row.Asset && <span className="note-tooltip">{row.Asset}</span>}</span> : null}</td>;
+                    if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block truncate font-semibold">{row.Asset || '-'}</span> : null}</td>;
                     if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.What : <Pill label={labelsById[row._item.what]} />) : null}</td>;
                     if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.Todo : <Pill label={labelsById[row._item.todo]} subtle />) : null}</td>;
                     if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || 'Add note'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</button> : row._item ? row.Notes : null}</td>;

@@ -855,7 +855,15 @@ export function PlannerProvider({ children }) {
         };
         draft.lineItems.push(item);
         markDirty(projectId);
-        if (useSupabase) void saveSupabase('line item', supabase.from('line_items').insert(item));
+        if (useSupabase) {
+          void (async () => {
+            const category = categoryId ? draft.categories.find((entry) => entry.id === categoryId) : null;
+            if (category) {
+              await saveSupabase('category', supabase.from('categories').upsert(dbCategory(category), { onConflict: 'id' }));
+            }
+            await saveSupabase('line item', supabase.from('line_items').insert(item));
+          })();
+        }
         return item.id;
       }),
       duplicateLineItem: (itemId) => mutate((draft) => {

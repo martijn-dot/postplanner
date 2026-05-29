@@ -350,7 +350,7 @@ function SortableLine({
       className={`timeline-line ${duplicated ? 'timeline-line-new' : ''} ${dropTarget?.id === item.id ? `timeline-line-drop-${dropTarget.placement}` : ''}`}
     >
       {tableVisible && (
-        <div className={`timeline-table-panel sticky left-0 z-20 grid h-full items-center border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-950 ${duplicated ? 'timeline-table-row-new' : ''}`} style={{ width: leftWidth, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
+        <div className={`timeline-table-panel timeline-row-table-panel sticky left-0 z-20 grid h-full items-center border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-950 ${duplicated ? 'timeline-table-row-new' : ''}`} style={{ width: leftWidth, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
           <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
           <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
@@ -540,7 +540,7 @@ function CategoryBlock({
     >
       <div className="timeline-category" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
         {tableVisible && (
-          <div className="timeline-table-panel sticky left-0 z-30 grid grid-cols-[34px_28px_1fr_34px_34px_34px_34px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
+          <div className="timeline-table-panel timeline-category-table-panel sticky left-0 z-30 grid grid-cols-[44px_28px_1fr_34px_34px_34px_34px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
             <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button mx-auto" disabled={isUncategorized}>
               {category.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             </button>
@@ -549,17 +549,7 @@ function CategoryBlock({
             </button>
             {categoryNameInput()}
             {!isUncategorized && (
-              <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button category-action-button mx-auto" aria-label="Add default bookings to category" data-tooltip="Add default planning"><ListPlus size={16} /></button>
-            )}
-            {!isUncategorized && (
-              <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button category-action-button mx-auto" aria-label="Add one row to category" data-tooltip="Add row"><Plus size={16} /></button>
-            )}
-            {!isUncategorized && (
-              <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" buttonClassName="icon-button category-action-button mx-auto" tooltip="Client reviews">
-                <button type="button" onClick={() => { onAddClientReviewRows(category.id, 1); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 24h</button>
-                <button type="button" onClick={() => { onAddClientReviewRows(category.id, 2); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 48h</button>
-                <button type="button" onClick={() => { onRemoveClientReviewRows(category.id); setOpenCategoryMenu(null); }} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
-              </ToolbarMenu>
+              <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button category-action-button mx-auto" aria-label="Add row" data-tooltip="Add row"><Plus size={16} /></button>
             )}
             {!isUncategorized && categoryCount > 1 && (
               <button
@@ -571,11 +561,21 @@ function CategoryBlock({
                   }
                 }}
                 className="icon-button category-action-button mx-auto"
-                aria-label="Delete category"
-                data-tooltip="Delete category"
+                aria-label="Delete row"
+                data-tooltip="Delete row"
               >
                 <Trash2 size={15} />
               </button>
+            )}
+            {!isUncategorized && (
+              <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" buttonClassName="icon-button category-action-button mx-auto" tooltip="Add auto client reviews">
+                <button type="button" onClick={() => { onAddClientReviewRows(category.id, 1); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 24h</button>
+                <button type="button" onClick={() => { onAddClientReviewRows(category.id, 2); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 48h</button>
+                <button type="button" onClick={() => { onRemoveClientReviewRows(category.id); setOpenCategoryMenu(null); }} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
+              </ToolbarMenu>
+            )}
+            {!isUncategorized && (
+              <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button category-action-button mx-auto" aria-label="Add default planning" data-tooltip="Add default planning"><ListPlus size={16} /></button>
             )}
           </div>
         )}
@@ -637,7 +637,7 @@ function CategoryBlock({
             ))}
           </SortableContext>
           {!isUncategorized && tableVisible && (
-            <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="timeline-table-panel sticky left-0 z-20 flex h-10 items-center gap-2 border-r border-t border-black/10 bg-white px-4 text-sm text-ink-500 hover:text-accent-400 dark:border-white/10 dark:bg-ink-950" style={{ width: leftWidth }}>
+            <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="timeline-table-panel timeline-row-table-panel sticky left-0 z-20 flex h-10 items-center gap-2 border-r border-t border-black/10 bg-white px-4 text-sm text-ink-500 hover:text-accent-400 dark:border-white/10 dark:bg-ink-950" style={{ width: leftWidth }}>
               <Plus size={15} /> Add item
             </button>
           )}

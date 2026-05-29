@@ -301,6 +301,11 @@ nav .tab-active {
   position: relative;
 }
 
+.timeline-category-table-panel,
+.timeline-row-table-panel {
+  padding-left: 10px;
+}
+
 .dark .asset-list-header {
   border-right-color: rgba(255, 255, 255, 0.08);
 }
@@ -327,6 +332,7 @@ nav .tab-active {
   overflow: visible;
   padding: 0;
   white-space: nowrap;
+  text-transform: uppercase;
 }
 
 .asset-header-name {
@@ -351,20 +357,11 @@ nav .tab-active {
 .asset-header-actions {
   display: inline-flex;
   flex: 0 0 auto;
-  gap: 3px;
+  gap: 4px;
   justify-content: flex-start;
   margin-left: 0;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-3px);
-  transition: opacity 0.12s ease, transform 0.12s ease;
-}
-
-.asset-header-name-wrap:hover .asset-header-actions,
-.asset-header-name-wrap:focus-within .asset-header-actions {
   opacity: 1;
   pointer-events: auto;
-  transform: translateX(0);
 }
 
 .asset-tab {
@@ -520,10 +517,15 @@ nav .tab-active {
   color: #8b879c;
   display: inline-flex;
   flex: 0 0 auto;
-  height: 18px;
+  height: 23px;
   justify-content: center;
   position: relative;
-  width: 18px;
+  width: 23px;
+}
+
+.asset-header-icon svg {
+  height: 14px;
+  width: 14px;
 }
 
 .asset-header-icon:hover {

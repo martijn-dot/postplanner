@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, Download, GripVertical, RotateCcw, Settings, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Download, GripVertical, Menu, Plus, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadAssetListExcel } from '../lib/exportExcel.js';
@@ -162,7 +162,7 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
       <div className="w-full max-w-md rounded-lg border border-white/10 bg-ink-900 p-5 text-ink-100 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">Re-order columns</h2>
+            <h2 className="text-xl font-semibold">Columns</h2>
             <p className="mt-1 text-sm text-ink-500">Drag the custom columns into the order you want.</p>
           </div>
           <button type="button" onClick={onClose} className="secondary-button !px-3 !py-2">Close</button>
@@ -836,7 +836,7 @@ export default function AssetListPage({ project }) {
                 />
               </span>
             ))}
-            <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="secondary-button !px-3 !py-2">New tab</button>
+            <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="secondary-button !px-3 !py-2"><Plus size={15} /> New tab</button>
             {projectLists.length > 1 && (
               <button type="button" onClick={() => deleteAssetListTab(activeList.id)} className="icon-button" aria-label="Delete current tab" data-tooltip="Delete tab"><Trash2 size={16} /></button>
             )}
@@ -845,10 +845,10 @@ export default function AssetListPage({ project }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-900">
-        <button type="button" onClick={addColumn} className="primary-button">Column</button>
-        <button type="button" onClick={addRow} className="secondary-button">Row</button>
-        <button type="button" onClick={addCategory} className="secondary-button">Category</button>
-        <button type="button" onClick={() => setOrderPopupOpen(true)} className="secondary-button"><RotateCcw size={16} /> Re-order columns</button>
+        <button type="button" onClick={addColumn} className="primary-button"><Plus size={16} /> Column</button>
+        <button type="button" onClick={addRow} className="secondary-button"><Plus size={16} /> Row</button>
+        <button type="button" onClick={addCategory} className="secondary-button"><Plus size={16} /> Category</button>
+        <button type="button" onClick={() => setOrderPopupOpen(true)} className="secondary-button"><Menu size={16} /> Columns</button>
         <span className="ml-auto text-xs font-semibold uppercase text-ink-500">Autosaved</span>
       </div>
 
@@ -1035,6 +1035,7 @@ export default function AssetListPage({ project }) {
                         <button
                           type="button"
                           className="asset-copy-filename"
+                          onKeyDown={(event) => moveCellFocus(event, absoluteRowIndex, copyColumnIndex)}
                           onClick={() => navigator.clipboard?.writeText(generatedFilename(project, activeList, row, clients))}
                         >
                           Copy
