@@ -23,13 +23,12 @@ function isLocalhost() {
 }
 
 export function AuthProvider({ children }) {
-  const localAdminMode = isLocalhost();
+  const localAdminMode = isLocalhost() && !hasSupabaseConfig;
   const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(hasSupabaseConfig && !localAdminMode);
-  const [demoMode, setDemoMode] = useState(!hasSupabaseConfig || localAdminMode);
+  const [loading, setLoading] = useState(hasSupabaseConfig);
+  const [demoMode, setDemoMode] = useState(!hasSupabaseConfig);
 
   useEffect(() => {
-    if (localAdminMode) return;
     if (!hasSupabaseConfig) return;
 
     supabase.auth.getSession().then(({ data }) => {
@@ -43,10 +42,10 @@ export function AuthProvider({ children }) {
     });
 
     return () => listener.subscription.unsubscribe();
-  }, [localAdminMode]);
+  }, []);
 
   useEffect(() => {
-    if (localAdminMode || !hasSupabaseConfig || !session) return undefined;
+    if (!hasSupabaseConfig || !session || session.user?.user_metadata?.standard_login) return undefined;
     let timeoutId;
     const resetTimer = () => {
       window.clearTimeout(timeoutId);
@@ -62,7 +61,7 @@ export function AuthProvider({ children }) {
       window.clearTimeout(timeoutId);
       events.forEach((eventName) => window.removeEventListener(eventName, resetTimer));
     };
-  }, [localAdminMode, session]);
+  }, [session]);
 
   const value = useMemo(
     () => ({
@@ -86,7 +85,7 @@ export function AuthProvider({ children }) {
       signOut: async () => {
         if (hasSupabaseConfig && !session?.user?.user_metadata?.standard_login) await supabase.auth.signOut();
         setSession(null);
-        setDemoMode(!hasSupabaseConfig || localAdminMode);
+        setDemoMode(!hasSupabaseConfig);
       },
       enterDemo: () => setDemoMode(true),
     }),
