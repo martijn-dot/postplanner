@@ -69,6 +69,30 @@ function dbCategory(category) {
   };
 }
 
+function dbLineItem(item) {
+  return {
+    id: item.id,
+    project_id: item.project_id,
+    planning_version: item.planning_version ?? DEFAULT_PLANNING_VERSION,
+    category_id: item.category_id ?? null,
+    who: Array.isArray(item.who) ? item.who : [],
+    asset: item.asset ?? '',
+    what: item.what ?? '',
+    todo: item.todo ?? '',
+    time: item.time ?? '',
+    notes: item.notes ?? '',
+    row_color: item.row_color ?? '',
+    start_date: item.start_date ?? null,
+    end_date: item.end_date ?? null,
+    sort_order: item.sort_order ?? 0,
+  };
+}
+
+function dbLineItemPatch(patch) {
+  const allowed = new Set(['planning_version', 'category_id', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'row_color', 'start_date', 'end_date', 'sort_order']);
+  return Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.has(key)));
+}
+
 function defaultAssetColumns() {
   return [
     { id: id(), name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_unique_ratio').map((label) => label.value), separator: null, width: 150, sort_order: 0 },
@@ -677,7 +701,7 @@ export function PlannerProvider({ children }) {
                 );
               }
               if (newRows.length) {
-                await saveSupabase('planning version line items', supabase.from('line_items').insert(newRows), { throwOnError: true });
+                await saveSupabase('planning version line items', supabase.from('line_items').upsert(newRows.map(dbLineItem), { onConflict: 'id' }), { throwOnError: true });
               }
             } catch {
               // saveSupabase has already shown the exact database error.
@@ -861,7 +885,7 @@ export function PlannerProvider({ children }) {
             if (category) {
               await saveSupabase('category', supabase.from('categories').upsert(dbCategory(category), { onConflict: 'id' }));
             }
-            await saveSupabase('line item', supabase.from('line_items').insert(item));
+            await saveSupabase('line item', supabase.from('line_items').upsert(dbLineItem(item), { onConflict: 'id' }));
           })();
         }
         return item.id;
@@ -884,7 +908,7 @@ export function PlannerProvider({ children }) {
         };
         draft.lineItems.push(duplicate);
         markDirty(source.project_id);
-        if (useSupabase) void saveSupabase('duplicated line item', supabase.from('line_items').insert(duplicate));
+        if (useSupabase) void saveSupabase('duplicated line item', supabase.from('line_items').upsert(dbLineItem(duplicate), { onConflict: 'id' }));
         return duplicate.id;
       }),
       addClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelId, offsetDays = 1, existingReviewTodoLabelIds = [reviewTodoLabelId], categoryId = null, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
@@ -944,7 +968,7 @@ export function PlannerProvider({ children }) {
 
         if (useSupabase) {
           duplicates.forEach((item) => {
-            void saveSupabase('client review row', supabase.from('line_items').insert(item));
+            void saveSupabase('client review row', supabase.from('line_items').upsert(dbLineItem(item), { onConflict: 'id' }));
           });
           draft.lineItems.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).forEach((item) => {
             void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: item.sort_order }).eq('id', item.id));
@@ -989,7 +1013,10 @@ export function PlannerProvider({ children }) {
         const item = draft.lineItems.find((lineItem) => lineItem.id === itemId);
         Object.assign(item, patch);
         markDirty(item?.project_id);
-        if (useSupabase) void saveSupabase('line item changes', supabase.from('line_items').update(patch).eq('id', itemId));
+        if (useSupabase) {
+          const dbPatch = dbLineItemPatch(patch);
+          if (Object.keys(dbPatch).length) void saveSupabase('line item changes', supabase.from('line_items').update(dbPatch).eq('id', itemId));
+        }
       }),
       deleteLineItem: (itemId) => mutate((draft) => {
         const item = draft.lineItems.find((lineItem) => lineItem.id === itemId);
