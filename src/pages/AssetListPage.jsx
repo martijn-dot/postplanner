@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, GripVertical, Menu, Plus, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, GripVertical, Menu, Plus, Settings2, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadAssetListExcel } from '../lib/exportExcel.js';
@@ -34,6 +34,10 @@ function uid() {
 
 function orderedColumns(list) {
   return [...(list?.columns ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+function isFrameColumn(column) {
+  return /^frame\.?io$/i.test(column?.name ?? '') || column?.type === 'url';
 }
 
 function orderedRows(list) {
@@ -165,7 +169,7 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/60 p-5" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={onClose}>
       <div className="w-full max-w-md rounded-lg border border-white/10 bg-ink-900 p-5 text-ink-100 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -233,7 +237,7 @@ function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
     .filter(Boolean);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-5">
+    <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5">
       <div className="w-full max-w-lg rounded-lg border border-white/10 bg-ink-900 p-5 text-ink-100 shadow-glow">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -334,7 +338,6 @@ export default function AssetListPage({ project }) {
   const [selectedCells, setSelectedCells] = useState([]);
   const [selectionAnchor, setSelectionAnchor] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState('');
-  const [filenameOnly, setFilenameOnly] = useState(false);
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => ({
@@ -355,6 +358,8 @@ export default function AssetListPage({ project }) {
 
   const activeList = projectLists.find((item) => item.id === activeId) ?? projectLists[0];
   const columns = orderedColumns(activeList);
+  const beforeFilenameColumns = columns.filter((column) => !isFrameColumn(column));
+  const afterCopyColumns = columns.filter(isFrameColumn);
   const rows = orderedRows(activeList);
   const categories = orderedCategories(activeList);
   const fallbackCategory = categories[0] ?? { id: 'default', name: 'Category 1', collapsed: false, sort_order: 0 };
@@ -395,7 +400,13 @@ export default function AssetListPage({ project }) {
     const values = rows.map((row) => String(row.values?.[column.id] ?? ''));
     const longest = [column.name, ...values].reduce((maxLength, value) => Math.max(maxLength, value.length), 0);
     const fittedWidth = Math.max(132, Math.min(640, longest * 9 + 136));
-    return Math.max(fittedWidth, Number(column.width) || 0);
+    if (column.manual_width) return Math.max(92, Number(column.width) || fittedWidth);
+    return fittedWidth;
+  };
+
+  const filenameColumnWidth = () => {
+    const longest = rows.reduce((maxLength, row) => Math.max(maxLength, generatedFilename(project, activeList, row, clients).length), 'Filename'.length);
+    return Math.max(260, Math.min(860, longest * 8 + 34));
   };
 
   const startColumnResize = (event, columnId) => {
@@ -408,7 +419,7 @@ export default function AssetListPage({ project }) {
     const onPointerMove = (moveEvent) => {
       const nextWidth = Math.max(120, Math.min(760, Math.round(startWidth + moveEvent.clientX - startX)));
       updateAssetList(activeList.id, {
-        columns: columns.map((column) => column.id === columnId ? { ...column, width: nextWidth } : column),
+        columns: columns.map((column) => column.id === columnId ? { ...column, width: nextWidth, manual_width: true } : column),
       });
     };
     const onPointerUp = () => {
@@ -814,17 +825,18 @@ export default function AssetListPage({ project }) {
   const filenameColumnIndex = columns.length + FILENAME_COLUMN_OFFSET;
   const copyColumnIndex = columns.length + COPY_COLUMN_OFFSET;
   const notesColumnIndex = columns.length + NOTES_COLUMN_OFFSET;
-  const fullGridTemplate = filenameOnly
-    ? '32ch 74px'
-    : `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 32ch 74px 220px`;
+  const fullGridTemplate = `74px 86px ${beforeFilenameColumns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} ${filenameColumnWidth()}px 74px ${afterCopyColumns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 220px`;
 
   return (
     <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <div className="border-b border-black/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-ink-900">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Asset list</h1>
-            <p className="mt-1 text-sm text-ink-500">{[project.project_number, project.client, project.name].filter(Boolean).join(' - ')}</p>
+            <span className="inline-flex rounded-md border border-amber-300/40 bg-amber-300 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-ink-950">
+              {[project.project_number, project.name].filter(Boolean).join(' - ')}
+            </span>
+            <h1 className="mt-3 text-2xl font-semibold">Asset list</h1>
+            <p className="mt-1 text-sm text-ink-500">{project.client}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-ink-500">
@@ -873,21 +885,20 @@ export default function AssetListPage({ project }) {
         <button type="button" onClick={addRow} className="secondary-button"><Plus size={16} /> Row</button>
         <button type="button" onClick={addCategory} className="secondary-button"><Plus size={16} /> Category</button>
         <button type="button" onClick={() => setOrderPopupOpen(true)} className="secondary-button"><Menu size={16} /> Columns</button>
-        <button type="button" onClick={() => setFilenameOnly((next) => !next)} className={`secondary-button ${filenameOnly ? 'is-active' : ''}`}>{filenameOnly ? 'Show all columns' : 'Only filenames'}</button>
         <span className="ml-auto text-xs font-semibold uppercase text-ink-500">Autosaved</span>
       </div>
 
       <div className="asset-list-scroll flex-1 overflow-auto">
         <div className="min-w-max">
           <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: fullGridTemplate }}>
-            {!filenameOnly && <div className="asset-list-header locked" aria-label="Actions" />}
-            {!filenameOnly && <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>}
-            {!filenameOnly && columns.map((column) => (
+            <div className="asset-list-header locked" aria-label="Actions" />
+            <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
+            {beforeFilenameColumns.map((column) => (
               <div
                 key={column.id}
                 className="asset-list-header"
               >
-                <span className="asset-header-name-wrap" title="Double click to open column settings">
+                <span className="asset-header-name-wrap">
                   <input
                     className="asset-header-name"
                     defaultValue={column.name}
@@ -904,6 +915,9 @@ export default function AssetListPage({ project }) {
                     }}
                     draggable={false}
                   />
+                  <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-settings" data-tooltip="Column settings" aria-label={`Column settings for ${column.name}`}>
+                    <Settings2 size={14} />
+                  </button>
                 </span>
                 <button
                   type="button"
@@ -915,6 +929,40 @@ export default function AssetListPage({ project }) {
             ))}
             <div className="asset-list-header locked"><span className="asset-header-label">Filename</span></div>
             <div className="asset-list-header locked"><span className="asset-header-label">Copy</span></div>
+            {afterCopyColumns.map((column) => (
+              <div
+                key={column.id}
+                className="asset-list-header"
+              >
+                <span className="asset-header-name-wrap">
+                  <input
+                    className="asset-header-name"
+                    defaultValue={column.name}
+                    style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
+                    onDoubleClick={() => setSettingsColumnId(column.id)}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter') return;
+                      event.preventDefault();
+                      updateColumnName(column.id, event.currentTarget.value);
+                      event.currentTarget.blur();
+                    }}
+                    onBlur={(event) => {
+                      if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
+                    }}
+                    draggable={false}
+                  />
+                  <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-settings" data-tooltip="Column settings" aria-label={`Column settings for ${column.name}`}>
+                    <Settings2 size={14} />
+                  </button>
+                </span>
+                <button
+                  type="button"
+                  className="asset-column-resize-handle"
+                  onPointerDown={(event) => startColumnResize(event, column.id)}
+                  aria-label={`Resize ${column.name}`}
+                />
+              </div>
+            ))}
             <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
           </div>
 
@@ -923,6 +971,9 @@ export default function AssetListPage({ project }) {
             return (
               <div key={category.id} className="asset-category-container">
                 <div className="asset-category-bar">
+                  {categories.length > 0 && (
+                    <button type="button" onClick={() => deleteCategory(category.id)} className="asset-header-icon" data-tooltip="Delete category" aria-label="Delete category"><Trash2 size={12} /></button>
+                  )}
                   <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button !h-7 !w-7">
                     {category.collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                   </button>
@@ -931,20 +982,17 @@ export default function AssetListPage({ project }) {
                     value={category.name}
                     onChange={(event) => updateCategory(category.id, { name: event.target.value })}
                   />
-                  {categories.length > 0 && (
-                    <button type="button" onClick={() => deleteCategory(category.id)} className="asset-header-icon ml-auto" data-tooltip="Delete category" aria-label="Delete category"><Trash2 size={12} /></button>
-                  )}
                 </div>
                 <div className="asset-category-body">
                 {!category.collapsed && groupRows.map((row) => {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
                   return (
                     <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: fullGridTemplate }}>
-                      {!filenameOnly && <div className="asset-row-actions">
+                      <div className="asset-row-actions">
                         <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
-                      </div>}
-                      {!filenameOnly && <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
+                      </div>
+                      <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
                         <input
                           className="table-input"
                           value={row.number ?? ''}
@@ -963,8 +1011,9 @@ export default function AssetListPage({ project }) {
                           }}
                           onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'number' })}
                         />
-                      </div>}
-                      {!filenameOnly && columns.map((column, columnIndex) => {
+                      </div>
+                      {beforeFilenameColumns.map((column) => {
+                        const columnIndex = columns.findIndex((item) => item.id === column.id);
                         const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
                         const value = row.values?.[column.id] ?? '';
                         return (
@@ -1072,6 +1121,47 @@ export default function AssetListPage({ project }) {
                           Copy
                         </button>
                       </div>
+                      {afterCopyColumns.map((column) => {
+                        const columnIndex = columns.findIndex((item) => item.id === column.id);
+                        const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
+                        const value = row.values?.[column.id] ?? '';
+                        return (
+                          <div
+                            key={column.id}
+                            data-asset-row={absoluteRowIndex}
+                            data-asset-column={columnIndex}
+                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''}`}
+                            {...cellSelectionProps(absoluteRowIndex, columnIndex, row.id, column.id)}
+                            onCopy={(event) => {
+                              event.preventDefault();
+                              copySelectedCells(event, absoluteRowIndex, columnIndex, row.values?.[column.id] ?? '');
+                            }}
+                            onPaste={(event) => pasteCells(event, absoluteRowIndex, columnIndex)}
+                          >
+                            <div className="asset-link-cell">
+                              <input
+                                className="table-input"
+                                value={value}
+                                onChange={(event) => updateCell(row.id, column.id, event.target.value)}
+                                onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
+                                onKeyDown={(event) => {
+                                  if (moveCellFocus(event, absoluteRowIndex, columnIndex)) return;
+                                  if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    focusCellBelow(absoluteRowIndex, columnIndex);
+                                  }
+                                }}
+                                placeholder="Frame.io link"
+                              />
+                              {value && (
+                                <a className="asset-open-link" href={linkHref(value)} target="_blank" rel="noreferrer" aria-label="Open Frame.io link" onClick={(event) => event.stopPropagation()}>
+                                  <ExternalLink size={13} />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                       <div
                         className={`asset-cell copy-cell ${isVisuallySelected(absoluteRowIndex, notesColumnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === 'notes') ? 'copy-cell-selected' : ''}`}
                         data-asset-row={absoluteRowIndex}
@@ -1103,7 +1193,7 @@ export default function AssetListPage({ project }) {
                 {!category.collapsed && !groupRows.length && <p className="px-4 py-3 text-sm text-ink-500">No rows in this category yet.</p>}
                 {!category.collapsed && (
                   <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-add-row-button">
-                    Row
+                    <Plus size={14} /> Row
                   </button>
                 )}
                 </div>

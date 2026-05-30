@@ -12,6 +12,7 @@ const DEFAULT_APP_SETTINGS = {
   defaultPlanning: DEFAULT_PLANNING_WHAT_LABELS,
 };
 const DEFAULT_PLANNING_VERSION = 'V1';
+const OPTIONAL_LINE_ITEM_COLUMNS = new Set(['row_color']);
 const DEFAULT_ASSET_LABELS = [
   ...['OLV', 'SOC', 'PRV', 'HWT', 'TECH', 'CGI', 'Bumper', 'TrueView', 'Story', '360', 'IMG', 'FeatIMG', 'Photography', 'KV', 'StaticBanner', 'DynaBanner']
     .map((value, index) => ({ column_type: 'asset_type', value, color: '#6d5dfc', sort_order: index })),
@@ -91,6 +92,20 @@ function dbLineItem(item) {
 function dbLineItemPatch(patch) {
   const allowed = new Set(['planning_version', 'category_id', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'row_color', 'start_date', 'end_date', 'sort_order']);
   return Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.has(key)));
+}
+
+function schemaMissingColumn(error) {
+  const message = error?.message ?? '';
+  const match = message.match(/'([^']+)' column of 'line_items'/);
+  return match?.[1] ?? null;
+}
+
+function withoutColumns(payload, columns) {
+  if (!columns?.size) return payload;
+  if (Array.isArray(payload)) return payload.map((item) => withoutColumns(item, columns));
+  const next = { ...payload };
+  columns.forEach((column) => delete next[column]);
+  return next;
 }
 
 function defaultAssetColumns() {
@@ -426,6 +441,7 @@ export function PlannerProvider({ children }) {
   const [saveError, setSaveError] = useState('');
   const [dirtyProjectIds, setDirtyProjectIds] = useState([]);
   const dirtyProjectIdsRef = useRef([]);
+  const unsupportedLineItemColumnsRef = useRef(new Set());
   const useSupabase = hasSupabaseConfig && !demoMode;
 
   useEffect(() => {
@@ -485,6 +501,37 @@ export function PlannerProvider({ children }) {
     setSaveError('');
     return result;
   }, [useSupabase]);
+
+  const saveLineItemUpsert = useCallback(async (label, items, { throwOnError = false } = {}) => {
+    if (!useSupabase) return null;
+    const rows = Array.isArray(items) ? items : [items];
+    const buildPayload = () => withoutColumns(rows.map(dbLineItem), unsupportedLineItemColumnsRef.current);
+    let result = await supabase.from('line_items').upsert(buildPayload(), { onConflict: 'id' });
+    const missingColumn = schemaMissingColumn(result?.error);
+    if (missingColumn && OPTIONAL_LINE_ITEM_COLUMNS.has(missingColumn)) {
+      unsupportedLineItemColumnsRef.current.add(missingColumn);
+      result = await supabase.from('line_items').upsert(buildPayload(), { onConflict: 'id' });
+    }
+    return saveSupabase(label, Promise.resolve(result), { throwOnError });
+  }, [saveSupabase, useSupabase]);
+
+  const saveLineItemUpdate = useCallback(async (label, itemId, patch, { throwOnError = false } = {}) => {
+    if (!useSupabase) return null;
+    const dbPatch = dbLineItemPatch(patch);
+    const buildPayload = () => withoutColumns(dbPatch, unsupportedLineItemColumnsRef.current);
+    let payload = buildPayload();
+    if (!Object.keys(payload).length) return null;
+    let result = await supabase.from('line_items').update(payload).eq('id', itemId);
+    const missingColumn = schemaMissingColumn(result?.error);
+    if (missingColumn && OPTIONAL_LINE_ITEM_COLUMNS.has(missingColumn)) {
+      unsupportedLineItemColumnsRef.current.add(missingColumn);
+      payload = buildPayload();
+      result = Object.keys(payload).length
+        ? await supabase.from('line_items').update(payload).eq('id', itemId)
+        : { data: null, error: null };
+    }
+    return saveSupabase(label, Promise.resolve(result), { throwOnError });
+  }, [saveSupabase, useSupabase]);
 
   const invokeAdminUserAction = useCallback(async (body) => {
     if (!useSupabase) return null;
@@ -702,7 +749,7 @@ export function PlannerProvider({ children }) {
                 );
               }
               if (newRows.length) {
-                await saveSupabase('planning version line items', supabase.from('line_items').upsert(newRows.map(dbLineItem), { onConflict: 'id' }), { throwOnError: true });
+                await saveLineItemUpsert('planning version line items', newRows, { throwOnError: true });
               }
             } catch {
               // saveSupabase has already shown the exact database error.
@@ -886,7 +933,7 @@ export function PlannerProvider({ children }) {
             if (category) {
               await saveSupabase('category', supabase.from('categories').upsert(dbCategory(category), { onConflict: 'id' }));
             }
-            await saveSupabase('line item', supabase.from('line_items').upsert(dbLineItem(item), { onConflict: 'id' }));
+            await saveLineItemUpsert('line item', item);
           })();
         }
         return item.id;
@@ -909,7 +956,7 @@ export function PlannerProvider({ children }) {
         };
         draft.lineItems.push(duplicate);
         markDirty(source.project_id);
-        if (useSupabase) void saveSupabase('duplicated line item', supabase.from('line_items').upsert(dbLineItem(duplicate), { onConflict: 'id' }));
+        if (useSupabase) void saveLineItemUpsert('duplicated line item', duplicate);
         return duplicate.id;
       }),
       addClientReviews: (projectId, wennekerLabelId, clientLabelId, reviewTodoLabelId, offsetDays = 1, existingReviewTodoLabelIds = [reviewTodoLabelId], categoryId = null, version = DEFAULT_PLANNING_VERSION) => mutate((draft) => {
@@ -969,7 +1016,7 @@ export function PlannerProvider({ children }) {
 
         if (useSupabase) {
           duplicates.forEach((item) => {
-            void saveSupabase('client review row', supabase.from('line_items').upsert(dbLineItem(item), { onConflict: 'id' }));
+            void saveLineItemUpsert('client review row', item);
           });
           draft.lineItems.filter((item) => item.project_id === projectId && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).forEach((item) => {
             void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: item.sort_order }).eq('id', item.id));
@@ -1015,8 +1062,7 @@ export function PlannerProvider({ children }) {
         Object.assign(item, patch);
         markDirty(item?.project_id);
         if (useSupabase) {
-          const dbPatch = dbLineItemPatch(patch);
-          if (Object.keys(dbPatch).length) void saveSupabase('line item changes', supabase.from('line_items').update(dbPatch).eq('id', itemId));
+          void saveLineItemUpdate('line item changes', itemId, patch);
         }
       }),
       deleteLineItem: (itemId) => mutate((draft) => {
@@ -1298,7 +1344,7 @@ export function PlannerProvider({ children }) {
         return token;
       },
     }),
-    [data, invokeAdminUserAction, loading, markDirty, mutate, saveError, saveSupabase, useSupabase, user.id],
+    [data, invokeAdminUserAction, loading, markDirty, mutate, saveError, saveLineItemUpdate, saveLineItemUpsert, saveSupabase, useSupabase, user.id],
   );
 
   return <PlannerContext.Provider value={api}>{children}</PlannerContext.Provider>;

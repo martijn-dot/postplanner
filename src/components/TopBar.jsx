@@ -17,7 +17,7 @@ export function RovalLogo() {
   );
 }
 
-export default function TopBar({ project }) {
+export default function TopBar() {
   const { user, signOut, demoMode } = useAuth();
   const { profiles, saveError, clearSaveError, updateProfile } = usePlanner();
   const [dark, setDark] = useState(() => localStorage.theme !== 'light');
@@ -73,7 +73,6 @@ export default function TopBar({ project }) {
               <span className="mt-1 text-[10px] font-semibold normal-case tracking-normal text-ink-500">the post production planner without clutter</span>
             </span>
           </Link>
-          {project && <span className="text-sm text-ink-500">/ {project.name}</span>}
         </div>
         <div className="flex items-center gap-2">
           {demoMode && <span className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold text-amber-300">Demo mode</span>}
