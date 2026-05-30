@@ -354,24 +354,16 @@ nav .tab-active {
   padding: 0 5px;
 }
 
-.asset-header-actions {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 4px;
-  justify-content: flex-start;
-  margin-left: 0;
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .asset-tab {
   align-items: center;
-  border-radius: 6px;
+  border: 1px solid transparent;
+  border-radius: 12px 12px 0 0;
   color: #8b879c;
   display: inline-flex;
+  gap: 6px;
   min-height: 32px;
-  padding: 0 8px;
-  transition: background 0.15s ease, color 0.15s ease;
+  padding: 0 9px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .asset-tab:hover {
@@ -401,6 +393,50 @@ nav .tab-active {
   background: rgba(109, 93, 252, 0.12);
   border-color: rgba(109, 93, 252, 0.55);
   padding-inline: 6px;
+}
+
+.asset-tab.tab-active {
+  background: #e5e0f6;
+  border-color: rgba(109, 93, 252, 0.28);
+  color: #201936;
+}
+
+.dark .asset-tab.tab-active {
+  background: #1d2740;
+  border-color: #2c3755;
+  color: #f3f0ff;
+}
+
+.asset-tab-delete,
+.asset-tab-new {
+  align-items: center;
+  border: 1px solid rgba(109, 93, 252, 0.28);
+  color: #8b879c;
+  display: inline-flex;
+  justify-content: center;
+  position: relative;
+}
+
+.asset-tab-delete {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  height: 22px;
+  width: 22px;
+}
+
+.asset-tab-new {
+  background: rgba(109, 93, 252, 0.12);
+  border-radius: 999px;
+  height: 30px;
+  margin-bottom: 2px;
+  width: 30px;
+}
+
+.asset-tab-delete:hover,
+.asset-tab-new:hover {
+  background: rgba(109, 93, 252, 0.22);
+  border-color: rgba(109, 93, 252, 0.58);
+  color: #f3f0ff;
 }
 
 .asset-column-resize-handle {
@@ -592,6 +628,32 @@ nav .tab-active {
 .asset-copy-filename:hover {
   background: rgba(109, 93, 252, 0.24);
   border-color: rgba(109, 93, 252, 0.72);
+}
+
+.asset-link-cell {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+  width: 100%;
+}
+
+.asset-open-link {
+  align-items: center;
+  border: 1px solid rgba(109, 93, 252, 0.28);
+  border-radius: 999px;
+  color: #8b879c;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.asset-open-link:hover {
+  background: rgba(109, 93, 252, 0.18);
+  border-color: rgba(109, 93, 252, 0.58);
+  color: #c7c0ff;
 }
 
 .asset-column-order-row {

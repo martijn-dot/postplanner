@@ -98,8 +98,9 @@ function defaultAssetColumns() {
     { id: id(), name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_unique_ratio').map((label) => label.value), separator: null, width: 150, sort_order: 0 },
     { id: id(), name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_type').map((label) => label.value), separator: null, width: 180, sort_order: 1 },
     { id: id(), name: 'Name', type: 'text', options: [], separator: null, width: 240, sort_order: 2 },
-    { id: id(), name: 'Length', type: 'length', options: [], separator: null, width: 120, sort_order: 3 },
-    { id: id(), name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_ratio').map((label) => label.value), separator: null, width: 140, sort_order: 4 },
+    { id: id(), name: 'Frame.io', type: 'url', options: [], separator: null, width: 210, sort_order: 3, exclude_from_filename: true },
+    { id: id(), name: 'Length', type: 'length', options: [], separator: null, width: 120, sort_order: 4 },
+    { id: id(), name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_ratio').map((label) => label.value), separator: null, width: 140, sort_order: 5 },
   ];
 }
 
@@ -628,7 +629,7 @@ export function PlannerProvider({ children }) {
           sort_order: nextSortOrder,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        } : createAssetList(projectId, `Setup ${nextSortOrder + 1}`, nextSortOrder);
+        } : createAssetList(projectId, 'Assetlist', nextSortOrder);
         draft.assetLists.push(list);
         markDirty(projectId);
         if (useSupabase) void saveSupabase('asset list tab', supabase.from('asset_lists').insert(dbAssetList(list)));

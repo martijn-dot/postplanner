@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, Download, GripVertical, Menu, Plus, Settings, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, GripVertical, Menu, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadAssetListExcel } from '../lib/exportExcel.js';
@@ -18,6 +18,7 @@ const STANDARD_COLUMNS = [
   { name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_UNIQUE_RATIO, width: 150 },
   { name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_TYPES, width: 180 },
   { name: 'Name', type: 'text', options: [], width: 240 },
+  { name: 'Frame.io', type: 'url', options: [], width: 210, exclude_from_filename: true },
   { name: 'Length', type: 'length', options: [], width: 120 },
   { name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_RATIOS, width: 140 },
 ];
@@ -63,7 +64,7 @@ function generatedFilename(project, list, row, clients = []) {
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   const rowParts = columns
-    .filter((column) => column.label_type !== 'asset_unique_ratio' && !/^unique\b/i.test(column.name ?? ''))
+    .filter((column) => !column.exclude_from_filename && column.label_type !== 'asset_unique_ratio' && !/^unique\b/i.test(column.name ?? '') && !/^frame\.?io$/i.test(column.name ?? ''))
     .map((column) => ({ value: formatCellValue(row.values?.[column.id], column), separator: column.separator || list.global_separator || '_' }))
     .filter((part) => part.value);
   const parts = [
@@ -83,6 +84,12 @@ function formatCellValue(value, column) {
   if (column.type === 'length') return `${text.replace(/s$/i, '')}s`;
   if (column.type === 'text') return text.replace(/\s+/g, '-');
   return text;
+}
+
+function linkHref(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return '';
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
 function updateRowsForColumn(rows, columnId, fallback = '') {
@@ -240,13 +247,14 @@ function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
             <span className="text-xs font-semibold uppercase text-ink-500">Column name</span>
             <input className="field" value={name} onChange={(event) => setName(event.target.value)} />
           </label>
-          <label className="block space-y-1">
-            <span className="text-xs font-semibold uppercase text-ink-500">Column type</span>
-            <select className="field" value={type} onChange={(event) => setType(event.target.value)}>
-              <option value="text">Full text</option>
-              <option value="dropdown">Global dropdown</option>
-              <option value="custom-dropdown">Custom dropdown</option>
-              <option value="length">Length</option>
+            <label className="block space-y-1">
+              <span className="text-xs font-semibold uppercase text-ink-500">Column type</span>
+              <select className="field" value={type} onChange={(event) => setType(event.target.value)}>
+                <option value="text">Full text</option>
+                <option value="url">Link</option>
+                <option value="dropdown">Global dropdown</option>
+                <option value="custom-dropdown">Custom dropdown</option>
+                <option value="length">Length</option>
             </select>
           </label>
           {type === 'dropdown' && (
@@ -293,7 +301,7 @@ function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
           <button type="button" onClick={onDelete} className="secondary-button text-red-300"><Trash2 size={16} /> Delete</button>
           <button
             type="button"
-            onClick={() => onSave({ ...column, name: name.trim() || column.name, type, label_type: type === 'dropdown' ? labelType : null, separator: separator || null, options: type === 'custom-dropdown' ? options : globalOptions[labelType] ?? options })}
+            onClick={() => onSave({ ...column, name: name.trim() || column.name, type, label_type: type === 'dropdown' ? labelType : null, separator: separator || null, options: type === 'custom-dropdown' ? options : globalOptions[labelType] ?? options, exclude_from_filename: type === 'url' ? true : column.exclude_from_filename })}
             className="primary-button"
           >
             <Check size={16} /> Save
@@ -326,6 +334,7 @@ export default function AssetListPage({ project }) {
   const [selectedCells, setSelectedCells] = useState([]);
   const [selectionAnchor, setSelectionAnchor] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState('');
+  const [filenameOnly, setFilenameOnly] = useState(false);
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => ({
@@ -455,12 +464,34 @@ export default function AssetListPage({ project }) {
     const expected = ['unique/ratio', 'asset type', 'name', 'length', 'ratio'];
     const hasStandardColumns = expected.every((name) => names.includes(name));
     if (!hasStandardColumns) applyStandardColumns();
-    else if (expected.some((name, index) => names[index] !== name)) {
-      const order = Object.fromEntries(expected.map((name, index) => [name, index]));
+    else if (expected.some((name, index) => names.filter((item) => expected.includes(item))[index] !== name)) {
+      const order = { 'unique/ratio': 0, 'asset type': 1, name: 2, 'frame.io': 3, length: 4, ratio: 5 };
       saveColumns([...columns].sort((a, b) => (order[a.name.toLowerCase()] ?? 99) - (order[b.name.toLowerCase()] ?? 99)));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeList?.id]);
+
+  useEffect(() => {
+    if (!activeList || !columns.length) return;
+    if (columns.some((column) => /^frame\.?io$/i.test(column.name ?? ''))) return;
+    const frameColumn = {
+      id: uid(),
+      name: 'Frame.io',
+      type: 'url',
+      options: [],
+      separator: null,
+      width: 210,
+      sort_order: 3,
+      exclude_from_filename: true,
+    };
+    const nextColumns = [
+      ...columns.slice(0, 3),
+      frameColumn,
+      ...columns.slice(3),
+    ].map((column, index) => ({ ...column, sort_order: index }));
+    saveColumns(nextColumns, updateRowsForColumn(activeList.rows, frameColumn.id));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeList?.id, columns.length]);
 
   useEffect(() => {
     if (!activeList || categories.length) return;
@@ -776,16 +807,6 @@ export default function AssetListPage({ project }) {
     });
   };
 
-  const deleteColumn = (columnId) => {
-    const nextColumns = columns.filter((column) => column.id !== columnId);
-    const nextRows = rows.map((row) => {
-      const values = { ...(row.values ?? {}) };
-      delete values[columnId];
-      return { ...row, values };
-    });
-    saveColumns(nextColumns, nextRows);
-  };
-
   if (!activeList) {
     return <div className="grid min-h-[60vh] place-items-center text-ink-500">Preparing asset list...</div>;
   }
@@ -793,7 +814,9 @@ export default function AssetListPage({ project }) {
   const filenameColumnIndex = columns.length + FILENAME_COLUMN_OFFSET;
   const copyColumnIndex = columns.length + COPY_COLUMN_OFFSET;
   const notesColumnIndex = columns.length + NOTES_COLUMN_OFFSET;
-  const fullGridTemplate = `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 50ch 74px 220px`;
+  const fullGridTemplate = filenameOnly
+    ? '32ch 74px'
+    : `74px 86px ${columns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 32ch 74px 220px`;
 
   return (
     <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -813,34 +836,35 @@ export default function AssetListPage({ project }) {
             <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all', clients)} className="secondary-button"><Download size={16} /> Download Excel</button>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {projectLists.map((list) => (
-              <span key={list.id} className={`asset-tab ${list.id === activeList.id ? 'tab-active' : ''}`} onClick={() => setActiveId(list.id)}>
-                <input
-                  className="asset-tab-input"
-                  defaultValue={list.name}
-                  style={{ width: `${Math.max(7, Math.min(18, list.name.length + 1))}ch` }}
-                  onFocus={() => setActiveId(list.id)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter') return;
-                    event.preventDefault();
-                    renameAssetListTab(list.id, event.currentTarget.value);
-                    event.currentTarget.blur();
-                  }}
-                  onBlur={(event) => {
-                    renameAssetListTab(list.id, event.currentTarget.value);
-                    if (!event.currentTarget.value.trim()) event.currentTarget.value = list.name;
-                  }}
-                  aria-label={`Rename ${list.name}`}
-                />
-              </span>
-            ))}
-            <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="secondary-button !px-3 !py-2"><Plus size={15} /> New tab</button>
-            {projectLists.length > 1 && (
-              <button type="button" onClick={() => deleteAssetListTab(activeList.id)} className="icon-button" aria-label="Delete current tab" data-tooltip="Delete tab"><Trash2 size={16} /></button>
-            )}
-          </div>
+      </div>
+
+      <div className="asset-tab-strip border-b border-black/10 bg-white px-5 pt-3 dark:border-white/10 dark:bg-ink-900">
+        <div className="flex flex-wrap items-end gap-2">
+          {projectLists.map((list) => (
+            <span key={list.id} className={`asset-tab ${list.id === activeList.id ? 'tab-active' : ''}`} onClick={() => setActiveId(list.id)}>
+              <input
+                className="asset-tab-input"
+                defaultValue={list.name || 'Assetlist'}
+                style={{ width: `${Math.max(8, Math.min(18, (list.name || 'Assetlist').length + 1))}ch` }}
+                onFocus={() => setActiveId(list.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return;
+                  event.preventDefault();
+                  renameAssetListTab(list.id, event.currentTarget.value);
+                  event.currentTarget.blur();
+                }}
+                onBlur={(event) => {
+                  renameAssetListTab(list.id, event.currentTarget.value);
+                  if (!event.currentTarget.value.trim()) event.currentTarget.value = list.name || 'Assetlist';
+                }}
+                aria-label={`Rename ${list.name || 'Assetlist'}`}
+              />
+              {list.id === activeList.id && projectLists.length > 1 && (
+                <button type="button" onClick={(event) => { event.stopPropagation(); deleteAssetListTab(activeList.id); }} className="asset-tab-delete" aria-label="Delete assetlist tab" data-tooltip="Delete tab"><Trash2 size={13} /></button>
+              )}
+            </span>
+          ))}
+          <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="asset-tab-new" aria-label="Create new assetlist tab" data-tooltip="New tab"><Plus size={16} /></button>
         </div>
       </div>
 
@@ -849,24 +873,26 @@ export default function AssetListPage({ project }) {
         <button type="button" onClick={addRow} className="secondary-button"><Plus size={16} /> Row</button>
         <button type="button" onClick={addCategory} className="secondary-button"><Plus size={16} /> Category</button>
         <button type="button" onClick={() => setOrderPopupOpen(true)} className="secondary-button"><Menu size={16} /> Columns</button>
+        <button type="button" onClick={() => setFilenameOnly((next) => !next)} className={`secondary-button ${filenameOnly ? 'is-active' : ''}`}>{filenameOnly ? 'Show all columns' : 'Only filenames'}</button>
         <span className="ml-auto text-xs font-semibold uppercase text-ink-500">Autosaved</span>
       </div>
 
       <div className="asset-list-scroll flex-1 overflow-auto">
         <div className="min-w-max">
           <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: fullGridTemplate }}>
-            <div className="asset-list-header locked" aria-label="Actions" />
-            <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
-            {columns.map((column) => (
+            {!filenameOnly && <div className="asset-list-header locked" aria-label="Actions" />}
+            {!filenameOnly && <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>}
+            {!filenameOnly && columns.map((column) => (
               <div
                 key={column.id}
                 className="asset-list-header"
               >
-                <span className="asset-header-name-wrap">
+                <span className="asset-header-name-wrap" title="Double click to open column settings">
                   <input
                     className="asset-header-name"
                     defaultValue={column.name}
                     style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
+                    onDoubleClick={() => setSettingsColumnId(column.id)}
                     onKeyDown={(event) => {
                       if (event.key !== 'Enter') return;
                       event.preventDefault();
@@ -878,10 +904,6 @@ export default function AssetListPage({ project }) {
                     }}
                     draggable={false}
                   />
-                  <span className="asset-header-actions">
-                    <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-icon" aria-label="Column settings" data-tooltip="Settings"><Settings size={11} /></button>
-                    <button type="button" onClick={() => deleteColumn(column.id)} className="asset-header-icon" aria-label="Delete column" data-tooltip="Delete"><Trash2 size={11} /></button>
-                  </span>
                 </span>
                 <button
                   type="button"
@@ -900,7 +922,7 @@ export default function AssetListPage({ project }) {
             const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === category.id);
             return (
               <div key={category.id} className="asset-category-container">
-                <div className="asset-category-bar" style={{ marginLeft: 38 }}>
+                <div className="asset-category-bar">
                   <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button !h-7 !w-7">
                     {category.collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                   </button>
@@ -918,11 +940,11 @@ export default function AssetListPage({ project }) {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
                   return (
                     <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: fullGridTemplate }}>
-                      <div className="asset-row-actions">
+                      {!filenameOnly && <div className="asset-row-actions">
                         <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
-                      </div>
-                      <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
+                      </div>}
+                      {!filenameOnly && <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
                         <input
                           className="table-input"
                           value={row.number ?? ''}
@@ -941,9 +963,10 @@ export default function AssetListPage({ project }) {
                           }}
                           onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'number' })}
                         />
-                      </div>
-                      {columns.map((column, columnIndex) => {
+                      </div>}
+                      {!filenameOnly && columns.map((column, columnIndex) => {
                         const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
+                        const value = row.values?.[column.id] ?? '';
                         return (
                           <div
                             key={column.id}
@@ -957,21 +980,29 @@ export default function AssetListPage({ project }) {
                             }}
                             onPaste={(event) => pasteCells(event, absoluteRowIndex, columnIndex)}
                           >
-                            {column.type === 'text' || column.type === 'length' ? (
-                              <input
-                                className="table-input"
-                                inputMode={column.type === 'length' ? 'numeric' : undefined}
-                                value={row.values?.[column.id] ?? ''}
-                                onChange={(event) => updateCell(row.id, column.id, column.type === 'length' ? event.target.value.replace(/[^\d.]/g, '') : event.target.value)}
-                                onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
-                                onKeyDown={(event) => {
-                                  if (moveCellFocus(event, absoluteRowIndex, columnIndex)) return;
-                                  if (event.key === 'Enter') {
-                                    event.preventDefault();
-                                    focusCellBelow(absoluteRowIndex, columnIndex);
-                                  }
-                                }}
-                              />
+                            {column.type === 'text' || column.type === 'length' || column.type === 'url' ? (
+                              <div className="asset-link-cell">
+                                <input
+                                  className="table-input"
+                                  inputMode={column.type === 'length' ? 'numeric' : undefined}
+                                  value={value}
+                                  onChange={(event) => updateCell(row.id, column.id, column.type === 'length' ? event.target.value.replace(/[^\d.]/g, '') : event.target.value)}
+                                  onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
+                                  onKeyDown={(event) => {
+                                    if (moveCellFocus(event, absoluteRowIndex, columnIndex)) return;
+                                    if (event.key === 'Enter') {
+                                      event.preventDefault();
+                                      focusCellBelow(absoluteRowIndex, columnIndex);
+                                    }
+                                  }}
+                                  placeholder={column.type === 'url' ? 'Frame.io link' : undefined}
+                                />
+                                {column.type === 'url' && value && (
+                                  <a className="asset-open-link" href={linkHref(value)} target="_blank" rel="noreferrer" aria-label="Open Frame.io link" onClick={(event) => event.stopPropagation()}>
+                                    <ExternalLink size={13} />
+                                  </a>
+                                )}
+                              </div>
                             ) : (
                               <LabelDropdown
                                 id={`${row.id}:${column.id}`}
