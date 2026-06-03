@@ -11,6 +11,7 @@ import { weekNumber } from '../lib/dates.js';
 const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v4';
 const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
 const CLIENT_COLUMNS = [
+  { key: 'edit', label: 'Edit', width: 86 },
   { key: 'category', label: 'Category', width: 150 },
   { key: 'who', label: 'Who', width: 118 },
   { key: 'asset', label: 'Asset', width: 200 },
@@ -270,10 +271,10 @@ function RowColorSelect({ value, onChange, readOnly = false }) {
 }
 
 export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future' }) {
-  const [editingField, setEditingField] = useState(null);
+  const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
-  const editingItem = editingField?.itemId ? lineItems.find((item) => item.id === editingField.itemId) : null;
+  const editingItem = editingItemId ? lineItems.find((item) => item.id === editingItemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const labelsByType = useMemo(() => ({
     who: labels.filter((label) => label.column_type === 'who'),
@@ -288,7 +289,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   const showCategoryColumn = visibleCategoryCount > 1 && !forceHideCategoryColumn;
   const orderedColumns = prefs.order
     .map((key) => CLIENT_COLUMNS.find((column) => column.key === key))
-    .filter((column) => column && prefs.visible[column.key] !== false && (column.key !== 'category' || showCategoryColumn));
+    .filter((column) => column && prefs.visible[column.key] !== false && (column.key !== 'category' || showCategoryColumn) && (column.key !== 'edit' || onUpdateLineItem));
   const updatePrefs = (nextPrefs) => {
     onColumnPrefsChange?.(nextPrefs);
   };
@@ -318,6 +319,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     const labelExtra = 54;
     return {
       rowColor: 82,
+      edit: 86,
       time: measureTextWidth(maxText('Time', 'Time'), 70, 96, 7.2),
       category: measureTextWidth(maxText('Category', 'Category'), 120, 260, 7.2),
       who: measureTextWidth(maxText('Who', 'Who'), 92, 260, 7.1) + labelExtra,
@@ -353,7 +355,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
             </colgroup>
             <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
-                <th className="sticky-week px-2 py-3 text-center font-semibold">Week</th>
+                <th className="sticky-week px-2 py-3 text-center font-semibold"></th>
                 <th className="px-3 py-3 font-semibold">Date</th>
                 {orderedColumns.map((column) => (
                   <th
@@ -414,18 +416,19 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     </td>
                   )}
                   {orderedColumns.map((column) => {
+                    if (column.key === 'edit') return <td key={column.key} className="px-3 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingItemId(row._item.id)} className="client-edit-button">Edit</button> : null}</td>;
                     if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : null}</td>;
                     if (column.key === 'category') return (
                       <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">
                         {row._item ? <span className="client-category-pill" style={categoryShade(categoryKeyForItem(row._item), categories)}>{row.Category}</span> : ''}
                       </td>
                     );
-                    if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row._item ? row.Time : ''}</td>;
-                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? (onUpdateLineItem ? <LabelSelect labels={labelsByType.who} value={row._item.who ?? []} multiple multipleModeToggle placeholder="Who" onChange={(who) => onUpdateLineItem(row._item.id, { who })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color)} /> : <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>) : null}</td>;
+                    if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item ? (row.Time || '-') : ''}</td>;
+                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
                     if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
-                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (onUpdateLineItem ? <LabelSelect labels={labelsByType.what} value={row._item.what} placeholder="What" onChange={(what) => onUpdateLineItem(row._item.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} /> : <Pill label={labelsById[row._item.what]} />) : null}</td>;
-                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? (onUpdateLineItem ? <LabelSelect labels={labelsByType.todo} value={row._item.todo} placeholder="Todo" onChange={(todo) => onUpdateLineItem(row._item.id, { todo })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'todo', value, color)} /> : <Pill label={labelsById[row._item.todo]} subtle />) : null}</td>;
-                    if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || 'Add note'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</button> : row._item ? row.Notes : null}</td>;
+                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : null}</td>;
+                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
+                    if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item ? <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || '-'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</span> : null}</td>;
                     return null;
                   })}
                 </tr>
@@ -439,39 +442,52 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
           </table>
         </div>
       </div>
-      {editingItem && editingField && onUpdateLineItem && (
-        <div className="fixed inset-0 z-[700] grid place-items-center bg-black/60 p-5" onMouseDown={() => setEditingField(null)}>
+      {editingItem && onUpdateLineItem && (
+        <div className="fixed inset-0 z-[700] grid place-items-center bg-black/60 p-5" onMouseDown={() => setEditingItemId(null)}>
           <div className="w-full max-w-lg rounded-lg border border-white/10 bg-ink-900 p-5 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-ink-100">{editingField.field === 'time' ? 'Edit time' : 'Edit note'}</h2>
+                <h2 className="text-lg font-semibold text-ink-100">Edit planning row</h2>
                 <p className="mt-1 text-sm text-ink-500">{editingItem.asset || 'Client planning row'}</p>
               </div>
-              <button type="button" onClick={() => setEditingField(null)} className="icon-button">x</button>
+              <button type="button" onClick={() => setEditingItemId(null)} className="icon-button">x</button>
             </div>
-            {editingField.field === 'time' ? (
-              <div className="space-y-3">
+            <div className="space-y-4">
+              <label className="block space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Who</span>
+                <LabelSelect labels={labelsByType.who} value={editingItem.who ?? []} multiple multipleModeToggle placeholder="Who" onChange={(who) => onUpdateLineItem(editingItem.id, { who })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color)} />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">What</span>
+                <LabelSelect labels={labelsByType.what} value={editingItem.what} placeholder="What" onChange={(what) => onUpdateLineItem(editingItem.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Todo</span>
+                <LabelSelect labels={labelsByType.todo} value={editingItem.todo} placeholder="Todo" onChange={(todo) => onUpdateLineItem(editingItem.id, { todo })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'todo', value, color)} />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Time</span>
                 <input
                   value={editingItem.time === 'EOD' ? '' : editingItem.time ?? ''}
                   onChange={(event) => onUpdateLineItem(editingItem.id, { time: normalizeTimeInput(event.target.value) })}
                   className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 font-mono text-sm text-ink-100 outline-none focus:border-accent-400"
                   placeholder="HH:MM"
                   inputMode="numeric"
-                  autoFocus
                 />
-                <button type="button" onClick={() => onUpdateLineItem(editingItem.id, { time: 'EOD' })} className="secondary-button">Set EOD</button>
-              </div>
-            ) : (
+              </label>
+              <button type="button" onClick={() => onUpdateLineItem(editingItem.id, { time: 'EOD' })} className="secondary-button">Set EOD</button>
+              <label className="block space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Notes</span>
               <textarea
                 value={editingItem.notes ?? ''}
                 onChange={(event) => onUpdateLineItem(editingItem.id, { notes: event.target.value })}
                 className="min-h-36 w-full resize-y rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
                 placeholder="Add notes for this client planning row..."
-                autoFocus
               />
-            )}
+              </label>
+            </div>
             <div className="mt-4 flex justify-end">
-              <button type="button" onClick={() => setEditingField(null)} className="primary-button">Done</button>
+              <button type="button" onClick={() => setEditingItemId(null)} className="primary-button">Done</button>
             </div>
           </div>
         </div>
@@ -721,7 +737,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
 
   return (
     <main className="mx-auto max-w-[1600px] px-5 py-6">
-      <div className="mb-5 flex flex-col justify-between gap-3 rounded-lg border border-black/10 bg-white p-[10px] dark:border-white/10 dark:bg-ink-900 xl:flex-row xl:items-end">
+      <div className="mb-5 flex flex-col justify-between gap-3 rounded-lg border border-black/10 bg-white p-[50px] dark:border-white/10 dark:bg-ink-900 xl:flex-row xl:items-end">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold">Client Planning</h1>
@@ -762,7 +778,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
       </div>
 
       {(viewMode === 'table' || viewMode === 'gantt') && (
-        <div className="client-filter-row mb-3 flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-[10px] text-sm dark:border-white/10 dark:bg-ink-900">
+        <div className="client-filter-row mb-3 flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-[50px] text-sm dark:border-white/10 dark:bg-ink-900">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
             <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
