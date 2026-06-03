@@ -357,19 +357,19 @@ function SortableLine({
           {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} /></div>}
           {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
           {optionsVisible && (
-            <>
-              <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button mx-auto" aria-label="Focus booking on timeline">F</button>
+            <div className="timeline-option-cluster">
+              <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button" aria-label="Focus booking on timeline">F</button>
               <button
                 type="button"
                 onPointerDown={(event) => onSelectionDragStart(event, item.id, !selected)}
-                className={`focus-button row-link-button mx-auto ${selected ? 'is-active' : ''}`}
+                className={`focus-button row-link-button ${selected ? 'is-active' : ''}`}
                 aria-pressed={selected}
                 aria-label={selected ? 'Unlink row from selected rows' : 'Link row to selected rows'}
                 title="lock bookings togehtor"
               >
                 {selected ? <Link2 size={13} /> : <Link2Off size={13} />}
               </button>
-            </>
+            </div>
           )}
         </div>
       )}
@@ -1300,9 +1300,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                   {columnVisibility.who && <HeaderCell columnKey="who" onResizeStart={onColumnResizeStart}>Who</HeaderCell>}
                   {columnVisibility.asset && <HeaderCell columnKey="asset" onResizeStart={onColumnResizeStart}>Asset</HeaderCell>}
                   {optionsVisible && (
-                    <>
-                      <span />
-                      <span className="grid h-full place-items-end justify-items-center pb-2">
+                    <div className="timeline-option-cluster timeline-option-cluster-header">
                         <button
                           type="button"
                           onClick={() => toggleSelectAll(selectedVisibleCount !== rows.length)}
@@ -1314,8 +1312,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                         >
                           {rows.length > 0 && selectedVisibleCount === rows.length ? <Link2 size={13} /> : <Link2Off size={13} />}
                         </button>
-                      </span>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
