@@ -616,12 +616,11 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
 }
 
 export default function ClientTableView({ project, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, createShareLink, updateLineItem } = usePlanner();
+  const { lineItems, labels, categories, createShareLink, updateLineItem, addLabel } = usePlanner();
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [dateWindow, setDateWindow] = useState('future');
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
-  const [labelsAsText, setLabelsAsText] = useState(false);
   const [categoryMode, setCategoryMode] = useState('column');
   const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState([]);
@@ -763,33 +762,33 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
       </div>
 
       {(viewMode === 'table' || viewMode === 'gantt') && (
-        <div className="client-filter-row mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-black/10 bg-white p-[10px] text-sm dark:border-white/10 dark:bg-ink-900">
-          <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
-          <button type="button" onClick={() => setDateWindow('future')} className={`client-filter-pill ${dateWindow === 'future' ? 'is-active' : ''}`}>
-            Current
-          </button>
-          <button type="button" onClick={() => setDateWindow('pastWeek')} className={`client-filter-pill ${dateWindow === 'pastWeek' ? 'is-active' : ''}`}>
-            Past week
-          </button>
-          <button type="button" onClick={() => setDateWindow('full')} className={`client-filter-pill ${dateWindow === 'full' ? 'is-active' : ''}`}>
-            Full planning
-          </button>
-          <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
-            {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
-          </button>
-          <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
-            {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
-          </button>
-          {viewMode === 'table' && (
-            <>
+        <div className="client-filter-row mb-3 flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-[10px] text-sm dark:border-white/10 dark:bg-ink-900">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
+            <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
+              {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
+            </button>
+            <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
+              {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
+            </button>
+            {viewMode === 'table' && (
               <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
                 {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
               </button>
-              <button type="button" onClick={() => setLabelsAsText((next) => !next)} className={`client-filter-pill ${labelsAsText ? 'is-active' : ''}`}>
-                {labelsAsText ? <Eye size={14} /> : <EyeOff size={14} />} Text labels
-              </button>
-            </>
-          )}
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Planning</span>
+            <button type="button" onClick={() => setDateWindow('future')} className={`client-filter-pill ${dateWindow === 'future' ? 'is-active' : ''}`}>
+              From current
+            </button>
+            <button type="button" onClick={() => setDateWindow('pastWeek')} className={`client-filter-pill ${dateWindow === 'pastWeek' ? 'is-active' : ''}`}>
+              Past week
+            </button>
+            <button type="button" onClick={() => setDateWindow('full')} className={`client-filter-pill ${dateWindow === 'full' ? 'is-active' : ''}`}>
+              Full planning
+            </button>
+          </div>
           {versionCategories.length > 1 && (
             <div className="basis-full pt-2">
               <div className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Categories</div>
@@ -843,8 +842,8 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
                     categories={versionCategories}
                     showEmptyDates={showEmptyDates}
                     dateWindow={dateWindow}
-                    labelsAsText={labelsAsText}
                     onUpdateLineItem={updateLineItem}
+                    onAddLabel={addLabel}
                     uncategorizedName={uncategorizedName}
                     columnPrefs={columnPrefs}
                     onColumnPrefsChange={updateColumnPrefs}
@@ -862,8 +861,8 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
             categories={versionCategories}
             showEmptyDates={showEmptyDates}
             dateWindow={dateWindow}
-            labelsAsText={labelsAsText}
             onUpdateLineItem={updateLineItem}
+            onAddLabel={addLabel}
             uncategorizedName={uncategorizedName}
             columnPrefs={columnPrefs}
             onColumnPrefsChange={updateColumnPrefs}
