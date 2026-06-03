@@ -4,6 +4,7 @@ import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 const AuthContext = createContext(null);
 const LOCALHOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const IDLE_LOGOUT_MS = 24 * 60 * 60 * 1000;
+const AUTH_STARTUP_TIMEOUT_MS = 8000;
 const STANDARD_LOGIN = {
   username: 'PostPlanner',
   password: 'PostPlanner',
@@ -22,6 +23,15 @@ function isLocalhost() {
   return typeof window !== 'undefined' && LOCALHOSTS.has(window.location.hostname);
 }
 
+function withTimeout(promise, timeoutMs, fallback) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      window.setTimeout(() => resolve(fallback), timeoutMs);
+    }),
+  ]);
+}
+
 export function AuthProvider({ children }) {
   const localAdminMode = isLocalhost() && !hasSupabaseConfig;
   const [session, setSession] = useState(null);
@@ -30,10 +40,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!hasSupabaseConfig) return;
+    let alive = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    withTimeout(supabase.auth.getSession(), AUTH_STARTUP_TIMEOUT_MS, { data: { session: null } }).then(({ data }) => {
+      if (!alive) return;
       setSession(data.session);
       setLoading(false);
+    }).catch((error) => {
+      console.error('Could not start auth session', error);
+      if (alive) setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -41,7 +56,10 @@ export function AuthProvider({ children }) {
       setDemoMode(false);
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      alive = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

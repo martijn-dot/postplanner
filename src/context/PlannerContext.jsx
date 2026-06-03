@@ -8,6 +8,7 @@ import { useAuth } from './AuthContext.jsx';
 const PlannerContext = createContext(null);
 const STORAGE_KEY = 'post-production-planner:v1';
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
+const PLANNER_LOAD_TIMEOUT_MS = 12000;
 const DEFAULT_APP_SETTINGS = {
   defaultPlanning: DEFAULT_PLANNING_WHAT_LABELS,
 };
@@ -27,6 +28,15 @@ const DEFAULT_ASSET_LABELS = [
 function projectVersions(project) {
   const versions = Array.isArray(project?.planning_versions) ? project.planning_versions : [project?.preferred_planning_version, DEFAULT_PLANNING_VERSION];
   return [...new Set(versions.filter(Boolean))].sort((a, b) => Number(String(a).replace(/^V/i, '')) - Number(String(b).replace(/^V/i, '')));
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+    }),
+  ]);
 }
 
 function id() {
@@ -448,7 +458,7 @@ export function PlannerProvider({ children }) {
     let alive = true;
     setLoading(true);
     const load = async () => {
-      const next = useSupabase ? await loadSupabaseData() : readLocal(user);
+      const next = useSupabase ? await withTimeout(loadSupabaseData(), PLANNER_LOAD_TIMEOUT_MS, 'Planner data load') : readLocal(user);
       if (alive) {
         setData(next);
         setLoading(false);
