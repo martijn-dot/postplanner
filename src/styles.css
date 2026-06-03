@@ -2126,11 +2126,12 @@ nav .tab-active {
 }
 
 .client-planning-table .combined-date-chip .date-day-name {
-  color: inherit;
+  color: #b793ff;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
   opacity: 0.82;
+  text-transform: uppercase;
 }
 
 .client-planning-table .combined-date-chip strong {
@@ -2141,13 +2142,21 @@ nav .tab-active {
 }
 
 .client-planning-table .date-today-cell .combined-date-chip strong {
-  border-bottom: 2px solid #ff4d5f;
-  padding-bottom: 2px;
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .client-planning-table .today-row > td,
 .dark .client-planning-table .today-row > td {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.client-planning-table .date-today-cell {
+  background: rgba(255, 77, 95, 0.18) !important;
+}
+
+.client-planning-table .date-today-cell .combined-date-chip {
+  color: #ff6b7b;
 }
 
 .client-gantt-booking-day {
