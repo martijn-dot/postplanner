@@ -1,22 +1,22 @@
-import { differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
+import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
 import { Check, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import { weekNumber } from '../lib/dates.js';
 
-const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v2';
+const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v3';
 const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
 const CLIENT_COLUMNS = [
   { key: 'rowColor', label: 'Color', width: 82 },
-  { key: 'time', label: 'Time', width: 74 },
   { key: 'category', label: 'Category', width: 150 },
   { key: 'who', label: 'Who', width: 118 },
   { key: 'asset', label: 'Asset', width: 200 },
   { key: 'what', label: 'What', width: 180 },
   { key: 'todo', label: 'Todo', width: 190 },
+  { key: 'time', label: 'Time', width: 74 },
   { key: 'notes', label: 'Notes', width: 160 },
 ];
 
@@ -177,9 +177,24 @@ export function annotateRows(rows) {
   });
 }
 
-export function clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName = 'Uncategorized') {
+function filterRowsByDateWindow(rows, dateWindow) {
+  if (dateWindow === 'full') return rows;
+  const today = new Date();
+  const todayKey = format(today, 'yyyy-MM-dd');
+  const minKey = dateWindow === 'pastWeek' ? format(addDays(today, -7), 'yyyy-MM-dd') : todayKey;
+  return rows.filter((row) => row._dateKey >= minKey);
+}
+
+function filterDaysByDateWindow(days, dateWindow) {
+  if (dateWindow === 'full') return days;
+  const today = new Date();
+  const minKey = dateWindow === 'pastWeek' ? format(addDays(today, -7), 'yyyy-MM-dd') : format(today, 'yyyy-MM-dd');
+  return days.filter((day) => format(day, 'yyyy-MM-dd') >= minKey);
+}
+
+export function clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName = 'Uncategorized', dateWindow = 'future') {
   const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
-  return annotateRows(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)).map((row) => ({
+  return annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName), dateWindow)).map((row) => ({
     Week: row.Week,
     Day: row.Day,
     Date: row.Date,
@@ -253,7 +268,7 @@ function RowColorSelect({ value, onChange, readOnly = false }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, labelsAsText = false, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, labelsAsText = false, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future' }) {
   const [editingField, setEditingField] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
@@ -287,8 +302,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     window.addEventListener('pointerup', up);
   };
   const rows = useMemo(
-    () => annotateRows(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName)),
-    [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName],
+    () => annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName), dateWindow)),
+    [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, dateWindow],
   );
   const autoWidths = useMemo(() => {
     const maxText = (key, fallback) => rows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
@@ -324,18 +339,16 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     <>
       <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
         <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
-          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: 48 + 78 + 72 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
+          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: 58 + 116 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
             <colgroup>
-              <col className="w-[48px]" />
-              <col className="w-[78px]" />
-              <col className="w-[72px]" />
+              <col className="w-[58px]" />
+              <col className="w-[116px]" />
               {orderedColumns.map((column) => <col key={column.key} style={{ width: widthForColumn(column) }} />)}
             </colgroup>
             <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
                 <th className="sticky-week px-2 py-3 text-center font-semibold">Week</th>
-                <th className="px-2 py-3 font-semibold">Day</th>
-                <th className="px-2 py-3 font-semibold">Date</th>
+                <th className="px-3 py-3 font-semibold">Date</th>
                 {orderedColumns.map((column) => (
                   <th
                     key={column.key}
@@ -387,14 +400,12 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     </td>
                   )}
                   {row._showDateGroup && (
-                    <>
-                      <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 text-xs font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
-                        <span className="date-group-chip">{row.Day}</span>
-                      </td>
-                      <td rowSpan={row._dateRowSpan} className={`date-group-cell whitespace-nowrap p-0 font-mono text-xs font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''}`}>
-                        <span className="date-group-chip">{row.Date}</span>
-                      </td>
-                    </>
+                    <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''} ${row._isToday ? 'date-today-cell' : ''}`}>
+                      <span className="date-group-chip combined-date-chip">
+                        <span className="date-day-name">{row.Day}</span>
+                        <strong>{row.Date}</strong>
+                      </span>
+                    </td>
                   )}
                   {orderedColumns.map((column) => {
                     if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : null}</td>;
@@ -405,7 +416,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     );
                     if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row._item ? row.Time : ''}</td>;
                     if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{labelsAsText ? row.Who : row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
-                    if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block truncate font-semibold">{row.Asset || '-'}</span> : null}</td>;
+                    if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
                     if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.What : <Pill label={labelsById[row._item.what]} />) : null}</td>;
                     if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.Todo : <Pill label={labelsById[row._item.todo]} subtle />) : null}</td>;
                     if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || 'Add note'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</button> : row._item ? row.Notes : null}</td>;
@@ -415,7 +426,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan={3 + orderedColumns.length} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
+                  <td colSpan={2 + orderedColumns.length} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
                 </tr>
               )}
             </tbody>
@@ -463,10 +474,17 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   );
 }
 
-function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized', categoryMode = 'column', collapsedCategoryKeys = [], onToggleCategory }) {
+function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized', categoryMode = 'column', collapsedCategoryKeys = [], onToggleCategory, dateWindow = 'future' }) {
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
-  const bookings = useMemo(() => lineItems.filter((item) => item.project_id === project.id && item.start_date && item.end_date).sort((a, b) => a.start_date.localeCompare(b.start_date) || a.sort_order - b.sort_order), [project.id, lineItems]);
-  const days = useMemo(() => dateRangeFromBookings(bookings), [bookings]);
+  const bookings = useMemo(() => {
+    const today = new Date();
+    const minKey = dateWindow === 'full' ? null : format(dateWindow === 'pastWeek' ? addDays(today, -7) : today, 'yyyy-MM-dd');
+    return lineItems
+      .filter((item) => item.project_id === project.id && item.start_date && item.end_date)
+      .filter((item) => !minKey || item.end_date >= minKey)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.sort_order - b.sort_order);
+  }, [dateWindow, project.id, lineItems]);
+  const days = useMemo(() => filterDaysByDateWindow(dateRangeFromBookings(bookings), dateWindow), [bookings, dateWindow]);
   const categoriesById = useMemo(() => Object.fromEntries(categories.filter((category) => category.project_id === project.id).map((category) => [category.id, category])), [categories, project.id]);
   const bookingGroups = useMemo(() => {
     if (categoryMode !== 'sections') return [{ key: 'all', name: '', items: bookings }];
@@ -536,8 +554,12 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
                 </button>
               )}
               {!collapsedCategoryKeys.includes(group.key) && group.items.map((item) => {
-                const offset = differenceInCalendarDays(parseISO(item.start_date), days[0]);
-                const duration = Math.max(1, differenceInCalendarDays(parseISO(item.end_date), parseISO(item.start_date)) + 1);
+                const itemStart = parseISO(item.start_date);
+                const itemEnd = parseISO(item.end_date);
+                const visibleStart = max([itemStart, days[0]]);
+                const visibleEnd = min([itemEnd, days.at(-1)]);
+                const offset = differenceInCalendarDays(visibleStart, days[0]);
+                const duration = Math.max(1, differenceInCalendarDays(visibleEnd, visibleStart) + 1);
                 const what = labelsById[item.what];
                 const todo = labelsById[item.todo];
                 const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
@@ -555,7 +577,7 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
                       {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
                       <div className="client-gantt-booking" style={{ left: offset * dayWidth + 4, width: duration * dayWidth - 8, '--client-gantt-color': blockColor }}>
                         {Array.from({ length: duration }, (_, index) => {
-                          const day = parseISO(item.start_date);
+                          const day = new Date(visibleStart);
                           day.setDate(day.getDate() + index);
                           const isLast = index === duration - 1;
                           return (
@@ -590,10 +612,12 @@ function ClientGanttChart({ project, lineItems, labels, categories, uncategorize
 export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const { lineItems, labels, categories, createShareLink, updateLineItem } = usePlanner();
   const [showEmptyDates, setShowEmptyDates] = useState(true);
+  const [dateWindow, setDateWindow] = useState('future');
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
   const [labelsAsText, setLabelsAsText] = useState(false);
   const [categoryMode, setCategoryMode] = useState('column');
+  const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState([]);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
@@ -611,18 +635,22 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === planningVersion), [lineItems, planningVersion, project.id]);
   const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === planningVersion), [categories, planningVersion, project.id]);
   const categoriesById = useMemo(() => Object.fromEntries(versionCategories.map((category) => [category.id, category])), [versionCategories]);
-  const filteredLineItems = useMemo(() => versionLineItems.filter((item) => {
+  const bookingFilteredLineItems = useMemo(() => versionLineItems.filter((item) => {
     if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
     if (!showClientBookings && whoFilterIds.client && item.who?.includes(whoFilterIds.client)) return false;
     return true;
   }), [showClientBookings, showWennekerBookings, versionLineItems, whoFilterIds]);
+  const filteredLineItems = useMemo(() => bookingFilteredLineItems.filter((item) => {
+    if (hiddenCategoryKeys.includes(categoryKeyForItem(item))) return false;
+    return true;
+  }), [bookingFilteredLineItems, hiddenCategoryKeys]);
   const exportRows = useMemo(
-    () => clientPlanningExportRows(project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName),
-    [project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName],
+    () => clientPlanningExportRows(project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName, dateWindow),
+    [project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName, dateWindow],
   );
-  const categoryGroups = useMemo(() => {
+  const categoryGroupsFor = useCallback((items) => {
     const groups = new Map();
-    filteredLineItems.forEach((item) => {
+    items.forEach((item) => {
       const key = categoryKeyForItem(item);
       if (!groups.has(key)) groups.set(key, { key, name: categoryNameForItem(item, categoriesById, uncategorizedName), items: [] });
       groups.get(key).items.push(item);
@@ -632,7 +660,9 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
       const bOrder = b.key === 'uncategorized' ? 99999 : categoriesById[b.key]?.sort_order ?? 9999;
       return aOrder - bOrder || a.name.localeCompare(b.name);
     });
-  }, [categoriesById, filteredLineItems, uncategorizedName]);
+  }, [categoriesById, uncategorizedName]);
+  const categoryGroups = useMemo(() => categoryGroupsFor(filteredLineItems), [categoryGroupsFor, filteredLineItems]);
+  const categoryFilterGroups = useMemo(() => categoryGroupsFor(bookingFilteredLineItems), [bookingFilteredLineItems, categoryGroupsFor]);
 
   const publish = async () => {
     setPublishing(true);
@@ -680,9 +710,13 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
     setCollapsedCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
 
+  const toggleHiddenCategory = (key) => {
+    setHiddenCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  };
+
   return (
     <main className="mx-auto max-w-[1600px] px-5 py-6">
-      <div className="mb-5 flex flex-col justify-between gap-3 xl:flex-row xl:items-end">
+      <div className="mb-5 flex flex-col justify-between gap-3 rounded-lg border border-black/10 bg-white p-[10px] dark:border-white/10 dark:bg-ink-900 xl:flex-row xl:items-end">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold">Client Planning</h1>
@@ -723,8 +757,17 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
       </div>
 
       {(viewMode === 'table' || viewMode === 'gantt') && (
-        <div className="client-filter-row mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-ink-900">
+        <div className="client-filter-row mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-black/10 bg-white p-[10px] text-sm dark:border-white/10 dark:bg-ink-900">
           <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
+          <button type="button" onClick={() => setDateWindow('future')} className={`client-filter-pill ${dateWindow === 'future' ? 'is-active' : ''}`}>
+            Current
+          </button>
+          <button type="button" onClick={() => setDateWindow('pastWeek')} className={`client-filter-pill ${dateWindow === 'pastWeek' ? 'is-active' : ''}`}>
+            Past week
+          </button>
+          <button type="button" onClick={() => setDateWindow('full')} className={`client-filter-pill ${dateWindow === 'full' ? 'is-active' : ''}`}>
+            Full planning
+          </button>
           <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
             {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
           </button>
@@ -742,9 +785,19 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
             </>
           )}
           {versionCategories.length > 1 && (
-            <button type="button" onClick={() => setCategoryMode((next) => (next === 'column' ? 'sections' : 'column'))} className={`client-filter-pill ${categoryMode === 'sections' ? 'is-active' : ''}`}>
-              {categoryMode === 'sections' ? <Eye size={14} /> : <EyeOff size={14} />} Category sections
-            </button>
+            <div className="basis-full pt-2">
+              <div className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Categories</div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => setCategoryMode((next) => (next === 'column' ? 'sections' : 'column'))} className={`client-filter-pill ${categoryMode === 'sections' ? 'is-active' : ''}`}>
+                  {categoryMode === 'sections' ? <Eye size={14} /> : <EyeOff size={14} />} Category sections
+                </button>
+                {categoryFilterGroups.map((group) => (
+                  <button key={group.key} type="button" onClick={() => toggleHiddenCategory(group.key)} className={`client-filter-pill ${!hiddenCategoryKeys.includes(group.key) ? 'is-active' : ''}`}>
+                    {!hiddenCategoryKeys.includes(group.key) ? <Eye size={14} /> : <EyeOff size={14} />} {group.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -783,6 +836,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
                     labels={labels}
                     categories={versionCategories}
                     showEmptyDates={showEmptyDates}
+                    dateWindow={dateWindow}
                     labelsAsText={labelsAsText}
                     onUpdateLineItem={updateLineItem}
                     uncategorizedName={uncategorizedName}
@@ -801,6 +855,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
             labels={labels}
             categories={versionCategories}
             showEmptyDates={showEmptyDates}
+            dateWindow={dateWindow}
             labelsAsText={labelsAsText}
             onUpdateLineItem={updateLineItem}
             uncategorizedName={uncategorizedName}
@@ -809,7 +864,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
           />
         )
       ) : (
-        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode={categoryMode} collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} />
+        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode={categoryMode} collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} />
       )}
     </main>
   );
