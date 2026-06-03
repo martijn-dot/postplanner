@@ -1,16 +1,16 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
 import { Check, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import { weekNumber } from '../lib/dates.js';
 
-const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v3';
+const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v4';
 const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
 const CLIENT_COLUMNS = [
-  { key: 'rowColor', label: 'Color', width: 82 },
   { key: 'category', label: 'Category', width: 150 },
   { key: 'who', label: 'Who', width: 118 },
   { key: 'asset', label: 'Asset', width: 200 },
@@ -18,6 +18,7 @@ const CLIENT_COLUMNS = [
   { key: 'todo', label: 'Todo', width: 190 },
   { key: 'time', label: 'Time', width: 74 },
   { key: 'notes', label: 'Notes', width: 160 },
+  { key: 'rowColor', label: 'Color', width: 82 },
 ];
 
 const ROW_COLOR_OPTIONS = [
@@ -268,12 +269,17 @@ function RowColorSelect({ value, onChange, readOnly = false }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, labelsAsText = false, onUpdateLineItem, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future' }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future' }) {
   const [editingField, setEditingField] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
   const editingItem = editingField?.itemId ? lineItems.find((item) => item.id === editingField.itemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
+  const labelsByType = useMemo(() => ({
+    who: labels.filter((label) => label.column_type === 'who'),
+    what: labels.filter((label) => label.column_type === 'what'),
+    todo: labels.filter((label) => label.column_type === 'todo'),
+  }), [labels]);
   const prefs = columnPrefs ?? readClientColumnPrefs();
   const visibleCategoryCount = useMemo(() => {
     const categoryIds = new Set(lineItems.map((item) => item.category_id).filter(Boolean));
@@ -309,7 +315,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     const maxText = (key, fallback) => rows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
     const longestAsset = rows.reduce((longest, row) => (String(row.Asset ?? '').length > String(longest ?? '').length ? row.Asset : longest), 'Asset');
     const longestNotes = rows.reduce((longest, row) => (String(row.Notes ?? '').length > String(longest ?? '').length ? row.Notes : longest), 'Notes');
-    const labelExtra = labelsAsText ? 24 : 54;
+    const labelExtra = 54;
     return {
       rowColor: 82,
       time: measureTextWidth(maxText('Time', 'Time'), 70, 96, 7.2),
@@ -321,7 +327,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
       todo: measureTextWidth(maxText('Todo', 'Todo'), 110, 300, 7.1) + labelExtra,
       notes: measureTextWidth(longestNotes, 220, 520, 7.1),
     };
-  }, [labelsAsText, rows]);
+  }, [rows]);
   const widthForColumn = (column) => {
     if (column.key === 'asset' && autoWidths.assetResizable) return prefs.widths.asset ?? autoWidths.asset;
     if (column.key === 'notes') return autoWidths.notes;
@@ -415,10 +421,10 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       </td>
                     );
                     if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'time' })} className="min-w-12 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100">{row._item.time || <span className="text-ink-500">--:--</span>}</button> : row._item ? row.Time : ''}</td>;
-                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{labelsAsText ? row.Who : row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
+                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? (onUpdateLineItem ? <LabelSelect labels={labelsByType.who} value={row._item.who ?? []} multiple multipleModeToggle placeholder="Who" onChange={(who) => onUpdateLineItem(row._item.id, { who })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color)} /> : <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>) : null}</td>;
                     if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
-                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.What : <Pill label={labelsById[row._item.what]} />) : null}</td>;
-                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? (labelsAsText ? row.Todo : <Pill label={labelsById[row._item.todo]} subtle />) : null}</td>;
+                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (onUpdateLineItem ? <LabelSelect labels={labelsByType.what} value={row._item.what} placeholder="What" onChange={(what) => onUpdateLineItem(row._item.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} /> : <Pill label={labelsById[row._item.what]} />) : null}</td>;
+                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? (onUpdateLineItem ? <LabelSelect labels={labelsByType.todo} value={row._item.todo} placeholder="Todo" onChange={(todo) => onUpdateLineItem(row._item.id, { todo })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'todo', value, color)} /> : <Pill label={labelsById[row._item.todo]} subtle />) : null}</td>;
                     if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingField({ itemId: row._item.id, field: 'notes' })} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-ink-300 hover:border-accent-400 hover:text-ink-100"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || 'Add note'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</button> : row._item ? row.Notes : null}</td>;
                     return null;
                   })}
