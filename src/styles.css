@@ -2205,19 +2205,24 @@ nav .tab-active {
 }
 
 .public-client-shell {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(22, 22, 26, 0.08);
+  background: #f7f7f4;
+  border: 0;
   border-radius: 22px;
-  box-shadow: 0 34px 90px rgba(20, 16, 42, 0.12);
+  box-shadow: none;
   padding: 28px;
 }
 
 .public-client-header {
   align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(22, 22, 26, 0.06);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(20, 16, 42, 0.08);
   display: grid;
   gap: 18px;
   grid-template-columns: minmax(0, 1fr) auto auto;
   margin-bottom: 22px;
+  padding: 20px;
 }
 
 .public-client-meta {
@@ -2278,7 +2283,7 @@ nav .tab-active {
   background: #ffffff;
   border: 1px solid rgba(22, 22, 26, 0.08);
   border-radius: 16px;
-  box-shadow: 0 16px 40px rgba(20, 16, 42, 0.08);
+  box-shadow: 0 10px 28px rgba(20, 16, 42, 0.08);
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -2329,9 +2334,16 @@ nav .tab-active {
   background: #ffffff;
 }
 
+.public-client-page .overflow-hidden.rounded-lg.border {
+  border-color: rgba(22, 22, 26, 0.06) !important;
+  box-shadow: 0 14px 34px rgba(20, 16, 42, 0.08) !important;
+}
+
 .public-client-page .client-planning-table thead th {
-  background: rgba(247, 247, 244, 0.86);
+  background: #ffffff;
   color: #81769c;
+  padding-bottom: 20px !important;
+  padding-top: 20px !important;
 }
 
 .public-client-page .client-planning-table tbody .sticky-week,
@@ -2350,6 +2362,34 @@ nav .tab-active {
 
 .public-client-page .client-planning-table tbody tr {
   border-color: rgba(22, 22, 26, 0.06);
+}
+
+.public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > td {
+  background: #f0f0ed !important;
+}
+
+.public-client-page .client-planning-table .week-divider > td {
+  border-top: 14px solid #f7f7f4 !important;
+}
+
+.public-client-page .client-filter-pill {
+  background: #f4f4f0;
+  border-color: rgba(22, 22, 26, 0.06);
+  color: #5d6682;
+  min-height: 34px;
+  padding: 0.5rem 0.85rem;
+}
+
+.public-client-page .client-filter-pill.is-active {
+  background: #eef1ff;
+  border-color: #e3e7fb;
+  color: #5167b8;
+}
+
+.public-client-page .client-filter-pill:hover {
+  background: #eef1ff;
+  border-color: #e3e7fb;
+  color: #5167b8;
 }
 
 @media (max-width: 900px) {

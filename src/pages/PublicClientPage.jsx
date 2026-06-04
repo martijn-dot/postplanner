@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CalendarDays, Download, Eye, EyeOff, Search } from 'lucide-react';
+import { Download, Eye, EyeOff } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -53,21 +53,6 @@ function projectClientCode(project, clients = []) {
   const client = clients.find((item) => item.name?.trim().toLowerCase() === project.client?.trim().toLowerCase());
   const abbreviation = client?.abbreviation?.trim().toUpperCase();
   return abbreviation?.length === 2 ? abbreviation : project.client;
-}
-
-function lineItemSearchText(item, labelsById, categoriesById) {
-  return [
-    item.asset,
-    item.who?.map((id) => labelsById[id]?.value).join(' '),
-    labelsById[item.what]?.value,
-    labelsById[item.todo]?.value,
-    categoriesById[item.category_id]?.name,
-  ].filter(Boolean).join(' ').toLowerCase();
-}
-
-function planningDateBounds(items = []) {
-  const dates = items.flatMap((item) => [item.start_date, item.end_date]).filter(Boolean).sort();
-  return { start: dates[0] ?? '', end: dates.at(-1) ?? '' };
 }
 
 function assetFilename(project, list, row, clients = []) {
@@ -143,28 +128,19 @@ export default function PublicClientPage() {
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
   const [showCategories, setShowCategories] = useState(true);
-  const [search, setSearch] = useState('');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
-  const dateBounds = useMemo(() => planningDateBounds(payload?.lineItems ?? []), [payload?.lineItems]);
   const categoryCount = useMemo(() => new Set((payload?.lineItems ?? []).map((item) => item.category_id).filter(Boolean)).size || (payload?.categories ?? []).length, [payload?.categories, payload?.lineItems]);
-  const labelsById = useMemo(() => Object.fromEntries((payload?.labels ?? []).map((label) => [label.id, label])), [payload?.labels]);
-  const categoriesById = useMemo(() => Object.fromEntries((payload?.categories ?? []).map((category) => [category.id, category])), [payload?.categories]);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
   }), [payload?.labels]);
-  const filteredLineItems = useMemo(() => (payload?.lineItems ?? []).filter((item) => {
-    if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
-    if (!showClientBookings && whoFilterIds.client && item.who?.includes(whoFilterIds.client)) return false;
-    if (dateRange.start && item.end_date && item.end_date < dateRange.start) return false;
-    if (dateRange.end && item.end_date && item.end_date > dateRange.end) return false;
-    if (search.trim() && !lineItemSearchText(item, labelsById, categoriesById).includes(search.trim().toLowerCase())) return false;
-    return true;
-  }), [categoriesById, dateRange.end, dateRange.start, labelsById, payload?.lineItems, search, showClientBookings, showWennekerBookings, whoFilterIds]);
+  const hiddenWhoIds = useMemo(() => [
+    !showWennekerBookings ? whoFilterIds.wenneker : null,
+    !showClientBookings ? whoFilterIds.client : null,
+  ].filter(Boolean), [showClientBookings, showWennekerBookings, whoFilterIds.client, whoFilterIds.wenneker]);
 
   useEffect(() => {
     const storedTheme = localStorage.theme;
@@ -202,14 +178,6 @@ export default function PublicClientPage() {
     };
   }, [token]);
 
-  useEffect(() => {
-    if (!dateBounds.start && !dateBounds.end) return;
-    setDateRange((current) => ({
-      start: current.start || dateBounds.start,
-      end: current.end || dateBounds.end,
-    }));
-  }, [dateBounds.end, dateBounds.start]);
-
   if (loading) {
     return <div className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">Loading client planning...</div>;
   }
@@ -246,7 +214,7 @@ export default function PublicClientPage() {
               type="button"
               onClick={() => downloadPlanningExcel(
                 payload.project,
-                clientPlanningExportRows(payload.project, filteredLineItems, payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
+                clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
               )}
               className="public-download-button"
             >
@@ -262,16 +230,6 @@ export default function PublicClientPage() {
           {tab === 'planning' ? (
             <>
               <section className="public-client-controls">
-                <label className="public-search-field">
-                  <Search size={16} />
-                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search WHO, WHAT, ASSET, TODO" />
-                </label>
-                <div className="public-date-range">
-                  <CalendarDays size={16} />
-                  <input type="date" value={dateRange.start} min={dateBounds.start} max={dateBounds.end} onChange={(event) => setDateRange((current) => ({ ...current, start: event.target.value }))} />
-                  <span>to</span>
-                  <input type="date" value={dateRange.end} min={dateBounds.start} max={dateBounds.end} onChange={(event) => setDateRange((current) => ({ ...current, end: event.target.value }))} />
-                </div>
                 <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
                   {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
                 </button>
@@ -289,13 +247,15 @@ export default function PublicClientPage() {
               </section>
               <ClientPlanningTable
                 project={payload.project}
-                lineItems={filteredLineItems}
+                lineItems={payload.lineItems ?? []}
                 labels={payload.labels}
                 categories={payload.categories}
                 showEmptyDates={showEmptyDates}
                 uncategorizedName={uncategorizedName}
                 forceHideCategoryColumn={!showCategories}
                 dateWindow="full"
+                hiddenWhoIds={hiddenWhoIds}
+                columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: {}, visible: { rowColor: false, edit: false } }}
               />
             </>
           ) : (
