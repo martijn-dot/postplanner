@@ -2222,51 +2222,68 @@ nav .tab-active {
 
 .public-client-header {
   align-items: center;
-  background: #111a2f;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid rgba(40, 48, 68, 0.06);
   border-radius: 24px;
-  box-shadow: 0 18px 44px rgba(17, 26, 47, 0.2);
+  box-shadow: 0 18px 44px rgba(24, 32, 51, 0.1);
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   margin-bottom: 18px;
   padding: 22px;
 }
 
-.public-client-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
-.public-client-meta span {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.public-header-logo {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(40, 48, 68, 0.08);
   border-radius: 999px;
-  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(24, 32, 51, 0.08);
   display: inline-flex;
-  flex-direction: column;
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1.1;
-  min-width: 136px;
-  padding: 0.78rem 1rem;
+  flex: 0 0 auto;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
 }
 
-.public-client-meta strong {
-  color: rgba(255, 255, 255, 0.54);
-  font-size: 0.58rem;
-  letter-spacing: 0.14em;
-  margin-bottom: 0.25rem;
+.public-header-logo img {
+  border-radius: 999px;
+  height: 27px;
+  object-fit: cover;
+  width: 27px;
+}
+
+.public-publish-line {
+  color: #8a91a3;
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  line-height: 1.35;
   text-transform: uppercase;
 }
 
+.public-publish-line strong {
+  color: #5167b8;
+  font-weight: 900;
+}
+
+.public-publish-line span {
+  color: #c2c7d4;
+  margin: 0 0.5rem;
+}
+
+.public-project-client {
+  color: #7d8497;
+  font-size: 0.86rem;
+  font-weight: 700;
+  margin-top: 0.18rem;
+}
+
 .public-version-label {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #eef1ff;
+  border: 1px solid #dfe5ff;
   border-radius: 999px;
-  color: #ffffff;
+  color: #5167b8;
   display: inline-flex;
   font-size: 0.72rem;
   font-weight: 900;
@@ -2278,10 +2295,10 @@ nav .tab-active {
 
 .public-download-button {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: #111a2f;
+  border: 1px solid #111a2f;
   border-radius: 999px;
-  color: #111a2f;
+  color: #ffffff;
   display: inline-flex;
   font-size: 0.84rem;
   font-weight: 900;
@@ -2289,6 +2306,12 @@ nav .tab-active {
   justify-content: center;
   padding: 0.85rem 1.1rem;
   white-space: nowrap;
+}
+
+.public-download-button:hover {
+  background: #d9efff;
+  border-color: #bce5ff;
+  color: #2470a6;
 }
 
 .public-summary-grid {
@@ -2332,6 +2355,30 @@ nav .tab-active {
   line-height: 1.15;
 }
 
+.public-card-lines {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.public-card-lines em {
+  color: #7d8497;
+  display: flex;
+  flex-wrap: wrap;
+  font-style: normal;
+  gap: 0.35rem;
+}
+
+.public-card-lines b {
+  color: #182033;
+  font-weight: 900;
+}
+
+.public-card-lines i {
+  color: #5167b8;
+  font-style: normal;
+  font-weight: 900;
+}
+
 .public-client-tabs {
   align-items: center;
   background: #ebeef5;
@@ -2342,25 +2389,6 @@ nav .tab-active {
   padding: 0.35rem;
 }
 
-.public-tabs-logo {
-  align-items: center;
-  background: #ffffff;
-  border-radius: 999px;
-  box-shadow: 0 8px 18px rgba(24, 32, 51, 0.08);
-  display: inline-flex;
-  height: 35px;
-  justify-content: center;
-  margin-right: 0.25rem;
-  width: 35px;
-}
-
-.public-tabs-logo img {
-  border-radius: 999px;
-  height: 25px;
-  object-fit: cover;
-  width: 25px;
-}
-
 .public-client-page .tab {
   border: 0;
   border-radius: 999px;
@@ -2369,8 +2397,13 @@ nav .tab-active {
 }
 
 .public-client-page .tab-active {
-  background: #111a2f;
-  color: #ffffff;
+  background: #d9efff;
+  color: #2470a6;
+}
+
+.public-client-page .tab:hover {
+  background: #d9efff;
+  color: #2470a6;
 }
 
 .public-client-controls {
@@ -2406,9 +2439,9 @@ nav .tab-active {
 
 .public-client-page .client-filter-pill.is-active,
 .public-client-page .client-filter-pill:hover {
-  background: #eef1ff;
-  border-color: #dfe5ff;
-  color: #5167b8;
+  background: #d9efff;
+  border-color: #bce5ff;
+  color: #2470a6;
 }
 
 .public-client-page .overflow-hidden.rounded-lg.border {
@@ -2474,10 +2507,6 @@ nav .tab-active {
 @media (max-width: 1100px) {
   .public-client-header {
     grid-template-columns: 1fr;
-  }
-
-  .public-client-meta {
-    justify-content: flex-start;
   }
 
   .public-summary-grid {

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CalendarClock, Download, Eye, EyeOff, Flag, FolderKanban, Send, Timer, Users } from 'lucide-react';
+import { Download, Eye, EyeOff, Flag, Send, Timer, Users } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -85,15 +85,16 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
   const finalDeliveries = lineItems
     .filter((item) => (labelsById[item.what]?.value ?? '').toLowerCase().includes('final delivery'))
     .sort((a, b) => (a.end_date ?? '').localeCompare(b.end_date ?? ''))
-    .map((item) => `${categoriesById[item.category_id]?.name ?? 'Planning'}: ${formatShortPublicDate(item.end_date)}`);
+    .map((item) => ({ category: categoriesById[item.category_id]?.name ?? 'Planning', date: formatShortPublicDate(item.end_date) }));
   const clientMilestone = lineItems
     .filter((item) => item.end_date && item.end_date >= todayKey && item.who?.some((id) => (labelsById[id]?.value ?? '').toLowerCase() === 'client'))
     .sort((a, b) => a.end_date.localeCompare(b.end_date))[0];
   const clientMilestoneWhat = clientMilestone ? [formatShortPublicDate(clientMilestone.end_date), labelsById[clientMilestone.what]?.value].filter(Boolean).join(' · ') : '-';
   return {
-    producers: [project.post_producer, project.producer].filter(Boolean).join(' / ') || '-',
-    runtimeWeeks: runtimeWeeks ? `${runtimeWeeks}w` : '-',
-    finalDeliveries: finalDeliveries.length ? finalDeliveries.join(' · ') : '-',
+    producer: project.producer || '-',
+    postProducer: project.post_producer || '-',
+    runtimeWeeks: runtimeWeeks ? `${runtimeWeeks} ${runtimeWeeks === 1 ? 'week' : 'weeks'}` : '-',
+    finalDeliveries,
     clientMilestone: clientMilestoneWhat,
   };
 }
@@ -174,7 +175,7 @@ export default function PublicClientPage() {
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
   const categoryCount = useMemo(() => new Set((payload?.lineItems ?? []).map((item) => item.category_id).filter(Boolean)).size || (payload?.categories ?? []).length, [payload?.categories, payload?.lineItems]);
-  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producers: '-', runtimeWeeks: '-', finalDeliveries: '-', clientMilestone: '-' }), [payload]);
+  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', finalDeliveries: [], clientMilestone: '-' }), [payload]);
   const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? []), [payload?.lineItems, payload?.project]);
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
   const lastEditedDate = formatPublicDate(payload?.project?.last_edited_at ?? payload?.project?.updated_at ?? payload?.project?.created_at);
@@ -245,20 +246,17 @@ export default function PublicClientPage() {
           <div className="public-client-shell">
             <header className="public-client-header">
               <div className="flex min-w-0 items-center gap-4">
+                <span className="public-header-logo"><img src={wennekerLogo} alt="Wenneker" /></span>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/55">
-                    Published planning on: {publishedDate} <span className="mx-2 text-white/25">/</span> Last edited: {lastEditedDate}
+                  <p className="public-publish-line">
+                    Published planning on: <strong>{publishedDate}</strong> <span>/</span> Last edited: <strong>{lastEditedDate}</strong>
                   </p>
                   <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                    <h1 className="truncate text-3xl font-semibold text-white">{payload.project.name}</h1>
+                    <h1 className="truncate text-3xl font-semibold">{payload.project.name}</h1>
                     <span className="public-version-label">{planningVersion}</span>
                   </div>
-                  <p className="mt-1 text-sm text-white/58">{payload.project.client || 'Client'}</p>
+                  <p className="public-project-client">{payload.project.client || 'Client'}</p>
                 </div>
-              </div>
-              <div className="public-client-meta">
-                <span><strong>Post Producer</strong>{payload.project.post_producer || '-'}</span>
-                <span><strong>Producer</strong>{payload.project.producer || '-'}</span>
               </div>
               <button
                 type="button"
@@ -273,14 +271,13 @@ export default function PublicClientPage() {
             </header>
 
             <section className="public-summary-grid" aria-label="Planning summary">
-              <article><Users size={17} /><span>Production</span><strong>{stats.producers}</strong></article>
+              <article><Users size={17} /><span>Production</span><strong className="public-card-lines"><em>Producer: <b>{stats.producer}</b></em><em>Post Producer: <b>{stats.postProducer}</b></em></strong></article>
               <article><Timer size={17} /><span>Total runtime</span><strong>{stats.runtimeWeeks}</strong></article>
-              <article><Flag size={17} /><span>Final delivery</span><strong>{stats.finalDeliveries}</strong></article>
+              <article><Flag size={17} /><span>Final delivery</span><strong className="public-card-lines">{stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : '-'}</strong></article>
               <article><Send size={17} /><span>Upcoming client milestone</span><strong>{stats.clientMilestone}</strong></article>
             </section>
 
             <div className="public-client-tabs">
-              <span className="public-tabs-logo"><img src={wennekerLogo} alt="" /></span>
               <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
               <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
             </div>
