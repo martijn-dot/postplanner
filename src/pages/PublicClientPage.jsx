@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Download, Eye, EyeOff } from 'lucide-react';
+import { CalendarDays, Download, Eye, EyeOff, Search } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
+import wennekerLogo from '../assets/wenneker-logo.png';
 
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
 const PLANNER_STORAGE_KEY = 'post-production-planner:v1';
@@ -52,6 +53,21 @@ function projectClientCode(project, clients = []) {
   const client = clients.find((item) => item.name?.trim().toLowerCase() === project.client?.trim().toLowerCase());
   const abbreviation = client?.abbreviation?.trim().toUpperCase();
   return abbreviation?.length === 2 ? abbreviation : project.client;
+}
+
+function lineItemSearchText(item, labelsById, categoriesById) {
+  return [
+    item.asset,
+    item.who?.map((id) => labelsById[id]?.value).join(' '),
+    labelsById[item.what]?.value,
+    labelsById[item.todo]?.value,
+    categoriesById[item.category_id]?.name,
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function planningDateBounds(items = []) {
+  const dates = items.flatMap((item) => [item.start_date, item.end_date]).filter(Boolean).sort();
+  return { start: dates[0] ?? '', end: dates.at(-1) ?? '' };
 }
 
 function assetFilename(project, list, row, clients = []) {
@@ -126,11 +142,17 @@ export default function PublicClientPage() {
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
-  const [labelsAsText, setLabelsAsText] = useState(false);
+  const [showCategories, setShowCategories] = useState(true);
+  const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
+  const dateBounds = useMemo(() => planningDateBounds(payload?.lineItems ?? []), [payload?.lineItems]);
+  const categoryCount = useMemo(() => new Set((payload?.lineItems ?? []).map((item) => item.category_id).filter(Boolean)).size || (payload?.categories ?? []).length, [payload?.categories, payload?.lineItems]);
+  const labelsById = useMemo(() => Object.fromEntries((payload?.labels ?? []).map((label) => [label.id, label])), [payload?.labels]);
+  const categoriesById = useMemo(() => Object.fromEntries((payload?.categories ?? []).map((category) => [category.id, category])), [payload?.categories]);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
@@ -138,8 +160,11 @@ export default function PublicClientPage() {
   const filteredLineItems = useMemo(() => (payload?.lineItems ?? []).filter((item) => {
     if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
     if (!showClientBookings && whoFilterIds.client && item.who?.includes(whoFilterIds.client)) return false;
+    if (dateRange.start && item.end_date && item.end_date < dateRange.start) return false;
+    if (dateRange.end && item.end_date && item.end_date > dateRange.end) return false;
+    if (search.trim() && !lineItemSearchText(item, labelsById, categoriesById).includes(search.trim().toLowerCase())) return false;
     return true;
-  }), [payload?.lineItems, showClientBookings, showWennekerBookings, whoFilterIds]);
+  }), [categoriesById, dateRange.end, dateRange.start, labelsById, payload?.lineItems, search, showClientBookings, showWennekerBookings, whoFilterIds]);
 
   useEffect(() => {
     const storedTheme = localStorage.theme;
@@ -177,6 +202,14 @@ export default function PublicClientPage() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!dateBounds.start && !dateBounds.end) return;
+    setDateRange((current) => ({
+      start: current.start || dateBounds.start,
+      end: current.end || dateBounds.end,
+    }));
+  }, [dateBounds.end, dateBounds.start]);
+
   if (loading) {
     return <div className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">Loading client planning...</div>;
   }
@@ -193,59 +226,82 @@ export default function PublicClientPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-5 py-8 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
+    <main className="public-client-page min-h-screen px-5 py-8 text-ink-950">
       <div className="mx-auto max-w-[1600px]">
-        <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-accent-400">Shared Planning</p>
-            <h1 className="mt-3 text-3xl font-semibold">{payload.project.name}</h1>
-            <p className="mt-2 text-sm text-ink-500">{payload.project.client || 'Client planning'}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => downloadPlanningExcel(
-              payload.project,
-              clientPlanningExportRows(payload.project, filteredLineItems, payload.labels, payload.categories, showEmptyDates, uncategorizedName),
-            )}
-            className="primary-button"
-          >
-            <Download size={17} /> Download Excel
-          </button>
-        </div>
-        <div className="mb-5 flex gap-2">
-          <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
-          <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
-        </div>
-        {tab === 'planning' ? (
-          <>
-            <div className="client-filter-row mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-ink-900">
-              <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
-              <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
-                {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
-              </button>
-              <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
-                {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
-              </button>
-              <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
-                {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
-              </button>
-              <button type="button" onClick={() => setLabelsAsText((next) => !next)} className={`client-filter-pill ${labelsAsText ? 'is-active' : ''}`}>
-                {labelsAsText ? <Eye size={14} /> : <EyeOff size={14} />} Text labels
-              </button>
+        <div className="public-client-shell">
+          <header className="public-client-header">
+            <div className="flex min-w-0 items-center gap-4">
+              <img src={wennekerLogo} alt="Wenneker" className="h-10 w-10 rounded-lg object-cover" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Shared Planning</p>
+                <h1 className="mt-1 truncate text-3xl font-semibold">{payload.project.name}</h1>
+                <p className="mt-1 text-sm text-ink-500">{payload.project.client || 'Client planning'}</p>
+              </div>
             </div>
-            <ClientPlanningTable
-              project={payload.project}
-              lineItems={filteredLineItems}
-              labels={payload.labels}
-              categories={payload.categories}
-              showEmptyDates={showEmptyDates}
-              labelsAsText={labelsAsText}
-              uncategorizedName={uncategorizedName}
-            />
-          </>
-        ) : (
-          <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} />
-        )}
+            <div className="public-client-meta">
+              <span><strong>Post Producer</strong>{payload.project.post_producer || '-'}</span>
+              <span><strong>Producer</strong>{payload.project.producer || '-'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => downloadPlanningExcel(
+                payload.project,
+                clientPlanningExportRows(payload.project, filteredLineItems, payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
+              )}
+              className="public-download-button"
+            >
+              <Download size={17} /> Download Excel
+            </button>
+          </header>
+
+          <div className="public-client-tabs">
+            <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
+            <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
+          </div>
+
+          {tab === 'planning' ? (
+            <>
+              <section className="public-client-controls">
+                <label className="public-search-field">
+                  <Search size={16} />
+                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search WHO, WHAT, ASSET, TODO" />
+                </label>
+                <div className="public-date-range">
+                  <CalendarDays size={16} />
+                  <input type="date" value={dateRange.start} min={dateBounds.start} max={dateBounds.end} onChange={(event) => setDateRange((current) => ({ ...current, start: event.target.value }))} />
+                  <span>to</span>
+                  <input type="date" value={dateRange.end} min={dateBounds.start} max={dateBounds.end} onChange={(event) => setDateRange((current) => ({ ...current, end: event.target.value }))} />
+                </div>
+                <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
+                  {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
+                </button>
+                <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
+                  {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
+                </button>
+                <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
+                  {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
+                </button>
+                {categoryCount > 2 && (
+                  <button type="button" onClick={() => setShowCategories((next) => !next)} className={`client-filter-pill ${showCategories ? 'is-active' : ''}`}>
+                    {showCategories ? <Eye size={14} /> : <EyeOff size={14} />} Categories
+                  </button>
+                )}
+              </section>
+              <ClientPlanningTable
+                project={payload.project}
+                lineItems={filteredLineItems}
+                labels={payload.labels}
+                categories={payload.categories}
+                showEmptyDates={showEmptyDates}
+                uncategorizedName={uncategorizedName}
+                forceHideCategoryColumn={!showCategories}
+                dateWindow="full"
+              />
+            </>
+          ) : (
+            <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} />
+          )}
+        </div>
       </div>
     </main>
   );
