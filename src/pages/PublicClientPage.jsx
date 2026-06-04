@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Download, Eye, EyeOff } from 'lucide-react';
+import { CalendarClock, Download, Eye, EyeOff, FolderKanban, LayoutDashboard, ListChecks, MessageCircle, Users } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -62,6 +62,21 @@ function assetFilename(project, list, row, clients = []) {
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   return parts.join(list.global_separator ?? '_');
+}
+
+function publicPlanningStats(project, lineItems = [], labels = [], categories = [], showEmptyDates, uncategorizedName) {
+  const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const rows = clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName, 'full');
+  const assets = new Set(lineItems.map((item) => item.asset?.trim()).filter(Boolean));
+  const upcoming = lineItems.filter((item) => item.end_date && item.end_date >= todayKey).length;
+  const emptyDates = rows.filter((row) => !row.Asset && !row.What && !row.Todo).length;
+  const feedback = lineItems.filter((item) => {
+    const todo = labelsById[item.todo]?.value?.toLowerCase() ?? '';
+    const who = item.who?.map((id) => labelsById[id]?.value?.toLowerCase()).join(' ') ?? '';
+    return todo.includes('feedback') || who.includes('client');
+  }).length;
+  return { assets: assets.size, upcoming, emptyDates, feedback };
 }
 
 function PublicAssetList({ project, assetLists = [], clients = [] }) {
@@ -133,6 +148,7 @@ export default function PublicClientPage() {
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
   const categoryCount = useMemo(() => new Set((payload?.lineItems ?? []).map((item) => item.category_id).filter(Boolean)).size || (payload?.categories ?? []).length, [payload?.categories, payload?.lineItems]);
+  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? [], showEmptyDates, uncategorizedName) : { assets: 0, upcoming: 0, emptyDates: 0, feedback: 0 }), [payload, showEmptyDates, uncategorizedName]);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
@@ -196,71 +212,93 @@ export default function PublicClientPage() {
   return (
     <main className="public-client-page min-h-screen px-5 py-8 text-ink-950">
       <div className="mx-auto max-w-[1600px]">
-        <div className="public-client-shell">
-          <header className="public-client-header">
-            <div className="flex min-w-0 items-center gap-4">
-              <img src={wennekerLogo} alt="Wenneker" className="h-10 w-10 rounded-lg object-cover" />
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Shared Planning</p>
-                <h1 className="mt-1 truncate text-3xl font-semibold">{payload.project.name}</h1>
-                <p className="mt-1 text-sm text-ink-500">{payload.project.client || 'Client planning'}</p>
+        <div className="public-dashboard-frame">
+          <aside className="public-sidebar">
+            <img src={wennekerLogo} alt="Wenneker" className="public-sidebar-logo" />
+            <nav className="public-sidebar-nav" aria-label="Shared planning navigation">
+              <span className="is-active"><LayoutDashboard size={18} /></span>
+              <span><CalendarClock size={18} /></span>
+              <span><Users size={18} /></span>
+              <span><ListChecks size={18} /></span>
+            </nav>
+          </aside>
+
+          <div className="public-client-shell">
+            <header className="public-client-header">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="public-header-mark">
+                  <FolderKanban size={20} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/55">Shared Planning</p>
+                  <h1 className="mt-1 truncate text-3xl font-semibold text-white">{payload.project.name}</h1>
+                  <p className="mt-1 text-sm text-white/58">{payload.project.client || 'Client planning'}</p>
+                </div>
               </div>
-            </div>
-            <div className="public-client-meta">
-              <span><strong>Post Producer</strong>{payload.project.post_producer || '-'}</span>
-              <span><strong>Producer</strong>{payload.project.producer || '-'}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => downloadPlanningExcel(
-                payload.project,
-                clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
-              )}
-              className="public-download-button"
-            >
-              <Download size={17} /> Download Excel
-            </button>
-          </header>
-
-          <div className="public-client-tabs">
-            <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
-            <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
-          </div>
-
-          {tab === 'planning' ? (
-            <>
-              <section className="public-client-controls">
-                <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
-                  {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
-                </button>
-                <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
-                  {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
-                </button>
-                <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
-                  {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
-                </button>
-                {categoryCount > 2 && (
-                  <button type="button" onClick={() => setShowCategories((next) => !next)} className={`client-filter-pill ${showCategories ? 'is-active' : ''}`}>
-                    {showCategories ? <Eye size={14} /> : <EyeOff size={14} />} Categories
-                  </button>
+              <div className="public-client-meta">
+                <span><strong>Post Producer</strong>{payload.project.post_producer || '-'}</span>
+                <span><strong>Producer</strong>{payload.project.producer || '-'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => downloadPlanningExcel(
+                  payload.project,
+                  clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
                 )}
-              </section>
-              <ClientPlanningTable
-                project={payload.project}
-                lineItems={payload.lineItems ?? []}
-                labels={payload.labels}
-                categories={payload.categories}
-                showEmptyDates={showEmptyDates}
-                uncategorizedName={uncategorizedName}
-                forceHideCategoryColumn={!showCategories}
-                dateWindow="full"
-                hiddenWhoIds={hiddenWhoIds}
-                columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: {}, visible: { rowColor: false, edit: false } }}
-              />
-            </>
-          ) : (
-            <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} />
-          )}
+                className="public-download-button"
+              >
+                <Download size={17} /> Download Excel
+              </button>
+            </header>
+
+            <section className="public-summary-grid" aria-label="Planning summary">
+              <article><FolderKanban size={17} /><span>Total assets</span><strong>{stats.assets}</strong></article>
+              <article><CalendarClock size={17} /><span>Upcoming deadlines</span><strong>{stats.upcoming}</strong></article>
+              <article><ListChecks size={17} /><span>Empty dates</span><strong>{stats.emptyDates}</strong></article>
+              <article><MessageCircle size={17} /><span>Client feedback moments</span><strong>{stats.feedback}</strong></article>
+            </section>
+
+            <div className="public-client-tabs">
+              <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
+              <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
+            </div>
+
+            {tab === 'planning' ? (
+              <>
+                <section className="public-client-controls">
+                  <span className="public-controls-label">Filters</span>
+                  <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
+                    {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
+                  </button>
+                  <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
+                    {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
+                  </button>
+                  <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
+                    {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
+                  </button>
+                  {categoryCount > 2 && (
+                    <button type="button" onClick={() => setShowCategories((next) => !next)} className={`client-filter-pill ${showCategories ? 'is-active' : ''}`}>
+                      {showCategories ? <Eye size={14} /> : <EyeOff size={14} />} Categories
+                    </button>
+                  )}
+                </section>
+                <ClientPlanningTable
+                  project={payload.project}
+                  lineItems={payload.lineItems ?? []}
+                  labels={payload.labels}
+                  categories={payload.categories}
+                  showEmptyDates={showEmptyDates}
+                  uncategorizedName={uncategorizedName}
+                  forceHideCategoryColumn={!showCategories}
+                  dateWindow="full"
+                  hiddenWhoIds={hiddenWhoIds}
+                  columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: {}, visible: { rowColor: false, edit: false } }}
+                />
+              </>
+            ) : (
+              <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} />
+            )}
+          </div>
         </div>
       </div>
     </main>
