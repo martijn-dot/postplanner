@@ -2210,52 +2210,9 @@ nav .tab-active {
   border: 1px solid rgba(40, 48, 68, 0.06);
   border-radius: 28px;
   box-shadow: 0 34px 90px rgba(24, 32, 51, 0.12);
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
+  display: block;
   min-height: calc(100vh - 4rem);
   overflow: hidden;
-}
-
-.public-sidebar {
-  align-items: center;
-  background: #111a2f;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  padding: 1.35rem 0.8rem;
-}
-
-.public-sidebar-logo {
-  background: #ffffff;
-  border-radius: 14px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
-  height: 42px;
-  object-fit: cover;
-  width: 42px;
-}
-
-.public-sidebar-nav {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  width: 100%;
-}
-
-.public-sidebar-nav span {
-  align-items: center;
-  border-radius: 15px;
-  color: rgba(255, 255, 255, 0.55);
-  display: inline-flex;
-  height: 42px;
-  justify-content: center;
-  width: 42px;
-}
-
-.public-sidebar-nav span.is-active,
-.public-sidebar-nav span:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
 }
 
 .public-client-shell {
@@ -2274,17 +2231,6 @@ nav .tab-active {
   grid-template-columns: minmax(0, 1fr) auto auto;
   margin-bottom: 18px;
   padding: 22px;
-}
-
-.public-header-mark {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  color: #d9d5ff;
-  display: inline-flex;
-  height: 46px;
-  justify-content: center;
-  width: 46px;
 }
 
 .public-client-meta {
@@ -2313,6 +2259,20 @@ nav .tab-active {
   font-size: 0.58rem;
   letter-spacing: 0.14em;
   margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.public-version-label {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.45rem 0.65rem;
   text-transform: uppercase;
 }
 
@@ -2367,18 +2327,38 @@ nav .tab-active {
 
 .public-summary-grid article strong {
   color: #182033;
-  font-size: 1.55rem;
+  font-size: clamp(1rem, 1.25vw, 1.45rem);
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.15;
 }
 
 .public-client-tabs {
+  align-items: center;
   background: #ebeef5;
   border-radius: 999px;
   display: inline-flex;
   gap: 0.35rem;
   margin-bottom: 16px;
   padding: 0.35rem;
+}
+
+.public-tabs-logo {
+  align-items: center;
+  background: #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 8px 18px rgba(24, 32, 51, 0.08);
+  display: inline-flex;
+  height: 35px;
+  justify-content: center;
+  margin-right: 0.25rem;
+  width: 35px;
+}
+
+.public-tabs-logo img {
+  border-radius: 999px;
+  height: 25px;
+  object-fit: cover;
+  width: 25px;
 }
 
 .public-client-page .tab {
@@ -2444,8 +2424,10 @@ nav .tab-active {
 }
 
 .public-client-page .client-planning-table thead th {
-  background: #f7f8fb;
-  box-shadow: inset 0 -1px 0 rgba(40, 48, 68, 0.06);
+  background: rgba(247, 248, 251, 0.7);
+  backdrop-filter: blur(18px) saturate(1.28);
+  -webkit-backdrop-filter: blur(18px) saturate(1.28);
+  box-shadow: inset 0 -1px 0 rgba(40, 48, 68, 0.06), 0 10px 28px rgba(24, 32, 51, 0.08);
   color: #858b9d;
   padding-bottom: 18px !important;
   padding-top: 18px !important;
@@ -2490,21 +2472,6 @@ nav .tab-active {
 }
 
 @media (max-width: 1100px) {
-  .public-dashboard-frame {
-    grid-template-columns: 1fr;
-  }
-
-  .public-sidebar {
-    flex-direction: row;
-    justify-content: space-between;
-    padding: 1rem;
-  }
-
-  .public-sidebar-nav {
-    flex-direction: row;
-    justify-content: flex-end;
-  }
-
   .public-client-header {
     grid-template-columns: 1fr;
   }

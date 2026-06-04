@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CalendarClock, Download, Eye, EyeOff, FolderKanban, LayoutDashboard, ListChecks, MessageCircle, Users } from 'lucide-react';
+import { CalendarClock, Download, Eye, EyeOff, Flag, FolderKanban, Send, Timer, Users } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -64,19 +64,45 @@ function assetFilename(project, list, row, clients = []) {
   return parts.join(list.global_separator ?? '_');
 }
 
-function publicPlanningStats(project, lineItems = [], labels = [], categories = [], showEmptyDates, uncategorizedName) {
+function formatPublicDate(value) {
+  if (!value) return '-';
+  const parsed = String(value).includes('T') ? new Date(value) : new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(parsed);
+}
+
+function formatShortPublicDate(value) {
+  const formatted = formatPublicDate(value);
+  return formatted === '-' ? formatted : formatted.replace(/\s\d{4}$/, '');
+}
+
+function publicPlanningStats(project, lineItems = [], labels = [], categories = []) {
   const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
+  const categoriesById = Object.fromEntries(categories.map((category) => [category.id, category]));
   const todayKey = new Date().toISOString().slice(0, 10);
-  const rows = clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName, 'full');
-  const assets = new Set(lineItems.map((item) => item.asset?.trim()).filter(Boolean));
-  const upcoming = lineItems.filter((item) => item.end_date && item.end_date >= todayKey).length;
-  const emptyDates = rows.filter((row) => !row.Asset && !row.What && !row.Todo).length;
-  const feedback = lineItems.filter((item) => {
-    const todo = labelsById[item.todo]?.value?.toLowerCase() ?? '';
-    const who = item.who?.map((id) => labelsById[id]?.value?.toLowerCase()).join(' ') ?? '';
-    return todo.includes('feedback') || who.includes('client');
-  }).length;
-  return { assets: assets.size, upcoming, emptyDates, feedback };
+  const dates = lineItems.flatMap((item) => [item.start_date, item.end_date]).filter(Boolean).sort();
+  const runtimeWeeks = dates.length ? Math.max(1, Math.ceil((new Date(`${dates.at(-1)}T00:00:00`) - new Date(`${dates[0]}T00:00:00`)) / (1000 * 60 * 60 * 24 * 7))) : 0;
+  const finalDeliveries = lineItems
+    .filter((item) => (labelsById[item.what]?.value ?? '').toLowerCase().includes('final delivery'))
+    .sort((a, b) => (a.end_date ?? '').localeCompare(b.end_date ?? ''))
+    .map((item) => `${categoriesById[item.category_id]?.name ?? 'Planning'}: ${formatShortPublicDate(item.end_date)}`);
+  const clientMilestone = lineItems
+    .filter((item) => item.end_date && item.end_date >= todayKey && item.who?.some((id) => (labelsById[id]?.value ?? '').toLowerCase() === 'client'))
+    .sort((a, b) => a.end_date.localeCompare(b.end_date))[0];
+  const clientMilestoneWhat = clientMilestone ? [formatShortPublicDate(clientMilestone.end_date), labelsById[clientMilestone.what]?.value].filter(Boolean).join(' · ') : '-';
+  return {
+    producers: [project.post_producer, project.producer].filter(Boolean).join(' / ') || '-',
+    runtimeWeeks: runtimeWeeks ? `${runtimeWeeks}w` : '-',
+    finalDeliveries: finalDeliveries.length ? finalDeliveries.join(' · ') : '-',
+    clientMilestone: clientMilestoneWhat,
+  };
+}
+
+function publicPlanningVersion(project, lineItems = []) {
+  return project?.preferred_planning_version
+    ?? project?.planning_version
+    ?? lineItems.find((item) => item.planning_version)?.planning_version
+    ?? 'V1';
 }
 
 function PublicAssetList({ project, assetLists = [], clients = [] }) {
@@ -148,7 +174,10 @@ export default function PublicClientPage() {
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
   const categoryCount = useMemo(() => new Set((payload?.lineItems ?? []).map((item) => item.category_id).filter(Boolean)).size || (payload?.categories ?? []).length, [payload?.categories, payload?.lineItems]);
-  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? [], showEmptyDates, uncategorizedName) : { assets: 0, upcoming: 0, emptyDates: 0, feedback: 0 }), [payload, showEmptyDates, uncategorizedName]);
+  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producers: '-', runtimeWeeks: '-', finalDeliveries: '-', clientMilestone: '-' }), [payload]);
+  const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? []), [payload?.lineItems, payload?.project]);
+  const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
+  const lastEditedDate = formatPublicDate(payload?.project?.last_edited_at ?? payload?.project?.updated_at ?? payload?.project?.created_at);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
@@ -213,26 +242,18 @@ export default function PublicClientPage() {
     <main className="public-client-page min-h-screen px-5 py-8 text-ink-950">
       <div className="mx-auto max-w-[1600px]">
         <div className="public-dashboard-frame">
-          <aside className="public-sidebar">
-            <img src={wennekerLogo} alt="Wenneker" className="public-sidebar-logo" />
-            <nav className="public-sidebar-nav" aria-label="Shared planning navigation">
-              <span className="is-active"><LayoutDashboard size={18} /></span>
-              <span><CalendarClock size={18} /></span>
-              <span><Users size={18} /></span>
-              <span><ListChecks size={18} /></span>
-            </nav>
-          </aside>
-
           <div className="public-client-shell">
             <header className="public-client-header">
               <div className="flex min-w-0 items-center gap-4">
-                <div className="public-header-mark">
-                  <FolderKanban size={20} />
-                </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/55">Shared Planning</p>
-                  <h1 className="mt-1 truncate text-3xl font-semibold text-white">{payload.project.name}</h1>
-                  <p className="mt-1 text-sm text-white/58">{payload.project.client || 'Client planning'}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/55">
+                    Published planning on: {publishedDate} <span className="mx-2 text-white/25">/</span> Last edited: {lastEditedDate}
+                  </p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+                    <h1 className="truncate text-3xl font-semibold text-white">{payload.project.name}</h1>
+                    <span className="public-version-label">{planningVersion}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-white/58">{payload.project.client || 'Client'}</p>
                 </div>
               </div>
               <div className="public-client-meta">
@@ -252,13 +273,14 @@ export default function PublicClientPage() {
             </header>
 
             <section className="public-summary-grid" aria-label="Planning summary">
-              <article><FolderKanban size={17} /><span>Total assets</span><strong>{stats.assets}</strong></article>
-              <article><CalendarClock size={17} /><span>Upcoming deadlines</span><strong>{stats.upcoming}</strong></article>
-              <article><ListChecks size={17} /><span>Empty dates</span><strong>{stats.emptyDates}</strong></article>
-              <article><MessageCircle size={17} /><span>Client feedback moments</span><strong>{stats.feedback}</strong></article>
+              <article><Users size={17} /><span>Production</span><strong>{stats.producers}</strong></article>
+              <article><Timer size={17} /><span>Total runtime</span><strong>{stats.runtimeWeeks}</strong></article>
+              <article><Flag size={17} /><span>Final delivery</span><strong>{stats.finalDeliveries}</strong></article>
+              <article><Send size={17} /><span>Upcoming client milestone</span><strong>{stats.clientMilestone}</strong></article>
             </section>
 
             <div className="public-client-tabs">
+              <span className="public-tabs-logo"><img src={wennekerLogo} alt="" /></span>
               <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
               <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
             </div>
