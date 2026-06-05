@@ -247,8 +247,8 @@ export default function PublicClientPage() {
           <div className="public-client-shell">
             <header className="public-client-header">
               <div className="public-header-content">
-                <span className="public-header-logo"><img src={wennekerLogo} alt="Wenneker" /></span>
                 <div className="public-header-copy">
+                  <span className="public-header-logo"><img src={wennekerLogo} alt="Wenneker" /></span>
                   <div className="public-project-heading">
                     <div className="public-project-title-row">
                       <h1>Project: {payload.project.name}</h1>

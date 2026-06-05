@@ -2243,9 +2243,7 @@ nav .tab-active {
 
 .public-header-content {
   align-items: flex-start;
-  display: grid;
-  gap: clamp(18px, 2vw, 34px);
-  grid-template-columns: auto minmax(0, 1fr);
+  display: block;
   max-width: min(1020px, calc(100% - 240px));
 }
 
@@ -2258,8 +2256,8 @@ nav .tab-active {
   display: inline-flex;
   height: clamp(56px, 5.6vw, 80px);
   justify-content: center;
-  margin-bottom: 0;
-  margin-left: calc(clamp(0px, 9vw, 170px) * -1);
+  margin-bottom: clamp(16px, 2vw, 28px);
+  margin-left: 0;
   width: clamp(56px, 5.6vw, 80px);
 }
 
@@ -2272,7 +2270,7 @@ nav .tab-active {
 
 .public-header-copy {
   display: grid;
-  gap: clamp(20px, 2.5vw, 38px);
+  gap: clamp(18px, 2.1vw, 32px);
   min-width: 0;
 }
 
@@ -2289,7 +2287,7 @@ nav .tab-active {
 
 .public-project-title-row h1 {
   color: #121a31;
-  font-size: clamp(2.28rem, 4.64vw, 4.8rem);
+  font-size: clamp(1.6rem, 3.25vw, 3.36rem);
   font-weight: 950;
   letter-spacing: -0.045em;
   line-height: 0.86;
@@ -2419,7 +2417,7 @@ nav .tab-active {
 }
 
 .public-summary-grid article {
-  background: linear-gradient(145deg, #ffffff 0%, #ffffff 58%, #f2f5ff 100%);
+  background: #ffffff;
   border: 0;
   border-radius: 20px;
   box-shadow: 0 13px 30px rgba(17, 24, 39, 0.115);
@@ -2504,15 +2502,15 @@ nav .tab-active {
   border-radius: 999px;
   background: #eef2ff;
   color: #5b6ee8;
-  font-size: 0.82rem;
+  font-size: 0.615rem;
   font-weight: 700;
-  min-width: 155px;
-  padding: 0.9rem 1.65rem;
+  min-width: 116px;
+  padding: 0.675rem 1.24rem;
   text-transform: uppercase;
 }
 
 .public-client-page .public-info-tab {
-  min-width: 130px;
+  min-width: 98px;
 }
 
 .public-client-page .public-info-tab:hover {
@@ -2532,7 +2530,7 @@ nav .tab-active {
 
 .public-client-controls {
   align-items: center;
-  background: linear-gradient(145deg, #ffffff 0%, #ffffff 64%, #f2f5ff 100%);
+  background: #ffffff;
   border: 0;
   border-radius: 20px;
   box-shadow: 0 13px 30px rgba(17, 24, 39, 0.115);
@@ -2624,8 +2622,8 @@ nav .tab-active {
   padding-top: 22px !important;
   position: sticky;
   text-transform: uppercase;
-  top: 0;
-  z-index: 80;
+  top: 0 !important;
+  z-index: 200;
 }
 
 .public-client-page .client-planning-table tbody tr {
