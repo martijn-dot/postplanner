@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Download, Eye, EyeOff, Flag, Send, Timer, Users } from 'lucide-react';
+import { Eye, EyeOff, Flag, Send, Timer, Users } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -245,18 +245,12 @@ export default function PublicClientPage() {
         <div className="public-dashboard-frame">
           <div className="public-client-shell">
             <header className="public-client-header">
-              <div className="flex min-w-0 items-center gap-4">
+              <div className="public-masthead">
                 <span className="public-header-logo"><img src={wennekerLogo} alt="Wenneker" /></span>
-                <div className="min-w-0">
-                  <p className="public-publish-line">
-                    Published planning on: <strong>{publishedDate}</strong> <span>/</span> Last edited: <strong>{lastEditedDate}</strong>
-                  </p>
-                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                    <h1 className="truncate text-3xl font-semibold">{payload.project.name}</h1>
-                    <span className="public-version-label">{planningVersion}</span>
-                  </div>
-                  <p className="public-project-client">{payload.project.client || 'Client'}</p>
-                </div>
+                <h1>Post Planning</h1>
+                <p className="public-publish-line">
+                  Published on: <strong>{publishedDate}</strong> <span>/</span> Last edited: <strong>{lastEditedDate}</strong>
+                </p>
               </div>
               <button
                 type="button"
@@ -266,21 +260,29 @@ export default function PublicClientPage() {
                 )}
                 className="public-download-button"
               >
-                <Download size={17} /> Download Excel
+                Download Excel
               </button>
             </header>
 
-            <section className="public-summary-grid" aria-label="Planning summary">
-              <article><Users size={17} /><span>Production</span><strong className="public-card-lines"><em>Producer: <b>{stats.producer}</b></em><em>Post Producer: <b>{stats.postProducer}</b></em></strong></article>
-              <article><Timer size={17} /><span>Total runtime</span><strong>{stats.runtimeWeeks}</strong></article>
-              <article><Flag size={17} /><span>Final delivery</span><strong className="public-card-lines">{stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : '-'}</strong></article>
-              <article><Send size={17} /><span>Upcoming client milestone</span><strong>{stats.clientMilestone}</strong></article>
+            <section className="public-project-hero">
+              <p>{payload.project.client || 'Client'}</p>
+              <div>
+                <h2>Project: {payload.project.name}</h2>
+                <span className="public-version-label">{planningVersion}</span>
+              </div>
             </section>
 
             <div className="public-client-tabs">
               <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
               <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
             </div>
+
+            <section className="public-summary-grid" aria-label="Planning summary">
+              <article><Users size={17} /><span>Production</span><strong className="public-card-lines"><em>Producer: <b>{stats.producer}</b></em><em>Post Producer: <b>{stats.postProducer}</b></em></strong></article>
+              <article><Timer size={17} /><span>Running time</span><strong>{stats.runtimeWeeks}</strong></article>
+              <article><Flag size={17} /><span>Final deliveries</span><strong className="public-card-lines">{stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : '-'}</strong></article>
+              <article><Send size={17} /><span>Next milestone</span><strong>{stats.clientMilestone}</strong></article>
+            </section>
 
             {tab === 'planning' ? (
               <>

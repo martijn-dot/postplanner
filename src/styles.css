@@ -2201,269 +2201,339 @@ nav .tab-active {
 }
 
 .public-client-page {
-  background: #eef0f5;
-  color: #182033;
+  background: #f6f7fb;
+  color: #111827;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .public-dashboard-frame {
-  background: #ffffff;
-  border: 1px solid rgba(40, 48, 68, 0.06);
-  border-radius: 28px;
-  box-shadow: 0 34px 90px rgba(24, 32, 51, 0.12);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   display: block;
   min-height: calc(100vh - 4rem);
   overflow: hidden;
 }
 
 .public-client-shell {
-  background: #f6f7fb;
-  padding: 26px;
+  background: transparent;
+  padding: clamp(28px, 4vw, 60px);
 }
 
 .public-client-header {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid rgba(40, 48, 68, 0.06);
-  border-radius: 24px;
-  box-shadow: 0 18px 44px rgba(24, 32, 51, 0.1);
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  margin-bottom: 18px;
-  padding: 22px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: block;
+  margin-bottom: clamp(42px, 6vw, 86px);
+  min-height: 188px;
+  padding: 0;
+  position: relative;
+}
+
+.public-masthead {
+  max-width: min(760px, 100%);
+  margin: 0 auto;
+  text-align: center;
 }
 
 .public-header-logo {
   align-items: center;
   background: #ffffff;
-  border: 1px solid rgba(40, 48, 68, 0.08);
+  border: 0;
   border-radius: 999px;
-  box-shadow: 0 8px 18px rgba(24, 32, 51, 0.08);
+  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.06);
   display: inline-flex;
-  flex: 0 0 auto;
-  height: 38px;
+  height: 76px;
   justify-content: center;
-  width: 38px;
+  margin-bottom: 20px;
+  width: 76px;
 }
 
 .public-header-logo img {
   border-radius: 999px;
-  height: 27px;
+  height: 42px;
   object-fit: cover;
-  width: 27px;
+  width: 42px;
+}
+
+.public-masthead h1 {
+  color: #121a31;
+  font-size: clamp(3.2rem, 7.5vw, 6.25rem);
+  font-weight: 950;
+  letter-spacing: -0.075em;
+  line-height: 0.86;
+  margin: 0;
+  text-transform: uppercase;
 }
 
 .public-publish-line {
-  color: #8a91a3;
-  font-size: 0.56rem;
-  font-weight: 900;
-  letter-spacing: 0.16em;
+  color: #111827;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   line-height: 1.35;
+  margin-top: 0.9rem;
   text-transform: uppercase;
 }
 
 .public-publish-line strong {
-  color: #5167b8;
+  color: #5b6ee8;
   font-weight: 900;
 }
 
 .public-publish-line span {
-  color: #c2c7d4;
+  color: #9ba3b4;
   margin: 0 0.5rem;
 }
 
-.public-project-client {
-  color: #7d8497;
-  font-size: 0.86rem;
-  font-weight: 700;
-  margin-top: 0.18rem;
+.public-project-hero {
+  margin-bottom: 22px;
+}
+
+.public-project-hero p {
+  color: #5f6879;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1;
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+}
+
+.public-project-hero div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.public-project-hero h2 {
+  color: #121a31;
+  font-size: clamp(2.25rem, 4.25vw, 3.65rem);
+  font-weight: 950;
+  letter-spacing: -0.065em;
+  line-height: 0.9;
+  margin: 0;
+  text-transform: uppercase;
 }
 
 .public-version-label {
-  background: #eef1ff;
-  border: 1px solid #dfe5ff;
+  background: #ff9900;
+  border: 0;
   border-radius: 999px;
-  color: #5167b8;
+  color: #ffffff;
   display: inline-flex;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.02em;
   line-height: 1;
-  padding: 0.45rem 0.65rem;
+  padding: 0.35rem 0.7rem;
   text-transform: uppercase;
 }
 
 .public-download-button {
   align-items: center;
-  background: #111a2f;
-  border: 1px solid #111a2f;
+  background: #eef2ff;
+  border: 0;
   border-radius: 999px;
-  color: #ffffff;
+  color: #121a31;
   display: inline-flex;
-  font-size: 0.84rem;
-  font-weight: 900;
+  font-size: 1rem;
+  font-weight: 800;
   gap: 0.5rem;
   justify-content: center;
-  padding: 0.85rem 1.1rem;
+  min-width: 216px;
+  padding: 1.05rem 1.55rem;
+  position: absolute;
+  right: 0;
+  top: 88px;
   white-space: nowrap;
 }
 
 .public-download-button:hover {
-  background: #d9efff;
-  border-color: #bce5ff;
-  color: #2470a6;
+  background: #5b6ee8;
+  color: #ffffff;
 }
 
 .public-summary-grid {
   display: grid;
-  gap: 14px;
+  gap: clamp(16px, 2vw, 28px);
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 18px;
+  margin-bottom: clamp(26px, 3vw, 42px);
 }
 
 .public-summary-grid article {
   background: #ffffff;
-  border: 1px solid rgba(40, 48, 68, 0.06);
-  border-radius: 18px;
-  box-shadow: 0 12px 28px rgba(24, 32, 51, 0.08);
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 22px 50px rgba(17, 24, 39, 0.045);
   display: grid;
   gap: 0.3rem;
-  min-height: 108px;
-  padding: 18px;
+  min-height: 164px;
+  padding: 28px;
+  place-content: start;
 }
 
 .public-summary-grid article svg {
-  background: #eef1ff;
+  background: #eef2ff;
   border-radius: 999px;
-  color: #5c6fd6;
-  height: 34px;
-  padding: 8px;
-  width: 34px;
+  color: #5b6ee8;
+  height: 25px;
+  margin-bottom: 0.3rem;
+  padding: 6px;
+  width: 25px;
 }
 
 .public-summary-grid article span {
-  color: #7d8497;
-  font-size: 0.72rem;
-  font-weight: 800;
+  align-self: start;
+  background: #eef2ff;
+  border-radius: 999px;
+  color: #252b3c;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0.25rem 0.85rem;
   text-transform: uppercase;
+  width: fit-content;
 }
 
 .public-summary-grid article strong {
-  color: #182033;
-  font-size: clamp(1rem, 1.25vw, 1.45rem);
+  color: #111827;
+  font-size: clamp(0.95rem, 1.1vw, 1.25rem);
   font-weight: 900;
   line-height: 1.15;
+  margin-top: auto;
 }
 
 .public-card-lines {
   display: grid;
-  gap: 0.32rem;
+  gap: 0.42rem;
 }
 
 .public-card-lines em {
-  color: #7d8497;
+  align-items: baseline;
+  color: #111827;
   display: flex;
   flex-wrap: wrap;
   font-style: normal;
-  gap: 0.35rem;
+  gap: 0.8rem;
 }
 
 .public-card-lines b {
-  color: #182033;
+  color: #111827;
   font-weight: 900;
 }
 
 .public-card-lines i {
-  color: #5167b8;
+  color: #5f6879;
   font-style: normal;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .public-client-tabs {
   align-items: center;
-  background: #ebeef5;
+  background: transparent;
   border-radius: 999px;
   display: inline-flex;
-  gap: 0.35rem;
-  margin-bottom: 16px;
-  padding: 0.35rem;
+  gap: 0.8rem;
+  margin-bottom: clamp(28px, 3vw, 48px);
+  padding: 0;
 }
 
 .public-client-page .tab {
   border: 0;
   border-radius: 999px;
-  color: #6f7689;
-  padding: 0.65rem 1.15rem;
+  background: #eef2ff;
+  color: #5b6ee8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-width: 155px;
+  padding: 0.9rem 1.65rem;
+  text-transform: uppercase;
 }
 
 .public-client-page .tab-active {
-  background: #d9efff;
-  color: #2470a6;
+  background: #5b6ee8;
+  color: #ffffff;
 }
 
 .public-client-page .tab:hover {
-  background: #d9efff;
-  color: #2470a6;
+  background: #5b6ee8;
+  color: #ffffff;
 }
 
 .public-client-controls {
   align-items: center;
   background: #ffffff;
-  border: 1px solid rgba(40, 48, 68, 0.06);
-  border-radius: 18px;
-  box-shadow: 0 12px 28px rgba(24, 32, 51, 0.08);
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 18px 44px rgba(17, 24, 39, 0.035);
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding: 14px;
+  gap: 8px;
+  margin-bottom: 28px;
+  padding: 24px 28px;
 }
 
 .public-controls-label {
-  color: #8a91a3;
-  font-size: 0.7rem;
+  background: #eef2ff;
+  border-radius: 999px;
+  color: #252b3c;
+  font-size: 0.78rem;
   font-weight: 900;
-  letter-spacing: 0.14em;
-  margin-right: 0.2rem;
+  letter-spacing: -0.01em;
+  margin-right: 0.45rem;
+  padding: 0.22rem 0.75rem;
   text-transform: uppercase;
 }
 
 .public-client-page .client-filter-pill {
-  background: #f4f6fb;
-  border: 1px solid rgba(40, 48, 68, 0.06);
+  background: #ff9900;
+  border: 0;
   border-radius: 999px;
-  color: #61708f;
-  min-height: 34px;
-  padding: 0.5rem 0.85rem;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  min-height: 24px;
+  padding: 0.28rem 0.85rem;
+  text-transform: uppercase;
 }
 
 .public-client-page .client-filter-pill.is-active,
 .public-client-page .client-filter-pill:hover {
-  background: #d9efff;
-  border-color: #bce5ff;
-  color: #2470a6;
+  background: #ffc46b;
+  color: #111827;
 }
 
 .public-client-page .overflow-hidden.rounded-lg.border {
   background: #ffffff !important;
-  border-color: rgba(40, 48, 68, 0.06) !important;
-  border-radius: 20px !important;
-  box-shadow: 0 16px 36px rgba(24, 32, 51, 0.1) !important;
+  border-color: transparent !important;
+  border-radius: 22px !important;
+  box-shadow: 0 22px 55px rgba(17, 24, 39, 0.045) !important;
 }
 
 .public-client-page .client-planning-table {
   background: #ffffff;
-  color: #2b3142;
+  color: #111827;
+  min-width: 100%;
 }
 
 .public-client-page .client-planning-table thead th {
-  background: rgba(247, 248, 251, 0.7);
-  backdrop-filter: blur(18px) saturate(1.28);
-  -webkit-backdrop-filter: blur(18px) saturate(1.28);
-  box-shadow: inset 0 -1px 0 rgba(40, 48, 68, 0.06), 0 10px 28px rgba(24, 32, 51, 0.08);
-  color: #858b9d;
-  padding-bottom: 18px !important;
-  padding-top: 18px !important;
+  background: #f3f5fb;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: inset 0 -1px 0 rgba(17, 24, 39, 0.05);
+  color: #8a91a3;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding-bottom: 22px !important;
+  padding-top: 22px !important;
+  text-transform: uppercase;
 }
 
 .public-client-page .client-planning-table tbody tr {
@@ -2472,7 +2542,7 @@ nav .tab-active {
 
 .public-client-page .client-planning-table tbody .sticky-week,
 .public-client-page .client-planning-table .week-cell {
-  background: #f7f8fb;
+  background: #f3f5fb;
   color: #7e8595;
 }
 
@@ -2487,7 +2557,7 @@ nav .tab-active {
 
 .public-client-page .client-planning-table .date-group-cell.date-weekend-cell,
 .public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > td {
-  background: #f2f3f6 !important;
+  background: #f3f5fb !important;
 }
 
 .public-client-page .client-planning-table .week-divider > td {
@@ -2506,7 +2576,12 @@ nav .tab-active {
 
 @media (max-width: 1100px) {
   .public-client-header {
-    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .public-download-button {
+    margin: 1.5rem auto 0;
+    position: static;
   }
 
   .public-summary-grid {
