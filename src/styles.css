@@ -2206,6 +2206,14 @@ nav .tab-active {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.dark .public-client-page,
+.dark .public-dashboard-frame,
+.dark .public-client-shell,
+.dark .public-client-header {
+  background: #f6f7fb !important;
+  color: #111827 !important;
+}
+
 .public-dashboard-frame {
   background: transparent;
   border: 0;
@@ -2228,8 +2236,8 @@ nav .tab-active {
   border-radius: 0;
   box-shadow: none;
   display: block;
-  margin-bottom: clamp(42px, 6vw, 86px);
-  min-height: 188px;
+  margin-bottom: clamp(22px, 3vw, 44px);
+  min-height: 94px;
   padding: 0;
   position: relative;
 }
@@ -2247,22 +2255,22 @@ nav .tab-active {
   border-radius: 999px;
   box-shadow: 0 14px 34px rgba(17, 24, 39, 0.06);
   display: inline-flex;
-  height: 76px;
+  height: 48px;
   justify-content: center;
-  margin-bottom: 20px;
-  width: 76px;
+  margin-bottom: 10px;
+  width: 48px;
 }
 
 .public-header-logo img {
   border-radius: 999px;
-  height: 42px;
+  height: 28px;
   object-fit: cover;
-  width: 42px;
+  width: 28px;
 }
 
 .public-masthead h1 {
   color: #121a31;
-  font-size: clamp(3.2rem, 7.5vw, 6.25rem);
+  font-size: clamp(2.2rem, 5vw, 4.35rem);
   font-weight: 950;
   letter-spacing: -0.075em;
   line-height: 0.86;
@@ -2272,11 +2280,11 @@ nav .tab-active {
 
 .public-publish-line {
   color: #111827;
-  font-size: 0.76rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.35;
-  margin-top: 0.9rem;
+  margin-top: 0.55rem;
   text-transform: uppercase;
 }
 
@@ -2346,10 +2354,10 @@ nav .tab-active {
   gap: 0.5rem;
   justify-content: center;
   min-width: 216px;
-  padding: 1.05rem 1.55rem;
+  padding: 0.86rem 1.45rem;
   position: absolute;
   right: 0;
-  top: 88px;
+  top: 62px;
   white-space: nowrap;
 }
 
@@ -2369,11 +2377,11 @@ nav .tab-active {
   background: #ffffff;
   border: 0;
   border-radius: 20px;
-  box-shadow: 0 22px 50px rgba(17, 24, 39, 0.045);
+  box-shadow: 0 18px 42px rgba(17, 24, 39, 0.085);
   display: grid;
   gap: 0.3rem;
-  min-height: 164px;
-  padding: 28px;
+  min-height: 132px;
+  padding: 24px;
   place-content: start;
 }
 
@@ -2381,10 +2389,10 @@ nav .tab-active {
   background: #eef2ff;
   border-radius: 999px;
   color: #5b6ee8;
-  height: 25px;
+  height: 22px;
   margin-bottom: 0.3rem;
   padding: 6px;
-  width: 25px;
+  width: 22px;
 }
 
 .public-summary-grid article span {
@@ -2393,17 +2401,17 @@ nav .tab-active {
   border-radius: 999px;
   color: #252b3c;
   display: inline-flex;
-  font-size: 1rem;
+  font-size: 0.5rem;
   font-weight: 500;
   line-height: 1;
-  padding: 0.25rem 0.85rem;
+  padding: 0.18rem 0.55rem;
   text-transform: uppercase;
   width: fit-content;
 }
 
 .public-summary-grid article strong {
   color: #111827;
-  font-size: clamp(0.95rem, 1.1vw, 1.25rem);
+  font-size: clamp(0.58rem, 0.62vw, 0.72rem);
   font-weight: 900;
   line-height: 1.15;
   margin-top: auto;
@@ -2411,7 +2419,7 @@ nav .tab-active {
 
 .public-card-lines {
   display: grid;
-  gap: 0.42rem;
+  gap: 0.24rem;
 }
 
 .public-card-lines em {
@@ -2471,7 +2479,7 @@ nav .tab-active {
   background: #ffffff;
   border: 0;
   border-radius: 20px;
-  box-shadow: 0 18px 44px rgba(17, 24, 39, 0.035);
+  box-shadow: 0 18px 42px rgba(17, 24, 39, 0.085);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -2503,7 +2511,11 @@ nav .tab-active {
   text-transform: uppercase;
 }
 
-.public-client-page .client-filter-pill.is-active,
+.public-client-page .client-filter-pill.is-active {
+  background: #eef2ff;
+  color: #5b6ee8;
+}
+
 .public-client-page .client-filter-pill:hover {
   background: #ffc46b;
   color: #111827;
@@ -2514,6 +2526,7 @@ nav .tab-active {
   border-color: transparent !important;
   border-radius: 22px !important;
   box-shadow: 0 22px 55px rgba(17, 24, 39, 0.045) !important;
+  overflow: visible !important;
 }
 
 .public-client-page .client-planning-table {
@@ -2523,17 +2536,20 @@ nav .tab-active {
 }
 
 .public-client-page .client-planning-table thead th {
-  background: #f3f5fb;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: inset 0 -1px 0 rgba(17, 24, 39, 0.05);
+  background: rgba(246, 247, 251, 0.68);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  box-shadow: inset 0 -1px 0 rgba(17, 24, 39, 0.05), 0 12px 30px rgba(17, 24, 39, 0.055);
   color: #8a91a3;
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.08em;
   padding-bottom: 22px !important;
   padding-top: 22px !important;
+  position: sticky;
   text-transform: uppercase;
+  top: 0;
+  z-index: 80;
 }
 
 .public-client-page .client-planning-table tbody tr {
