@@ -2230,22 +2230,23 @@ nav .tab-active {
 }
 
 .public-client-header {
-  align-items: center;
   background: transparent;
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  display: block;
-  margin-bottom: clamp(22px, 3vw, 44px);
-  min-height: 94px;
+  display: grid;
+  gap: clamp(22px, 3vw, 42px);
+  margin-bottom: clamp(24px, 3vw, 46px);
+  min-height: 0;
   padding: 0;
   position: relative;
 }
 
-.public-masthead {
-  max-width: min(760px, 100%);
-  margin: 0 auto;
-  text-align: center;
+.public-header-topline {
+  align-items: center;
+  display: grid;
+  gap: clamp(18px, 2vw, 34px);
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .public-header-logo {
@@ -2255,32 +2256,67 @@ nav .tab-active {
   border-radius: 999px;
   box-shadow: 0 14px 34px rgba(17, 24, 39, 0.06);
   display: inline-flex;
-  height: 48px;
+  height: clamp(78px, 8vw, 112px);
   justify-content: center;
-  margin-bottom: 10px;
-  width: 48px;
+  margin-bottom: 0;
+  width: clamp(78px, 8vw, 112px);
 }
 
 .public-header-logo img {
   border-radius: 999px;
-  height: 28px;
+  height: clamp(46px, 4.8vw, 64px);
   object-fit: cover;
-  width: 28px;
+  width: clamp(46px, 4.8vw, 64px);
 }
 
-.public-masthead h1 {
+.public-project-heading {
+  min-width: 0;
+}
+
+.public-project-title-row {
+  align-items: flex-start;
+  display: flex;
+  gap: clamp(14px, 2vw, 28px);
+  min-width: 0;
+}
+
+.public-project-title-row h1 {
   color: #121a31;
-  font-size: clamp(2.2rem, 5vw, 4.35rem);
+  font-size: clamp(3rem, 6.4vw, 6.8rem);
   font-weight: 950;
-  letter-spacing: -0.075em;
+  letter-spacing: -0.045em;
   line-height: 0.86;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.public-project-heading p {
+  color: #4f5668;
+  font-size: clamp(1.35rem, 2vw, 2rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0.45rem 0 0;
+  text-transform: uppercase;
+}
+
+.public-masthead {
+  max-width: min(640px, 100%);
+}
+
+.public-masthead h2 {
+  color: #121a31;
+  font-size: clamp(2.15rem, 4.4vw, 4.15rem);
+  font-weight: 950;
+  letter-spacing: -0.04em;
+  line-height: 0.88;
   margin: 0;
   text-transform: uppercase;
 }
 
 .public-publish-line {
   color: #111827;
-  font-size: 0.62rem;
+  font-size: clamp(0.72rem, 0.85vw, 1rem);
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.35;
@@ -2334,11 +2370,13 @@ nav .tab-active {
   border-radius: 999px;
   color: #ffffff;
   display: inline-flex;
-  font-size: 0.76rem;
+  align-self: flex-start;
+  font-size: clamp(0.88rem, 1.05vw, 1.15rem);
   font-weight: 900;
   letter-spacing: -0.02em;
   line-height: 1;
-  padding: 0.35rem 0.7rem;
+  margin-top: 0.06em;
+  padding: 0.45rem 1.15rem;
   text-transform: uppercase;
 }
 
@@ -2349,15 +2387,15 @@ nav .tab-active {
   border-radius: 999px;
   color: #121a31;
   display: inline-flex;
-  font-size: 1rem;
+  font-size: 0.82rem;
   font-weight: 800;
   gap: 0.5rem;
   justify-content: center;
-  min-width: 216px;
-  padding: 0.86rem 1.45rem;
+  min-width: 172px;
+  padding: 0.85rem 1.35rem;
   position: absolute;
   right: 0;
-  top: 62px;
+  top: clamp(112px, 11vw, 152px);
   white-space: nowrap;
 }
 
@@ -2374,10 +2412,10 @@ nav .tab-active {
 }
 
 .public-summary-grid article {
-  background: #ffffff;
+  background: linear-gradient(145deg, #ffffff 0%, #ffffff 58%, #f2f5ff 100%);
   border: 0;
   border-radius: 20px;
-  box-shadow: 0 18px 42px rgba(17, 24, 39, 0.085);
+  box-shadow: 0 13px 30px rgba(17, 24, 39, 0.115);
   display: grid;
   gap: 0.3rem;
   min-height: 132px;
@@ -2389,10 +2427,10 @@ nav .tab-active {
   background: #eef2ff;
   border-radius: 999px;
   color: #5b6ee8;
-  height: 22px;
+  height: 28px;
   margin-bottom: 0.3rem;
   padding: 6px;
-  width: 22px;
+  width: 28px;
 }
 
 .public-summary-grid article span {
@@ -2401,17 +2439,17 @@ nav .tab-active {
   border-radius: 999px;
   color: #252b3c;
   display: inline-flex;
-  font-size: 0.5rem;
+  font-size: 0.625rem;
   font-weight: 500;
   line-height: 1;
-  padding: 0.18rem 0.55rem;
+  padding: 0.22rem 0.7rem;
   text-transform: uppercase;
   width: fit-content;
 }
 
 .public-summary-grid article strong {
   color: #111827;
-  font-size: clamp(0.58rem, 0.62vw, 0.72rem);
+  font-size: clamp(0.72rem, 0.78vw, 0.9rem);
   font-weight: 900;
   line-height: 1.15;
   margin-top: auto;
@@ -2447,6 +2485,7 @@ nav .tab-active {
   background: transparent;
   border-radius: 999px;
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 0.8rem;
   margin-bottom: clamp(28px, 3vw, 48px);
   padding: 0;
@@ -2464,6 +2503,10 @@ nav .tab-active {
   text-transform: uppercase;
 }
 
+.public-client-page .public-info-tab {
+  min-width: 130px;
+}
+
 .public-client-page .tab-active {
   background: #5b6ee8;
   color: #ffffff;
@@ -2476,10 +2519,10 @@ nav .tab-active {
 
 .public-client-controls {
   align-items: center;
-  background: #ffffff;
+  background: linear-gradient(145deg, #ffffff 0%, #ffffff 64%, #f2f5ff 100%);
   border: 0;
   border-radius: 20px;
-  box-shadow: 0 18px 42px rgba(17, 24, 39, 0.085);
+  box-shadow: 0 13px 30px rgba(17, 24, 39, 0.115);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -2522,11 +2565,26 @@ nav .tab-active {
 }
 
 .public-client-page .overflow-hidden.rounded-lg.border {
-  background: #ffffff !important;
+  background: #f6f7fb !important;
   border-color: transparent !important;
   border-radius: 22px !important;
   box-shadow: 0 22px 55px rgba(17, 24, 39, 0.045) !important;
   overflow: visible !important;
+}
+
+.dark .public-client-page .dark\:bg-ink-900,
+.dark .public-client-page .dark\:bg-ink-850,
+.dark .public-client-page .dark\:bg-ink-950,
+.dark .public-client-page .dark\:bg-white\/\[0\.07\],
+.public-client-page .bg-ink-900,
+.public-client-page .bg-ink-850,
+.public-client-page .bg-ink-950 {
+  background-color: #f6f7fb !important;
+}
+
+.public-client-page .client-planning-table thead,
+.dark .public-client-page .client-planning-table thead {
+  background: rgba(246, 247, 251, 0.72) !important;
 }
 
 .public-client-page .client-planning-table {
@@ -2536,7 +2594,7 @@ nav .tab-active {
 }
 
 .public-client-page .client-planning-table thead th {
-  background: rgba(246, 247, 251, 0.68);
+  background: rgba(246, 247, 251, 0.72) !important;
   backdrop-filter: blur(18px) saturate(1.25);
   -webkit-backdrop-filter: blur(18px) saturate(1.25);
   box-shadow: inset 0 -1px 0 rgba(17, 24, 39, 0.05), 0 12px 30px rgba(17, 24, 39, 0.055);
@@ -2577,7 +2635,7 @@ nav .tab-active {
 }
 
 .public-client-page .client-planning-table .week-divider > td {
-  border-top: 16px solid #f6f7fb !important;
+  border-top: 16px solid #e8ebf2 !important;
 }
 
 .public-client-page .client-planning-table td {

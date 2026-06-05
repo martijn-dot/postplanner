@@ -170,6 +170,7 @@ export default function PublicClientPage() {
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
   const [showCategories, setShowCategories] = useState(true);
+  const [showInfo, setShowInfo] = useState(true);
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
@@ -245,9 +246,18 @@ export default function PublicClientPage() {
         <div className="public-dashboard-frame">
           <div className="public-client-shell">
             <header className="public-client-header">
-              <div className="public-masthead">
+              <div className="public-header-topline">
                 <span className="public-header-logo"><img src={wennekerLogo} alt="Wenneker" /></span>
-                <h1>Post Planning</h1>
+                <div className="public-project-heading">
+                  <div className="public-project-title-row">
+                    <h1>Project: {payload.project.name}</h1>
+                    <span className="public-version-label">{planningVersion}</span>
+                  </div>
+                  <p>{payload.project.client || 'Client'}</p>
+                </div>
+              </div>
+              <div className="public-masthead">
+                <h2>Post Planning</h2>
                 <p className="public-publish-line">
                   Published on: <strong>{publishedDate}</strong> <span>/</span> Last edited: <strong>{lastEditedDate}</strong>
                 </p>
@@ -264,25 +274,20 @@ export default function PublicClientPage() {
               </button>
             </header>
 
-            <section className="public-project-hero">
-              <p>{payload.project.client || 'Client'}</p>
-              <div>
-                <h2>Project: {payload.project.name}</h2>
-                <span className="public-version-label">{planningVersion}</span>
-              </div>
-            </section>
-
             <div className="public-client-tabs">
               <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
               <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
+              <button type="button" onClick={() => setShowInfo((next) => !next)} className={`tab public-info-tab ${showInfo ? 'tab-active' : ''}`}>{showInfo ? 'Hide info' : 'Show info'}</button>
             </div>
 
-            <section className="public-summary-grid" aria-label="Planning summary">
-              <article><Users size={17} /><span>Production</span><strong className="public-card-lines"><em>Producer: <b>{stats.producer}</b></em><em>Post Producer: <b>{stats.postProducer}</b></em></strong></article>
-              <article><Timer size={17} /><span>Running time</span><strong>{stats.runtimeWeeks}</strong></article>
-              <article><Flag size={17} /><span>Final deliveries</span><strong className="public-card-lines">{stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : '-'}</strong></article>
-              <article><Send size={17} /><span>Next milestone</span><strong>{stats.clientMilestone}</strong></article>
-            </section>
+            {showInfo && (
+              <section className="public-summary-grid" aria-label="Planning summary">
+                <article><Users size={17} /><span>Production</span><strong className="public-card-lines"><em>Producer: <b>{stats.producer}</b></em><em>Post Producer: <b>{stats.postProducer}</b></em></strong></article>
+                <article><Timer size={17} /><span>Running time</span><strong>{stats.runtimeWeeks}</strong></article>
+                <article><Flag size={17} /><span>Final deliveries</span><strong className="public-card-lines">{stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : '-'}</strong></article>
+                <article><Send size={17} /><span>Next milestone</span><strong>{stats.clientMilestone}</strong></article>
+              </section>
+            )}
 
             {tab === 'planning' ? (
               <>
