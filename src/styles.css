@@ -2234,19 +2234,19 @@ nav .tab-active {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  display: grid;
-  gap: clamp(22px, 3vw, 42px);
+  display: block;
   margin-bottom: clamp(24px, 3vw, 46px);
   min-height: 0;
   padding: 0;
   position: relative;
 }
 
-.public-header-topline {
-  align-items: center;
+.public-header-content {
+  align-items: flex-start;
   display: grid;
-  gap: clamp(18px, 2vw, 34px);
+  gap: clamp(20px, 2.4vw, 42px);
   grid-template-columns: auto minmax(0, 1fr);
+  max-width: min(1040px, calc(100% - 260px));
 }
 
 .public-header-logo {
@@ -2256,17 +2256,23 @@ nav .tab-active {
   border-radius: 999px;
   box-shadow: 0 14px 34px rgba(17, 24, 39, 0.06);
   display: inline-flex;
-  height: clamp(78px, 8vw, 112px);
+  height: clamp(56px, 5.6vw, 80px);
   justify-content: center;
   margin-bottom: 0;
-  width: clamp(78px, 8vw, 112px);
+  width: clamp(56px, 5.6vw, 80px);
 }
 
 .public-header-logo img {
   border-radius: 999px;
-  height: clamp(46px, 4.8vw, 64px);
+  height: clamp(34px, 3.55vw, 46px);
   object-fit: cover;
-  width: clamp(46px, 4.8vw, 64px);
+  width: clamp(34px, 3.55vw, 46px);
+}
+
+.public-header-copy {
+  display: grid;
+  gap: clamp(20px, 2.5vw, 38px);
+  min-width: 0;
 }
 
 .public-project-heading {
@@ -2282,7 +2288,7 @@ nav .tab-active {
 
 .public-project-title-row h1 {
   color: #121a31;
-  font-size: clamp(3rem, 6.4vw, 6.8rem);
+  font-size: clamp(2.28rem, 4.64vw, 4.8rem);
   font-weight: 950;
   letter-spacing: -0.045em;
   line-height: 0.86;
@@ -2296,7 +2302,7 @@ nav .tab-active {
   font-weight: 400;
   letter-spacing: -0.04em;
   line-height: 1;
-  margin: 0.45rem 0 0;
+  margin: 0.32rem 0 0;
   text-transform: uppercase;
 }
 
@@ -2382,10 +2388,10 @@ nav .tab-active {
 
 .public-download-button {
   align-items: center;
-  background: #eef2ff;
+  background: #5b6ee8;
   border: 0;
   border-radius: 999px;
-  color: #121a31;
+  color: #ffffff;
   display: inline-flex;
   font-size: 0.82rem;
   font-weight: 800;
@@ -2395,12 +2401,12 @@ nav .tab-active {
   padding: 0.85rem 1.35rem;
   position: absolute;
   right: 0;
-  top: clamp(112px, 11vw, 152px);
+  top: clamp(58px, 5.6vw, 90px);
   white-space: nowrap;
 }
 
 .public-download-button:hover {
-  background: #5b6ee8;
+  background: #4d5fd0;
   color: #ffffff;
 }
 
@@ -2507,6 +2513,11 @@ nav .tab-active {
   min-width: 130px;
 }
 
+.public-client-page .public-info-tab:hover {
+  background: #eef2ff;
+  color: #5b6ee8;
+}
+
 .public-client-page .tab-active {
   background: #5b6ee8;
   color: #ffffff;
@@ -2565,10 +2576,10 @@ nav .tab-active {
 }
 
 .public-client-page .overflow-hidden.rounded-lg.border {
-  background: #f6f7fb !important;
+  background: transparent !important;
   border-color: transparent !important;
-  border-radius: 22px !important;
-  box-shadow: 0 22px 55px rgba(17, 24, 39, 0.045) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   overflow: visible !important;
 }
 
@@ -2651,6 +2662,10 @@ nav .tab-active {
 @media (max-width: 1100px) {
   .public-client-header {
     min-height: 0;
+  }
+
+  .public-header-content {
+    max-width: 100%;
   }
 
   .public-download-button {

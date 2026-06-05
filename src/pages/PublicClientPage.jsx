@@ -246,21 +246,23 @@ export default function PublicClientPage() {
         <div className="public-dashboard-frame">
           <div className="public-client-shell">
             <header className="public-client-header">
-              <div className="public-header-topline">
+              <div className="public-header-content">
                 <span className="public-header-logo"><img src={wennekerLogo} alt="Wenneker" /></span>
-                <div className="public-project-heading">
-                  <div className="public-project-title-row">
-                    <h1>Project: {payload.project.name}</h1>
-                    <span className="public-version-label">{planningVersion}</span>
+                <div className="public-header-copy">
+                  <div className="public-project-heading">
+                    <div className="public-project-title-row">
+                      <h1>Project: {payload.project.name}</h1>
+                      <span className="public-version-label">{planningVersion}</span>
+                    </div>
+                    <p>{payload.project.client || 'Client'}</p>
                   </div>
-                  <p>{payload.project.client || 'Client'}</p>
+                  <div className="public-masthead">
+                    <h2>Post Planning</h2>
+                    <p className="public-publish-line">
+                      Published on: <strong>{publishedDate}</strong> <span>/</span> Last edited: <strong>{lastEditedDate}</strong>
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="public-masthead">
-                <h2>Post Planning</h2>
-                <p className="public-publish-line">
-                  Published on: <strong>{publishedDate}</strong> <span>/</span> Last edited: <strong>{lastEditedDate}</strong>
-                </p>
               </div>
               <button
                 type="button"
@@ -277,7 +279,7 @@ export default function PublicClientPage() {
             <div className="public-client-tabs">
               <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
               <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
-              <button type="button" onClick={() => setShowInfo((next) => !next)} className={`tab public-info-tab ${showInfo ? 'tab-active' : ''}`}>{showInfo ? 'Hide info' : 'Show info'}</button>
+              <button type="button" onClick={() => setShowInfo((next) => !next)} className="tab public-info-tab">{showInfo ? 'Hide info' : 'Show info'}</button>
             </div>
 
             {showInfo && (
