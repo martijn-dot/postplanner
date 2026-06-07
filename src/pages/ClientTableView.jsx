@@ -402,7 +402,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   {!showWeekColumn && row._showWeekDivider && (
                     <tr className="client-week-separator-row">
                       <td colSpan={1 + orderedColumns.length}>
-                        <span><CalendarDays size={16} /> Week {row.Week}</span>
+                        <span><CalendarDays size={16} /> Week{row.Week}</span>
                       </td>
                     </tr>
                   )}

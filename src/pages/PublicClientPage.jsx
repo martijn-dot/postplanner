@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Eye, EyeOff, Flag, Send, Timer, Users } from 'lucide-react';
+import { BarChart3, Eye, EyeOff, Flag, Search, Send, Timer, Users } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -125,6 +125,7 @@ function publicPlanningVersion(project, lineItems = []) {
 
 function PublicAssetList({ project, assetLists = [], clients = [] }) {
   const [activeId, setActiveId] = useState(assetLists[0]?.id ?? '');
+  const [searchTerm, setSearchTerm] = useState('');
   const activeList = assetLists.find((list) => list.id === activeId) ?? assetLists[0];
   useEffect(() => {
     if (!activeId && assetLists[0]?.id) setActiveId(assetLists[0].id);
@@ -135,44 +136,93 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
   const columns = assetColumns(activeList);
   const rows = assetRows(activeList);
   const groups = assetCategories(activeList);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const rowMatchesSearch = (row) => {
+    if (!normalizedSearch) return true;
+    const haystack = [
+      row.number,
+      row.notes,
+      assetFilename(project, activeList, row, clients),
+      ...columns.map((column) => assetValue(row.values?.[column.id], column)),
+    ].join(' ').toLowerCase();
+    return haystack.includes(normalizedSearch);
+  };
+  const visibleRows = rows.filter(rowMatchesSearch);
+  const groupRows = (group) => (groups.length ? visibleRows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === group.id) : visibleRows);
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        {assetLists.map((list) => (
-          <button key={list.id} type="button" onClick={() => setActiveId(list.id)} className={`tab ${list.id === activeList.id ? 'tab-active' : ''}`}>{list.name}</button>
-        ))}
+    <section className="public-asset-card">
+      <div className="public-asset-header">
+        <div className="public-asset-title">
+          <span className="public-asset-title-icon"><BarChart3 size={18} /></span>
+          <div>
+            <h2>Asset List</h2>
+            {assetLists.length > 1 && (
+              <div className="public-asset-tabs">
+                {assetLists.map((list) => (
+                  <button key={list.id} type="button" onClick={() => setActiveId(list.id)} className={list.id === activeList.id ? 'is-active' : ''}>{list.name}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="public-asset-tools">
+          <label className="public-asset-search">
+            <Search size={18} />
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search asset"
+            />
+          </label>
+        </div>
       </div>
-      <div className="overflow-auto rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
-        <table className="w-full min-w-[900px] border-collapse text-sm">
-          <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
+      <div className="public-asset-table-wrap">
+        <table className="public-asset-table">
+          <thead>
             <tr>
-              <th className="px-3 py-3">Number</th>
-              {columns.map((column) => <th key={column.id} className="px-3 py-3">{column.name}</th>)}
-              <th className="px-3 py-3">Filename</th>
-              <th className="px-3 py-3">Notes</th>
+              <th>Number</th>
+              {columns.map((column) => <th key={column.id}>{column.name}</th>)}
+              <th>Filename</th>
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
             {(groups.length ? groups : [{ id: null, name: 'Asset list' }]).map((group) => (
-              <Fragment key={group.id ?? 'asset-list'}>
-                <tr key={`${group.id}-heading`} className="bg-accent-500/10">
-                  <td colSpan={columns.length + 3} className="px-3 py-2 text-xs font-bold uppercase text-accent-300">{group.name}</td>
-                </tr>
-                {(groups.length ? rows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === group.id) : rows).map((row) => (
-                  <tr key={row.id} className="border-t border-black/5 dark:border-white/5">
-                    <td className="px-3 py-2 font-mono">{row.number}</td>
-                    {columns.map((column) => <td key={column.id} className="px-3 py-2">{assetValue(row.values?.[column.id], column) || '-'}</td>)}
-                    <td className="px-3 py-2 font-mono text-xs">{assetFilename(project, activeList, row, clients)}</td>
-                    <td className="px-3 py-2">{row.notes || '-'}</td>
+              groupRows(group).length ? (
+                <Fragment key={group.id ?? 'asset-list'}>
+                  <tr key={`${group.id}-heading`} className="public-asset-category-row">
+                    <td colSpan={columns.length + 3}>{group.name}</td>
                   </tr>
-                ))}
-              </Fragment>
+                  {groupRows(group).map((row) => (
+                    <tr key={row.id}>
+                      <td className="public-asset-number">{row.number}</td>
+                      {columns.map((column) => {
+                        const value = assetValue(row.values?.[column.id], column);
+                        const isPillValue = value && !['text', 'length'].includes(column.type);
+                        return (
+                          <td key={column.id}>
+                            {value ? <span className={isPillValue ? 'public-asset-pill' : ''}>{value}</span> : '-'}
+                          </td>
+                        );
+                      })}
+                      <td className="public-asset-filename">{assetFilename(project, activeList, row, clients)}</td>
+                      <td className="public-asset-notes">{row.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ) : null
             ))}
+            {!visibleRows.length && (
+              <tr>
+                <td colSpan={columns.length + 3} className="public-asset-empty">No assets match your search.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -210,6 +260,11 @@ export default function PublicClientPage() {
     const storedTheme = localStorage.theme;
     const dark = storedTheme ? storedTheme !== 'light' : window.matchMedia?.('(prefers-color-scheme: dark)').matches;
     document.documentElement.classList.toggle('dark', Boolean(dark));
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.add('public-share-body');
+    return () => document.body.classList.remove('public-share-body');
   }, []);
 
   useEffect(() => {
@@ -348,7 +403,12 @@ export default function PublicClientPage() {
                   <Flag size={17} />
                   <span>Deliveries / Runtime</span>
                   <strong className="public-card-lines">
-                    {stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em className="public-delivery-line" key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : <em>-</em>}
+                    {stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => (
+                      <em className="public-delivery-line" key={`${item.category}-${item.date}-${index}`}>
+                        <b>{item.category}</b>
+                        <Pill label={{ id: `${item.category}-${item.date}`, value: item.date, color: '#46d39b' }} />
+                      </em>
+                    )) : <em>-</em>}
                     <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
                     <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
                   </strong>
