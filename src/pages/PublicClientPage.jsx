@@ -82,6 +82,7 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
   const todayKey = new Date().toISOString().slice(0, 10);
   const dates = lineItems.flatMap((item) => [item.start_date, item.end_date]).filter(Boolean).sort();
   const runtimeWeeks = dates.length ? Math.max(1, Math.ceil((new Date(`${dates.at(-1)}T00:00:00`) - new Date(`${dates[0]}T00:00:00`)) / (1000 * 60 * 60 * 24 * 7))) : 0;
+  const weeksLeft = dates.length ? Math.max(0, Math.ceil((new Date(`${dates.at(-1)}T00:00:00`) - new Date(`${todayKey}T00:00:00`)) / (1000 * 60 * 60 * 24 * 7))) : 0;
   const finalDeliveries = lineItems
     .filter((item) => (labelsById[item.what]?.value ?? '').toLowerCase().includes('final delivery'))
     .sort((a, b) => (a.end_date ?? '').localeCompare(b.end_date ?? ''))
@@ -89,11 +90,16 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
   const clientMilestone = lineItems
     .filter((item) => item.end_date && item.end_date >= todayKey && item.who?.some((id) => (labelsById[id]?.value ?? '').toLowerCase() === 'client'))
     .sort((a, b) => a.end_date.localeCompare(b.end_date))[0];
-  const clientMilestoneWhat = clientMilestone ? [formatShortPublicDate(clientMilestone.end_date), labelsById[clientMilestone.what]?.value].filter(Boolean).join(' · ') : '-';
+  const clientMilestoneWhat = clientMilestone ? {
+    date: formatShortPublicDate(clientMilestone.end_date),
+    what: labelsById[clientMilestone.what]?.value ?? '-',
+    who: clientMilestone.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', ') || 'Client',
+  } : null;
   return {
     producer: project.producer || '-',
     postProducer: project.post_producer || '-',
     runtimeWeeks: runtimeWeeks ? `${runtimeWeeks} ${runtimeWeeks === 1 ? 'week' : 'weeks'}` : '-',
+    weeksLeft: dates.length ? `${weeksLeft} ${weeksLeft === 1 ? 'week' : 'weeks'} left` : '-',
     finalDeliveries,
     clientMilestone: clientMilestoneWhat,
   };
@@ -176,7 +182,7 @@ export default function PublicClientPage() {
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
   const categoryCount = useMemo(() => new Set((payload?.lineItems ?? []).map((item) => item.category_id).filter(Boolean)).size || (payload?.categories ?? []).length, [payload?.categories, payload?.lineItems]);
-  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', finalDeliveries: [], clientMilestone: '-' }), [payload]);
+  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], clientMilestone: null }), [payload]);
   const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? []), [payload?.lineItems, payload?.project]);
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
   const lastEditedDate = formatPublicDate(payload?.project?.last_edited_at ?? payload?.project?.updated_at ?? payload?.project?.created_at);
@@ -268,6 +274,13 @@ export default function PublicClientPage() {
                   </div>
                   <button
                     type="button"
+                    onClick={() => setShowInfo((next) => !next)}
+                    className="public-info-button"
+                  >
+                    {showInfo ? 'Hide Info' : 'Show Info'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => downloadPlanningExcel(
                       payload.project,
                       clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
@@ -276,17 +289,46 @@ export default function PublicClientPage() {
                   >
                     Download Excel
                   </button>
-                  <button type="button" onClick={() => setShowInfo((next) => !next)} className="public-info-button">{showInfo ? 'Hide Info' : 'Show Info'}</button>
                 </div>
               </div>
             </header>
 
             {showInfo && (
               <section className="public-summary-grid" aria-label="Planning summary">
-                <article><Users size={17} /><span>Production</span><strong className="public-card-lines"><em>Producer: <b>{stats.producer}</b></em><em>Post Producer: <b>{stats.postProducer}</b></em></strong></article>
-                <article><Send size={17} /><span>Next milestone</span><strong>{stats.clientMilestone}</strong></article>
-                <article><Flag size={17} /><span>Final deliveries</span><strong className="public-card-lines">{stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : '-'}</strong></article>
-                <article><Timer size={17} /><span>Running time</span><strong>{stats.runtimeWeeks}</strong></article>
+                <article>
+                  <Users size={17} />
+                  <span>Production</span>
+                  <strong className="public-card-lines">
+                    <em><b>Producer:</b><i>{stats.producer}</i></em>
+                    <small>producer@example.com • +31 6 12345678</small>
+                    <em><b>Post Producer:</b><i>{stats.postProducer}</i></em>
+                    <small>postproducer@example.com • +31 6 87654321</small>
+                  </strong>
+                </article>
+                <article>
+                  <Send size={17} />
+                  <span>Next milestone</span>
+                  <strong className="public-milestone-card">
+                    {stats.clientMilestone ? (
+                      <>
+                        <em>Who</em>
+                        <b>{stats.clientMilestone.who}</b>
+                        <em>What</em>
+                        <i>{stats.clientMilestone.what}</i>
+                        <small>{stats.clientMilestone.date}</small>
+                      </>
+                    ) : '-'}
+                  </strong>
+                </article>
+                <article className="public-delivery-runtime-card">
+                  <Flag size={17} />
+                  <span>Deliveries / Runtime</span>
+                  <strong className="public-card-lines">
+                    {stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : <em>-</em>}
+                    <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
+                    <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
+                  </strong>
+                </article>
               </section>
             )}
 
@@ -320,6 +362,7 @@ export default function PublicClientPage() {
                   dateWindow="full"
                   hiddenWhoIds={hiddenWhoIds}
                   columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: {}, visible: { rowColor: false, edit: false } }}
+                  showWeekColumn={false}
                 />
               </>
             ) : (

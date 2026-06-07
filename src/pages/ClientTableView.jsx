@@ -1,6 +1,6 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { Check, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarDays, Check, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -270,7 +270,7 @@ function RowColorSelect({ value, onChange, readOnly = false }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [] }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true }) {
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
@@ -347,15 +347,15 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     <>
       <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
         <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
-          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: 58 + 116 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
+          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: (showWeekColumn ? 58 : 0) + 116 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
             <colgroup>
-              <col className="w-[58px]" />
+              {showWeekColumn && <col className="w-[58px]" />}
               <col className="w-[116px]" />
               {orderedColumns.map((column) => <col key={column.key} style={{ width: widthForColumn(column) }} />)}
             </colgroup>
             <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
-                <th className="sticky-week px-2 py-3 text-center font-semibold"></th>
+                {showWeekColumn && <th className="sticky-week px-2 py-3 text-center font-semibold"></th>}
                 <th className="px-3 py-3 font-semibold">Date</th>
                 {orderedColumns.map((column) => (
                   <th
@@ -398,46 +398,54 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
             </thead>
             <tbody>
               {rows.map((row, index) => (
-                <tr
-                  key={`${row._item?.id ?? row._dateKey}-${index}`}
-                  className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._isToday ? 'today-row' : ''} ${row._item?.row_color ? `client-row-color-${row._item.row_color}` : ''} ${row._showWeekDivider ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
-                >
-                  {row._showWeek && (
-                    <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono text-[1.5em]">
-                      <span><em>WEEK</em>{row.Week}</span>
-                    </td>
-                  )}
-                  {row._showDateGroup && (
-                    <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''} ${row._isToday ? 'date-today-cell' : ''}`}>
-                      <span className="date-group-chip combined-date-chip">
-                        <span className="date-day-name">{row.Day}</span>
-                        <strong>{row.Date}</strong>
-                      </span>
-                    </td>
-                  )}
-                  {orderedColumns.map((column) => {
-                    const hiddenBooking = row._item && row._item.who?.some((id) => hiddenWhoIds.includes(id));
-                    if (hiddenBooking) return <td key={column.key} className="px-4 py-3"></td>;
-                    if (column.key === 'edit') return <td key={column.key} className="px-3 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingItemId(row._item.id)} className="client-edit-button">Edit</button> : null}</td>;
-                    if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : null}</td>;
-                    if (column.key === 'category') return (
-                      <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">
-                        {row._item ? <span className="client-category-pill" style={categoryShade(categoryKeyForItem(row._item), categories)}>{row.Category}</span> : ''}
+                <Fragment key={`${row._item?.id ?? row._dateKey}-${index}`}>
+                  {!showWeekColumn && row._showWeekDivider && (
+                    <tr className="client-week-separator-row">
+                      <td colSpan={1 + orderedColumns.length}>
+                        <span><CalendarDays size={16} /> Week {row.Week}</span>
                       </td>
-                    );
-                    if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item ? (row.Time || '-') : ''}</td>;
-                    if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
-                    if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
-                    if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : null}</td>;
-                    if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
-                    if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item ? <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || '-'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</span> : null}</td>;
-                    return null;
-                  })}
-                </tr>
+                    </tr>
+                  )}
+                  <tr
+                    className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._isToday ? 'today-row' : ''} ${row._item?.row_color ? `client-row-color-${row._item.row_color}` : ''} ${row._showWeekDivider && showWeekColumn ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
+                  >
+                    {showWeekColumn && row._showWeek && (
+                      <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono text-[1.5em]">
+                        <span><em>WEEK</em>{row.Week}</span>
+                      </td>
+                    )}
+                    {row._showDateGroup && (
+                      <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''} ${row._isToday ? 'date-today-cell' : ''}`}>
+                        <span className="date-group-chip combined-date-chip">
+                          <span className="date-day-name">{row.Day}</span>
+                          <strong>{row.Date}</strong>
+                        </span>
+                      </td>
+                    )}
+                    {orderedColumns.map((column) => {
+                      const hiddenBooking = row._item && row._item.who?.some((id) => hiddenWhoIds.includes(id));
+                      if (hiddenBooking) return <td key={column.key} className="px-4 py-3"></td>;
+                      if (column.key === 'edit') return <td key={column.key} className="px-3 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingItemId(row._item.id)} className="client-edit-button">Edit</button> : null}</td>;
+                      if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : null}</td>;
+                      if (column.key === 'category') return (
+                        <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">
+                          {row._item ? <span className="client-category-pill" style={categoryShade(categoryKeyForItem(row._item), categories)}>{row.Category}</span> : ''}
+                        </td>
+                      );
+                      if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item ? (row.Time || '-') : ''}</td>;
+                      if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
+                      if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
+                      if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : null}</td>;
+                      if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
+                      if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item ? <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || '-'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</span> : null}</td>;
+                      return null;
+                    })}
+                  </tr>
+                </Fragment>
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan={2 + orderedColumns.length} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
+                  <td colSpan={(showWeekColumn ? 2 : 1) + orderedColumns.length} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
                 </tr>
               )}
             </tbody>

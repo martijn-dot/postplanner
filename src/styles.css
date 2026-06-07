@@ -2233,17 +2233,16 @@ nav .tab-active {
 }
 
 .public-client-header {
-  background: rgba(247, 249, 251, 0.94);
-  border-bottom: 1px solid #c7c4d7;
-  border-radius: 0;
-  box-shadow: none;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.04);
   display: block;
-  margin: 0 -32px 32px;
+  margin: 16px 0 24px;
   min-height: 0;
   padding: 14px 32px;
-  position: sticky;
-  top: 0;
-  z-index: 400;
+  position: relative;
+  z-index: 20;
 }
 
 .public-header-inner {
@@ -2263,10 +2262,10 @@ nav .tab-active {
 
 .public-header-logo {
   align-items: center;
-  background: transparent;
+  background: #ffffff;
   border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  border-radius: 999px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.07);
   display: inline-flex;
   flex: 0 0 auto;
   height: 40px;
@@ -2277,10 +2276,10 @@ nav .tab-active {
 }
 
 .public-header-logo img {
-  border-radius: 0;
-  height: 40px;
+  border-radius: 999px;
+  height: 30px;
   object-fit: cover;
-  width: 40px;
+  width: 30px;
 }
 
 .public-project-heading {
@@ -2381,25 +2380,26 @@ nav .tab-active {
 .public-info-button {
   align-items: center;
   background: transparent;
-  border: 0;
+  border: 1px solid #c7c4d7;
   border-radius: 13px;
   color: #464554;
   display: inline-flex;
   font-size: 13px;
   font-weight: 500;
   justify-content: center;
-  padding: 8px 10px;
+  padding: 8px 16px;
   white-space: nowrap;
 }
 
 .public-info-button:hover {
+  background: #f2f4f6;
   color: #4648d4;
 }
 
 .public-summary-grid {
   display: grid;
   gap: 24px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-bottom: 24px;
 }
 
@@ -2481,6 +2481,56 @@ nav .tab-active {
   font-weight: 600;
 }
 
+.public-card-lines small {
+  color: rgba(70, 69, 84, 0.6);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.public-milestone-card {
+  display: grid;
+  gap: 6px;
+}
+
+.public-milestone-card em {
+  background: #e6e8ea;
+  border-radius: 4px;
+  color: #464554;
+  display: inline-flex;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.public-milestone-card b,
+.public-milestone-card i {
+  font-style: normal;
+}
+
+.public-milestone-card i {
+  background: rgba(70, 72, 212, 0.1);
+  border: 1px solid rgba(70, 72, 212, 0.18);
+  border-radius: 8px;
+  color: #4648d4;
+  display: inline-flex;
+  font-weight: 700;
+  padding: 4px 10px;
+  width: fit-content;
+}
+
+.public-milestone-card small {
+  color: #464554;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .public-client-tabs {
   align-items: center;
   background: #e6e8ea;
@@ -2490,6 +2540,25 @@ nav .tab-active {
   gap: 4px;
   margin: 0;
   padding: 4px;
+  position: relative;
+}
+
+.public-client-tabs::before {
+  background: #4648d4;
+  border-radius: 10px;
+  bottom: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  content: "";
+  left: 4px;
+  position: absolute;
+  top: 4px;
+  transform: translateX(0);
+  transition: transform 220ms ease;
+  width: calc((100% - 12px) / 2);
+}
+
+.public-client-tabs:has(.tab:nth-child(2).tab-active)::before {
+  transform: translateX(calc(100% + 4px));
 }
 
 .public-client-page .tab {
@@ -2501,18 +2570,25 @@ nav .tab-active {
   font-weight: 500;
   min-width: 0;
   padding: 6px 24px;
+  position: relative;
   text-transform: none;
+  transition: color 180ms ease;
+  z-index: 1;
 }
 
 .public-client-page .tab-active {
-  background: #4648d4;
+  background: transparent;
   color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .public-client-page .tab:hover {
   color: #4648d4;
+}
+
+.public-client-page .tab-active:hover {
+  color: #ffffff;
 }
 
 .public-client-controls {
@@ -2566,7 +2642,8 @@ nav .tab-active {
 }
 
 .public-client-page .client-filter-pill:hover {
-  color: #4648d4;
+  background: #e6e8ea;
+  color: #464554;
 }
 
 .public-client-page .overflow-hidden.rounded-lg.border {
@@ -2618,8 +2695,28 @@ nav .tab-active {
   padding-top: 16px !important;
   position: sticky;
   text-transform: uppercase;
-  top: 77px !important;
+  top: 15px !important;
   z-index: 200;
+}
+
+.public-client-page .client-week-separator-row td {
+  background: #f2f4f6;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  border-top: 14px solid #f7f9fb;
+  padding: 10px 20px;
+}
+
+.public-client-page .client-week-separator-row span {
+  align-items: center;
+  color: #4648d4;
+  display: inline-flex;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+  text-transform: uppercase;
 }
 
 .public-client-page .client-planning-table tbody tr {
@@ -2680,7 +2777,7 @@ nav .tab-active {
   }
 
   .public-client-page .client-planning-table thead th {
-    top: 0 !important;
+    top: 15px !important;
   }
 
   .public-client-tabs {
