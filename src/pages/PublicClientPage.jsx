@@ -246,48 +246,47 @@ export default function PublicClientPage() {
         <div className="public-dashboard-frame">
           <div className="public-client-shell">
             <header className="public-client-header">
-              <div className="public-header-content">
-                <div className="public-header-copy">
+              <div className="public-header-inner">
+                <div className="public-brand-block">
                   <span className="public-header-logo"><img src={wennekerLogo} alt="Wenneker" /></span>
                   <div className="public-project-heading">
                     <div className="public-project-title-row">
-                      <h1>Project: {payload.project.name}</h1>
+                      <h1>{payload.project.name}</h1>
                       <span className="public-version-label">{planningVersion}</span>
                     </div>
                     <p>{payload.project.client || 'Client'}</p>
-                  </div>
-                  <div className="public-masthead">
-                    <h2>Post Planning</h2>
-                    <p className="public-publish-line">
-                      Published on: <strong>{publishedDate}</strong> <span>/</span> Last edited: <strong>{lastEditedDate}</strong>
-                    </p>
+                    <div className="public-publish-line">
+                      <span>Planning Created: <strong>{publishedDate}</strong></span>
+                      <span>Planning Edited: <strong>{lastEditedDate}</strong></span>
+                    </div>
                   </div>
                 </div>
+                <div className="public-header-actions">
+                  <div className="public-client-tabs">
+                    <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
+                    <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => downloadPlanningExcel(
+                      payload.project,
+                      clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
+                    )}
+                    className="public-download-button"
+                  >
+                    Download Excel
+                  </button>
+                  <button type="button" onClick={() => setShowInfo((next) => !next)} className="public-info-button">{showInfo ? 'Hide Info' : 'Show Info'}</button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => downloadPlanningExcel(
-                  payload.project,
-                  clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
-                )}
-                className="public-download-button"
-              >
-                Download Excel
-              </button>
             </header>
-
-            <div className="public-client-tabs">
-              <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
-              <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
-              <button type="button" onClick={() => setShowInfo((next) => !next)} className="tab public-info-tab">{showInfo ? 'Hide info' : 'Show info'}</button>
-            </div>
 
             {showInfo && (
               <section className="public-summary-grid" aria-label="Planning summary">
                 <article><Users size={17} /><span>Production</span><strong className="public-card-lines"><em>Producer: <b>{stats.producer}</b></em><em>Post Producer: <b>{stats.postProducer}</b></em></strong></article>
-                <article><Timer size={17} /><span>Running time</span><strong>{stats.runtimeWeeks}</strong></article>
-                <article><Flag size={17} /><span>Final deliveries</span><strong className="public-card-lines">{stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : '-'}</strong></article>
                 <article><Send size={17} /><span>Next milestone</span><strong>{stats.clientMilestone}</strong></article>
+                <article><Flag size={17} /><span>Final deliveries</span><strong className="public-card-lines">{stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : '-'}</strong></article>
+                <article><Timer size={17} /><span>Running time</span><strong>{stats.runtimeWeeks}</strong></article>
               </section>
             )}
 
