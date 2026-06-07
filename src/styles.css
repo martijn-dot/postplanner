@@ -2478,17 +2478,25 @@ nav .tab-active {
   transform: translateY(-1px);
 }
 
-.public-summary-grid article svg {
+.public-card-heading {
+  align-items: center;
+  display: inline-flex;
+  gap: 9px;
+  margin-bottom: 12px;
+  width: fit-content;
+}
+
+.public-summary-grid article .public-card-heading svg {
   background: rgba(70, 72, 212, 0.1);
   border-radius: 13px;
   color: #4648d4;
   height: 30px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   padding: 7px;
   width: 30px;
 }
 
-.public-summary-grid article span {
+.public-summary-grid article .public-card-heading span {
   align-self: start;
   background: rgba(70, 72, 212, 0.1);
   border-radius: 999px;
@@ -2499,7 +2507,7 @@ nav .tab-active {
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   padding: 2px 8px;
   text-transform: uppercase;
   width: fit-content;
@@ -2587,11 +2595,14 @@ nav .tab-active {
 }
 
 .public-summary-grid article .public-milestone-title {
+  align-items: center;
   background: transparent;
   border-radius: 0;
   color: rgba(70, 69, 84, 0.58);
-  display: block;
+  display: inline-flex;
+  flex-wrap: wrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  gap: 5px;
   font-size: 7.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -2878,7 +2889,7 @@ nav .tab-active {
   flex: 0 0 auto;
   gap: 8px;
   margin-left: auto;
-  padding: 4px 6px 4px 12px;
+  padding: 4px 10px 4px 12px;
 }
 
 .public-view-select span {
@@ -2900,6 +2911,7 @@ nav .tab-active {
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
+  margin-right: 10px;
   min-height: 27px;
   padding: 0 30px 0 12px;
 }
@@ -2908,7 +2920,8 @@ nav .tab-active {
   color: #4648d4;
   content: "▾";
   font-size: 12px;
-  margin-left: -28px;
+  margin-left: -38px;
+  margin-right: 10px;
   pointer-events: none;
   position: relative;
 }

@@ -50,6 +50,32 @@ function assetValue(value, column) {
   return text;
 }
 
+function fallbackAssetLabelColor(value = '') {
+  if (value.trim().toLowerCase() === 'unique') return '#ffcf5c';
+  const colors = ['#6d5dfc', '#28b8ff', '#10b981', '#f59e0b', '#f466ae', '#ef4444'];
+  const index = [...value].reduce((total, char) => total + char.charCodeAt(0), 0) % colors.length;
+  return colors[index];
+}
+
+function readableTextColor(color = '') {
+  const hex = color.replace('#', '');
+  if (hex.length !== 6) return '#101828';
+  const red = parseInt(hex.slice(0, 2), 16);
+  const green = parseInt(hex.slice(2, 4), 16);
+  const blue = parseInt(hex.slice(4, 6), 16);
+  return red * 0.299 + green * 0.587 + blue * 0.114 > 160 ? '#101828' : '#ffffff';
+}
+
+function assetLabelStyle(value, column, labels = []) {
+  const label = labels.find((item) => item.column_type === column.label_type && item.value?.trim().toLowerCase() === value.trim().toLowerCase());
+  const color = label?.color ?? fallbackAssetLabelColor(value);
+  return {
+    backgroundColor: color,
+    borderColor: color,
+    color: readableTextColor(color),
+  };
+}
+
 function projectClientCode(project, clients = []) {
   const client = clients.find((item) => item.name?.trim().toLowerCase() === project.client?.trim().toLowerCase());
   const abbreviation = client?.abbreviation?.trim().toUpperCase();
@@ -134,7 +160,7 @@ function publicPlanningVersion(project, lineItems = []) {
     ?? 'V1';
 }
 
-function PublicAssetList({ project, assetLists = [], clients = [] }) {
+function PublicAssetList({ project, assetLists = [], clients = [], labels = [] }) {
   const [activeId, setActiveId] = useState(assetLists[0]?.id ?? '');
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
@@ -233,7 +259,7 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
                         const isPillValue = value && !['text', 'length'].includes(column.type);
                         return (
                           <td key={column.id}>
-                            {value ? <span className={isPillValue ? 'public-asset-pill' : ''}>{value}</span> : '-'}
+                            {value ? <span className={isPillValue ? 'public-asset-pill' : ''} style={isPillValue ? assetLabelStyle(value, column, labels) : undefined}>{value}</span> : '-'}
                           </td>
                         );
                       })}
@@ -427,8 +453,10 @@ export default function PublicClientPage() {
             {showInfo && (
               <section className="public-summary-grid" aria-label="Planning summary">
                 <article>
-                  <Users size={17} />
-                  <span>Production</span>
+                  <div className="public-card-heading">
+                    <Users size={17} />
+                    <span>Production</span>
+                  </div>
                   <strong className="public-card-lines">
                     <em><b>Producer:</b><i>{stats.producer}</i></em>
                     <small>producer@example.com • +31 6 12345678</small>
@@ -437,13 +465,19 @@ export default function PublicClientPage() {
                   </strong>
                 </article>
                 <article>
-                  <Send size={17} />
-                  <span>Next milestones</span>
+                  <div className="public-card-heading">
+                    <Send size={17} />
+                    <span>Next milestones</span>
+                  </div>
                   <strong className="public-milestone-card">
                     {stats.milestones?.some((item) => item.milestone) ? stats.milestones.map(({ key, title, milestone }) => (
                       milestone ? (
                         <span className="public-milestone-entry" key={key}>
-                          <span className="public-milestone-title">{title}</span>
+                          <span className="public-milestone-title">
+                            {milestone.whoLabels.length
+                              ? milestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
+                              : <span className="public-muted-label">{milestone.who}</span>}
+                          </span>
                           <span className="public-milestone-layout">
                             <span className="public-milestone-date">
                               <em>{milestone.day}</em>
@@ -452,11 +486,6 @@ export default function PublicClientPage() {
                             <span className="public-milestone-details">
                               <span className="public-milestone-asset">{milestone.asset}</span>
                               <span className="public-milestone-label-row">
-                                <span className="public-milestone-labels">
-                                  {milestone.whoLabels.length
-                                    ? milestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
-                                    : <span className="public-muted-label">{milestone.who}</span>}
-                                </span>
                                 {milestone.whatLabel ? <Pill label={milestone.whatLabel} /> : null}
                                 {milestone.todoLabel ? <Pill label={milestone.todoLabel} subtle /> : null}
                               </span>
@@ -468,8 +497,10 @@ export default function PublicClientPage() {
                   </strong>
                 </article>
                 <article className="public-delivery-runtime-card">
-                  <Flag size={17} />
-                  <span>Final deliveries / Runtime</span>
+                  <div className="public-card-heading">
+                    <Flag size={17} />
+                    <span>Final deliveries / Runtime</span>
+                  </div>
                   <strong className="public-card-lines">
                     {stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => (
                       <em className="public-delivery-line" key={`${item.category}-${item.date}-${index}`}>
@@ -548,7 +579,7 @@ export default function PublicClientPage() {
                 )}
               </>
             ) : (
-              <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} />
+              <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} labels={payload.labels ?? []} />
             )}
           </div>
         </div>
