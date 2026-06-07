@@ -2890,9 +2890,6 @@ nav .tab-active {
   border-bottom: 1px solid rgba(226, 232, 240, 0.8);
   border-top: 14px solid #f7f9fb;
   padding: 10px 20px;
-  position: sticky;
-  top: 156px;
-  z-index: 190;
 }
 
 .public-client-page .client-week-separator-row span {
