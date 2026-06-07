@@ -2879,7 +2879,7 @@ nav .tab-active {
 }
 
 .public-client-page .note-preview > span:first-of-type {
-  max-width: 40ch;
+  max-width: 6ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
