@@ -332,7 +332,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   }, [rows]);
   const widthForColumn = (column) => {
     if (column.key === 'asset' && autoWidths.assetResizable) return prefs.widths.asset ?? autoWidths.asset;
-    if (column.key === 'notes') return autoWidths.notes;
+    if (column.key === 'notes') return prefs.widths.notes ?? autoWidths.notes;
     return autoWidths[column.key] ?? prefs.widths[column.key] ?? column.width;
   };
   const moveColumn = (targetKey, side) => {
@@ -437,7 +437,17 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
                       if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : null}</td>;
                       if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
-                      if (column.key === 'notes') return <td key={column.key} className="overflow-visible px-4 py-3">{row._item ? <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300"><FileText size={14} className="shrink-0 text-ink-500" /><span className="truncate">{row._item.notes || '-'}</span>{row._item.notes && <span className="note-tooltip">{row._item.notes}</span>}</span> : null}</td>;
+                      if (column.key === 'notes') return (
+                        <td key={column.key} className="overflow-visible px-4 py-3">
+                          {row._item?.notes ? (
+                            <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300">
+                              <FileText size={14} className="shrink-0 text-ink-500" />
+                              <span className="truncate">{row._item.notes}</span>
+                              <span className="note-tooltip">{row._item.notes}</span>
+                            </span>
+                          ) : null}
+                        </td>
+                      );
                       return null;
                     })}
                   </tr>

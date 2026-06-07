@@ -2234,15 +2234,16 @@ nav .tab-active {
 
 .public-client-header {
   background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border: 1.5px solid rgba(63, 70, 92, 0.45);
   border-radius: 16px;
-  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 12px 34px -20px rgba(19, 27, 46, 0.34);
   display: block;
   margin: 16px 0 24px;
   min-height: 0;
-  padding: 14px 32px;
-  position: relative;
-  z-index: 20;
+  padding: 14px 28px;
+  position: sticky;
+  top: 15px;
+  z-index: 520;
 }
 
 .public-header-inner {
@@ -2490,44 +2491,89 @@ nav .tab-active {
 
 .public-milestone-card {
   display: grid;
-  gap: 6px;
+  gap: 10px;
 }
 
-.public-milestone-card em {
-  background: #e6e8ea;
-  border-radius: 4px;
-  color: #464554;
-  display: inline-flex;
+.public-summary-grid article .public-milestone-date {
+  align-self: start;
+  background: transparent;
+  border-radius: 0;
+  color: #191c1e;
+  display: grid;
+  font-family: inherit;
+  gap: 2px;
+  letter-spacing: 0;
+  line-height: normal;
+  margin: 0;
+  padding: 0;
+  text-transform: none;
+  width: fit-content;
+}
+
+.public-milestone-date em {
+  color: rgba(70, 72, 212, 0.7);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 10px;
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 16px;
-  padding: 2px 8px;
   text-transform: uppercase;
-  width: fit-content;
 }
 
-.public-milestone-card b,
-.public-milestone-card i {
-  font-style: normal;
-}
-
-.public-milestone-card i {
-  background: rgba(70, 72, 212, 0.1);
-  border: 1px solid rgba(70, 72, 212, 0.18);
-  border-radius: 8px;
-  color: #4648d4;
-  display: inline-flex;
+.public-milestone-date b {
+  color: #191c1e;
+  font-size: 22px;
   font-weight: 700;
-  padding: 4px 10px;
-  width: fit-content;
+  letter-spacing: -0.01em;
+  line-height: 28px;
 }
 
-.public-milestone-card small {
+.public-summary-grid article .public-milestone-line {
+  align-items: center;
+  align-self: start;
+  background: transparent;
+  border-radius: 0;
   color: #464554;
-  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 8px;
+  letter-spacing: 0;
+  line-height: 20px;
+  margin: 0;
+  padding: 0;
+  text-transform: none;
+  width: auto;
+}
+
+.public-summary-grid article .public-milestone-line > span:first-child {
+  color: #464554;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.public-summary-grid article .public-milestone-labels {
+  align-items: center;
+  background: transparent;
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-family: inherit;
+  gap: 5px;
+  letter-spacing: 0;
+  margin: 0;
+  padding: 0;
+  text-transform: none;
+  width: auto;
+}
+
+.public-muted-label {
+  color: rgba(70, 69, 84, 0.58);
   font-weight: 600;
 }
 
@@ -2695,7 +2741,7 @@ nav .tab-active {
   padding-top: 16px !important;
   position: sticky;
   text-transform: uppercase;
-  top: 15px !important;
+  top: 104px !important;
   z-index: 200;
 }
 
@@ -2750,6 +2796,16 @@ nav .tab-active {
 .public-client-page .client-planning-table td {
   padding-bottom: 1.05rem;
   padding-top: 1.05rem;
+}
+
+.public-client-page .note-preview {
+  max-width: 100%;
+}
+
+.public-client-page .note-preview > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .public-client-page .pill,

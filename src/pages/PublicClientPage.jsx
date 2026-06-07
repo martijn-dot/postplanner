@@ -5,6 +5,7 @@ import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
+import Pill from '../components/Pill.jsx';
 import wennekerLogo from '../assets/wenneker-logo.png';
 
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
@@ -76,6 +77,13 @@ function formatShortPublicDate(value) {
   return formatted === '-' ? formatted : formatted.replace(/\s\d{4}$/, '');
 }
 
+function formatPublicWeekday(value) {
+  if (!value) return '-';
+  const parsed = String(value).includes('T') ? new Date(value) : new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'long' }).format(parsed);
+}
+
 function publicPlanningStats(project, lineItems = [], labels = [], categories = []) {
   const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
   const categoriesById = Object.fromEntries(categories.map((category) => [category.id, category]));
@@ -92,8 +100,11 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
     .sort((a, b) => a.end_date.localeCompare(b.end_date))[0];
   const clientMilestoneWhat = clientMilestone ? {
     date: formatShortPublicDate(clientMilestone.end_date),
+    day: formatPublicWeekday(clientMilestone.end_date),
     what: labelsById[clientMilestone.what]?.value ?? '-',
+    whatLabel: labelsById[clientMilestone.what] ?? null,
     who: clientMilestone.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', ') || 'Client',
+    whoLabels: clientMilestone.who.map((id) => labelsById[id]).filter(Boolean),
   } : null;
   return {
     producer: project.producer || '-',
@@ -311,11 +322,22 @@ export default function PublicClientPage() {
                   <strong className="public-milestone-card">
                     {stats.clientMilestone ? (
                       <>
-                        <em>Who</em>
-                        <b>{stats.clientMilestone.who}</b>
-                        <em>What</em>
-                        <i>{stats.clientMilestone.what}</i>
-                        <small>{stats.clientMilestone.date}</small>
+                        <span className="public-milestone-date">
+                          <em>{stats.clientMilestone.day}</em>
+                          <b>{stats.clientMilestone.date}</b>
+                        </span>
+                        <span className="public-milestone-line">
+                          <span>WHO:</span>
+                          <span className="public-milestone-labels">
+                            {stats.clientMilestone.whoLabels.length
+                              ? stats.clientMilestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
+                              : <span className="public-muted-label">{stats.clientMilestone.who}</span>}
+                          </span>
+                        </span>
+                        <span className="public-milestone-line">
+                          <span>WHAT:</span>
+                          {stats.clientMilestone.whatLabel ? <Pill label={stats.clientMilestone.whatLabel} /> : <span className="public-muted-label">{stats.clientMilestone.what}</span>}
+                        </span>
                       </>
                     ) : '-'}
                   </strong>
@@ -361,7 +383,7 @@ export default function PublicClientPage() {
                   forceHideCategoryColumn={!showCategories}
                   dateWindow="full"
                   hiddenWhoIds={hiddenWhoIds}
-                  columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: {}, visible: { rowColor: false, edit: false } }}
+                  columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { notes: 160 }, visible: { category: false, rowColor: false, edit: false } }}
                   showWeekColumn={false}
                 />
               </>
