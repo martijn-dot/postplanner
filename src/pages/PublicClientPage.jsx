@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Flag, Search, Send, Timer, Users } from 'lucide-react';
-import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
+import { ClientGanttChart, ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
@@ -274,13 +274,26 @@ export default function PublicClientPage() {
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
-  const [showCategories, setShowCategories] = useState(true);
+  const [planningView, setPlanningView] = useState('calendar');
+  const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
   const [showInfo, setShowInfo] = useState(true);
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
   const categoryCount = useMemo(() => new Set((payload?.lineItems ?? []).map((item) => item.category_id).filter(Boolean)).size || (payload?.categories ?? []).length, [payload?.categories, payload?.lineItems]);
+  const categoryFilterGroups = useMemo(() => {
+    if (!payload?.project) return [];
+    const categoriesById = Object.fromEntries((payload.categories ?? []).map((category) => [category.id, category]));
+    const groups = new Map();
+    (payload.lineItems ?? []).forEach((item) => {
+      const key = item.category_id ?? 'uncategorized';
+      const category = item.category_id ? categoriesById[item.category_id] : null;
+      const name = category?.name ?? uncategorizedName;
+      if (!groups.has(key)) groups.set(key, { key, name, sortOrder: category?.sort_order ?? 99999 });
+    });
+    return [...groups.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  }, [payload?.categories, payload?.lineItems, payload?.project, uncategorizedName]);
   const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], clientMilestone: null }), [payload]);
   const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? []), [payload?.lineItems, payload?.project]);
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
@@ -293,6 +306,16 @@ export default function PublicClientPage() {
     !showWennekerBookings ? whoFilterIds.wenneker : null,
     !showClientBookings ? whoFilterIds.client : null,
   ].filter(Boolean), [showClientBookings, showWennekerBookings, whoFilterIds.client, whoFilterIds.wenneker]);
+  const visibleLineItems = useMemo(() => (payload?.lineItems ?? []).filter((item) => !hiddenCategoryKeys.includes(item.category_id ?? 'uncategorized')), [hiddenCategoryKeys, payload?.lineItems]);
+  const calendarLineItems = useMemo(() => visibleLineItems, [visibleLineItems]);
+  const ganttLineItems = useMemo(() => visibleLineItems.filter((item) => {
+    if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
+    if (!showClientBookings && whoFilterIds.client && item.who?.includes(whoFilterIds.client)) return false;
+    return true;
+  }), [showClientBookings, showWennekerBookings, visibleLineItems, whoFilterIds.client, whoFilterIds.wenneker]);
+  const toggleHiddenCategory = (key) => {
+    setHiddenCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  };
 
   useEffect(() => {
     const storedTheme = localStorage.theme;
@@ -436,7 +459,7 @@ export default function PublicClientPage() {
                 </article>
                 <article className="public-delivery-runtime-card">
                   <Flag size={17} />
-                  <span>Deliveries / Runtime</span>
+                  <span>Final deliveries / Runtime</span>
                   <strong className="public-card-lines">
                     {stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => (
                       <em className="public-delivery-line" key={`${item.category}-${item.date}-${index}`}>
@@ -456,35 +479,63 @@ export default function PublicClientPage() {
             {tab === 'planning' ? (
               <>
                 <section className="public-client-controls">
-                  <span className="public-controls-label">Filters</span>
-                  <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
-                    {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
-                  </button>
-                  <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
-                    {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
-                  </button>
-                  <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
-                    {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
-                  </button>
-                  {categoryCount > 2 && (
-                    <button type="button" onClick={() => setShowCategories((next) => !next)} className={`client-filter-pill ${showCategories ? 'is-active' : ''}`}>
-                      {showCategories ? <Eye size={14} /> : <EyeOff size={14} />} Categories
+                  <div className="public-filter-left">
+                    <span className="public-controls-label">Filters</span>
+                    <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
+                      {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
                     </button>
-                  )}
+                    <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
+                      {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
+                    </button>
+                    {planningView === 'calendar' && (
+                      <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
+                        {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
+                      </button>
+                    )}
+                    {categoryCount > 1 && (
+                      <>
+                        <span className="public-controls-label public-controls-label-secondary">Categories</span>
+                        {categoryFilterGroups.map((group) => (
+                          <button key={group.key} type="button" onClick={() => toggleHiddenCategory(group.key)} className={`client-filter-pill ${!hiddenCategoryKeys.includes(group.key) ? 'is-active' : ''}`}>
+                            {!hiddenCategoryKeys.includes(group.key) ? <Eye size={14} /> : <EyeOff size={14} />} {group.name}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                  <label className="public-view-select">
+                    <span>View</span>
+                    <select value={planningView} onChange={(event) => setPlanningView(event.target.value)}>
+                      <option value="calendar">Calendar view</option>
+                      <option value="gantt">Gantt chart view</option>
+                    </select>
+                  </label>
                 </section>
-                <ClientPlanningTable
-                  project={payload.project}
-                  lineItems={payload.lineItems ?? []}
-                  labels={payload.labels}
-                  categories={payload.categories}
-                  showEmptyDates={showEmptyDates}
-                  uncategorizedName={uncategorizedName}
-                  forceHideCategoryColumn={!showCategories}
-                  dateWindow="full"
-                  hiddenWhoIds={hiddenWhoIds}
-                  columnPrefs={{ order: ['calendar', 'category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, rowColor: false, edit: false } }}
-                  showWeekColumn={false}
-                />
+                {planningView === 'calendar' ? (
+                  <ClientPlanningTable
+                    project={payload.project}
+                    lineItems={calendarLineItems}
+                    labels={payload.labels}
+                    categories={payload.categories}
+                    showEmptyDates={showEmptyDates}
+                    uncategorizedName={uncategorizedName}
+                    forceHideCategoryColumn
+                    dateWindow="full"
+                    hiddenWhoIds={hiddenWhoIds}
+                    columnPrefs={{ order: ['calendar', 'category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, rowColor: false, edit: false } }}
+                    showWeekColumn={false}
+                  />
+                ) : (
+                  <ClientGanttChart
+                    project={payload.project}
+                    lineItems={ganttLineItems}
+                    labels={payload.labels}
+                    categories={payload.categories}
+                    uncategorizedName={uncategorizedName}
+                    categoryMode={categoryCount > 1 ? 'sections' : 'column'}
+                    dateWindow="full"
+                  />
+                )}
               </>
             ) : (
               <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} />

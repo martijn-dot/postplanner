@@ -2809,6 +2809,15 @@ nav .tab-active {
   padding: 12px;
 }
 
+.public-filter-left {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
 .public-controls-label {
   background: transparent;
   border-radius: 0;
@@ -2821,6 +2830,55 @@ nav .tab-active {
   margin-right: 0;
   padding: 0 8px;
   text-transform: uppercase;
+}
+
+.public-controls-label-secondary {
+  color: rgba(70, 69, 84, 0.58);
+  margin-left: 8px;
+}
+
+.public-view-select {
+  align-items: center;
+  background: #e6e8ea;
+  border-radius: 13px;
+  color: #464554;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  margin-left: auto;
+  padding: 4px 6px 4px 12px;
+}
+
+.public-view-select span {
+  color: rgba(70, 69, 84, 0.68);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 8.25px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-view-select select {
+  appearance: none;
+  background: #ffffff;
+  border: 0;
+  border-radius: 10px;
+  color: #191c1e;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  min-height: 27px;
+  padding: 0 30px 0 12px;
+}
+
+.public-view-select::after {
+  color: #4648d4;
+  content: "▾";
+  font-size: 12px;
+  margin-left: -28px;
+  pointer-events: none;
+  position: relative;
 }
 
 .public-client-controls .client-filter-pill:first-of-type {
@@ -2962,6 +3020,72 @@ nav .tab-active {
 .public-client-page .client-planning-table td {
   padding-bottom: 1.05rem;
   padding-top: 1.05rem;
+}
+
+.public-client-page .client-gantt {
+  background: #ffffff !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 28px -22px rgba(19, 27, 46, 0.34) !important;
+  color: #191c1e;
+}
+
+.public-client-page .client-gantt-scroll {
+  max-height: none;
+}
+
+.public-client-page .client-gantt .bg-zinc-100,
+.public-client-page .client-gantt .dark\:bg-ink-850,
+.public-client-page .client-gantt .dark\:bg-ink-900,
+.public-client-page .client-gantt .bg-white {
+  background: #f7f9fb !important;
+}
+
+.public-client-page .client-gantt .sticky.left-0 {
+  background: #ffffff !important;
+  border-color: rgba(226, 232, 240, 0.78) !important;
+}
+
+.public-client-page .client-gantt-day {
+  border-right-color: rgba(226, 232, 240, 0.82);
+}
+
+.public-client-page .client-gantt-day.is-weekend {
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0 6px, transparent 6px 12px),
+    #f2f4f6;
+}
+
+.public-client-page .client-gantt-row {
+  border-top-color: rgba(226, 232, 240, 0.78);
+}
+
+.public-client-page .client-gantt-category-row {
+  background: #f2f4f6;
+  color: #4648d4;
+}
+
+.public-client-page .client-gantt-category-row .sticky {
+  background: #f2f4f6 !important;
+}
+
+.public-client-page .client-gantt-booking {
+  background: color-mix(in srgb, var(--client-gantt-color, #4648d4) 18%, #ffffff) !important;
+  border: 1px solid color-mix(in srgb, var(--client-gantt-color, #4648d4) 60%, #ffffff) !important;
+  box-shadow: 0 8px 22px -18px rgba(19, 27, 46, 0.35);
+}
+
+.public-client-page .client-gantt-booking-day {
+  color: #191c1e;
+}
+
+.public-client-page .client-gantt-booking-day.is-last {
+  background: var(--client-gantt-color, #4648d4);
+  color: #ffffff;
+}
+
+.public-client-page .client-gantt-booking .client-gantt-labels {
+  color: #191c1e;
 }
 
 .public-client-page .note-preview {
