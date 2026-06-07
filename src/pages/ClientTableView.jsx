@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { CalendarDays, Check, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe2 } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Check, ChevronDown, ChevronRight, Clock, Copy, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Palette, Pencil, Tag, Users } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
@@ -12,6 +12,7 @@ const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v4';
 const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
 const CLIENT_COLUMNS = [
   { key: 'edit', label: 'Edit', width: 86 },
+  { key: 'calendar', label: 'Calendar', width: 132 },
   { key: 'category', label: 'Category', width: 150 },
   { key: 'who', label: 'Who', width: 118 },
   { key: 'asset', label: 'Asset', width: 200 },
@@ -21,6 +22,19 @@ const CLIENT_COLUMNS = [
   { key: 'notes', label: 'Notes', width: 160 },
   { key: 'rowColor', label: 'Color', width: 82 },
 ];
+
+const CLIENT_COLUMN_ICONS = {
+  edit: Pencil,
+  calendar: CalendarPlus,
+  category: Tag,
+  who: Users,
+  asset: Package,
+  what: Tag,
+  todo: ListChecks,
+  time: Clock,
+  notes: FileText,
+  rowColor: Palette,
+};
 
 const ROW_COLOR_OPTIONS = [
   { value: '', label: 'None', color: 'transparent' },
@@ -32,19 +46,20 @@ const ROW_COLOR_OPTIONS = [
 
 function readClientColumnPrefs() {
   const defaultOrder = CLIENT_COLUMNS.map((column) => column.key);
+  const defaultVisible = Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.key !== 'calendar']));
   try {
     const stored = JSON.parse(localStorage.getItem(CLIENT_COLUMN_STORAGE_KEY) ?? '{}');
     const storedOrder = Array.isArray(stored.order) ? stored.order.filter((key) => CLIENT_COLUMNS.some((column) => column.key === key)) : [];
     return {
       order: [...storedOrder, ...defaultOrder.filter((key) => !storedOrder.includes(key))],
       widths: stored.widths ?? Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.width])),
-      visible: stored.visible ?? Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, true])),
+      visible: { ...defaultVisible, ...(stored.visible ?? {}) },
     };
   } catch {
     return {
       order: CLIENT_COLUMNS.map((column) => column.key),
       widths: Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.width])),
-      visible: Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, true])),
+      visible: defaultVisible,
     };
   }
 }
@@ -194,6 +209,28 @@ function filterDaysByDateWindow(days, dateWindow) {
   return days.filter((day) => format(day, 'yyyy-MM-dd') >= minKey);
 }
 
+function googleCalendarUrl(row) {
+  if (!row?._item || !row._dateKey) return '';
+  const start = format(parseISO(row._dateKey), 'yyyyMMdd');
+  const end = format(addDays(parseISO(row._dateKey), 1), 'yyyyMMdd');
+  const title = [row.What, row.Todo, row.Asset].filter(Boolean).join(' - ') || 'Planning milestone';
+  const details = [
+    row.Asset ? `Asset: ${row.Asset}` : '',
+    row.Who ? `Who: ${row.Who}` : '',
+    row.What ? `What: ${row.What}` : '',
+    row.Todo ? `Todo: ${row.Todo}` : '',
+    row.Time ? `Time: ${row.Time}` : '',
+    row.Notes ? `Notes: ${row.Notes}` : '',
+  ].filter(Boolean).join('\n');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: title,
+    dates: `${start}/${end}`,
+    details,
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 export function clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName = 'Uncategorized', dateWindow = 'future') {
   const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
   return annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName), dateWindow)).map((row) => ({
@@ -332,7 +369,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   }, [rows]);
   const widthForColumn = (column) => {
     if (column.key === 'asset' && autoWidths.assetResizable) return prefs.widths.asset ?? autoWidths.asset;
-    if (['what', 'todo'].includes(column.key) && prefs.widths[column.key]) return prefs.widths[column.key];
+    if (['calendar', 'who', 'what', 'todo'].includes(column.key) && prefs.widths[column.key]) return prefs.widths[column.key];
     if (column.key === 'notes') return prefs.widths.notes ?? autoWidths.notes;
     return autoWidths[column.key] ?? prefs.widths[column.key] ?? column.width;
   };
@@ -389,7 +426,10 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   >
                     {dragTarget?.key === column.key && <span className={`client-column-drop-line ${dragTarget.side === 'after' ? 'is-after' : 'is-before'}`} />}
                     <span className="inline-flex items-center gap-2">
-                      <span className="client-column-grip" aria-hidden="true">::</span>
+                      {(() => {
+                        const ColumnIcon = CLIENT_COLUMN_ICONS[column.key];
+                        return ColumnIcon ? <ColumnIcon className="client-column-icon" size={14} aria-hidden="true" /> : null;
+                      })()}
                       {column.label}
                     </span>
                     <button type="button" onPointerDown={(event) => startResize(event, column.key)} className="client-column-resize-handle" aria-label={`Resize ${column.label}`} />
@@ -428,6 +468,15 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       const hiddenBooking = row._item && row._item.who?.some((id) => hiddenWhoIds.includes(id));
                       if (hiddenBooking) return <td key={column.key} className="px-4 py-3"></td>;
                       if (column.key === 'edit') return <td key={column.key} className="px-3 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingItemId(row._item.id)} className="client-edit-button">Edit</button> : null}</td>;
+                      if (column.key === 'calendar') return (
+                        <td key={column.key} className="px-3 py-3">
+                          {row._item ? (
+                            <a className="client-calendar-button" href={googleCalendarUrl(row)} target="_blank" rel="noreferrer">
+                              Add to calendar
+                            </a>
+                          ) : null}
+                        </td>
+                      );
                       if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : null}</td>;
                       if (column.key === 'category') return (
                         <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">

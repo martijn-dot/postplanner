@@ -482,7 +482,7 @@ export default function PublicClientPage() {
                   forceHideCategoryColumn={!showCategories}
                   dateWindow="full"
                   hiddenWhoIds={hiddenWhoIds}
-                  columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { what: 126, todo: 133, notes: 180 }, visible: { category: false, rowColor: false, edit: false } }}
+                  columnPrefs={{ order: ['calendar', 'category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, rowColor: false, edit: false } }}
                   showWeekColumn={false}
                 />
               </>

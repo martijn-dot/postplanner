@@ -1628,12 +1628,31 @@ nav .tab-active {
   cursor: grabbing;
 }
 
-.client-column-grip {
+.client-column-icon {
   color: rgba(129, 118, 156, 0.75);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  flex: 0 0 auto;
+  stroke-width: 2.3;
+}
+
+.client-calendar-button {
+  align-items: center;
+  background: rgba(70, 72, 212, 0.1);
+  border: 1px solid rgba(70, 72, 212, 0.18);
+  border-radius: 999px;
+  color: #4648d4;
+  display: inline-flex;
   font-size: 0.72rem;
-  letter-spacing: -0.18em;
-  transform: translateY(-0.04em);
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1;
+  padding: 0.42rem 0.62rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.client-calendar-button:hover {
+  background: #4648d4;
+  color: #ffffff;
 }
 
 .client-column-drop-line {
@@ -2228,13 +2247,13 @@ nav .tab-active {
 .public-client-page::before {
   background: #ffffff;
   content: "";
-  height: 118px;
+  height: 128px;
   left: 0;
   pointer-events: none;
   position: fixed;
   right: 0;
   top: 0;
-  z-index: 500;
+  z-index: 510;
 }
 
 .dark .public-client-page,
@@ -2279,7 +2298,7 @@ nav .tab-active {
   padding: 15px 28px;
   position: sticky;
   top: 15px;
-  z-index: 520;
+  z-index: 540;
 }
 
 .public-header-inner {
@@ -2382,7 +2401,7 @@ nav .tab-active {
   border-radius: 4px;
   color: #191c1e;
   display: inline-flex;
-  align-self: flex-start;
+  align-self: center;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 10px;
   font-weight: 700;
@@ -2502,16 +2521,21 @@ nav .tab-active {
 .public-summary-grid article .public-runtime-row {
   align-items: center;
   background: transparent;
-  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 0;
+  border-top: 1px solid rgba(226, 232, 240, 0.95);
   display: flex;
   flex-wrap: wrap;
   font-family: inherit;
-  gap: 10px;
+  gap: 14px;
   letter-spacing: 0;
   margin: 7px 0 0;
   padding: 7px 0 0;
   text-transform: none;
-  width: auto;
+  width: 100%;
+}
+
+.public-summary-grid article .public-runtime-row em {
+  font-size: 125%;
 }
 
 .public-card-lines em {
