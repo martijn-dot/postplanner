@@ -321,24 +321,26 @@ export default function PublicClientPage() {
                   <span>Next milestone</span>
                   <strong className="public-milestone-card">
                     {stats.clientMilestone ? (
-                      <>
+                      <span className="public-milestone-layout">
                         <span className="public-milestone-date">
                           <em>{stats.clientMilestone.day}</em>
                           <b>{stats.clientMilestone.date}</b>
                         </span>
-                        <span className="public-milestone-line">
-                          <span>WHO:</span>
-                          <span className="public-milestone-labels">
-                            {stats.clientMilestone.whoLabels.length
-                              ? stats.clientMilestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
-                              : <span className="public-muted-label">{stats.clientMilestone.who}</span>}
+                        <span className="public-milestone-details">
+                          <span className="public-milestone-line">
+                            <span>WHO:</span>
+                            <span className="public-milestone-labels">
+                              {stats.clientMilestone.whoLabels.length
+                                ? stats.clientMilestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
+                                : <span className="public-muted-label">{stats.clientMilestone.who}</span>}
+                            </span>
+                          </span>
+                          <span className="public-milestone-line">
+                            <span>WHAT:</span>
+                            {stats.clientMilestone.whatLabel ? <Pill label={stats.clientMilestone.whatLabel} /> : <span className="public-muted-label">{stats.clientMilestone.what}</span>}
                           </span>
                         </span>
-                        <span className="public-milestone-line">
-                          <span>WHAT:</span>
-                          {stats.clientMilestone.whatLabel ? <Pill label={stats.clientMilestone.whatLabel} /> : <span className="public-muted-label">{stats.clientMilestone.what}</span>}
-                        </span>
-                      </>
+                      </span>
                     ) : '-'}
                   </strong>
                 </article>
@@ -346,7 +348,7 @@ export default function PublicClientPage() {
                   <Flag size={17} />
                   <span>Deliveries / Runtime</span>
                   <strong className="public-card-lines">
-                    {stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : <em>-</em>}
+                    {stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => <em className="public-delivery-line" key={`${item.category}-${item.date}-${index}`}><b>{item.category}</b><i>{item.date}</i></em>) : <em>-</em>}
                     <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
                     <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
                   </strong>
@@ -383,7 +385,7 @@ export default function PublicClientPage() {
                   forceHideCategoryColumn={!showCategories}
                   dateWindow="full"
                   hiddenWhoIds={hiddenWhoIds}
-                  columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { notes: 160 }, visible: { category: false, rowColor: false, edit: false } }}
+                  columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { notes: 320 }, visible: { category: false, rowColor: false, edit: false } }}
                   showWeekColumn={false}
                 />
               </>

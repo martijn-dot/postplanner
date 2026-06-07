@@ -417,6 +417,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     {row._showDateGroup && (
                       <td rowSpan={row._dateRowSpan} className={`date-group-cell p-0 font-semibold ${row._isWeekend ? 'date-weekend-cell' : ''} ${row._isToday ? 'date-today-cell' : ''}`}>
                         <span className="date-group-chip combined-date-chip">
+                          {row._isToday && <span className="date-today-tag">Today</span>}
                           <span className="date-day-name">{row.Day}</span>
                           <strong>{row.Date}</strong>
                         </span>
