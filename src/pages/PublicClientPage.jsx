@@ -65,6 +65,11 @@ function assetFilename(project, list, row, clients = []) {
   return parts.join(list.global_separator ?? '_');
 }
 
+function frameIoValue(row, columns) {
+  const column = columns.find((item) => /frame\.?io/i.test(item.name ?? '') || /frame\.?io/i.test(item.key ?? ''));
+  return column ? String(row.values?.[column.id] ?? '').trim() : '';
+}
+
 function formatPublicDate(value) {
   if (!value) return '-';
   const parsed = String(value).includes('T') ? new Date(value) : new Date(`${value}T00:00:00`);
@@ -185,9 +190,9 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
           <thead>
             <tr>
               <th>Number</th>
-              {columns.map((column) => <th key={column.id}>{column.name}</th>)}
-              <th>Filename</th>
+              {columns.filter((column) => !/frame\.?io/i.test(column.name ?? '')).map((column) => <th key={column.id}>{column.name}</th>)}
               <th>Notes</th>
+              <th>Frame.io</th>
             </tr>
           </thead>
           <tbody>
@@ -200,7 +205,7 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
                   {groupRows(group).map((row) => (
                     <tr key={row.id}>
                       <td className="public-asset-number">{row.number}</td>
-                      {columns.map((column) => {
+                      {columns.filter((column) => !/frame\.?io/i.test(column.name ?? '')).map((column) => {
                         const value = assetValue(row.values?.[column.id], column);
                         const isPillValue = value && !['text', 'length'].includes(column.type);
                         return (
@@ -209,8 +214,12 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
                           </td>
                         );
                       })}
-                      <td className="public-asset-filename">{assetFilename(project, activeList, row, clients)}</td>
                       <td className="public-asset-notes">{row.notes || '-'}</td>
+                      <td>
+                        {frameIoValue(row, columns)
+                          ? <a className="public-asset-frame-button is-active" href={frameIoValue(row, columns)} target="_blank" rel="noreferrer">View</a>
+                          : <span className="public-asset-frame-button">View</span>}
+                      </td>
                     </tr>
                   ))}
                 </Fragment>
@@ -408,10 +417,8 @@ export default function PublicClientPage() {
                         <Pill label={{ id: `${item.category}-${item.date}`, value: item.date, color: '#46d39b' }} />
                       </em>
                     )) : <em>-</em>}
-                    <span className="public-runtime-row">
-                      <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
-                      <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
-                    </span>
+                    <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
+                    <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
                   </strong>
                 </article>
               </section>
