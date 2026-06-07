@@ -100,26 +100,30 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
     .filter((item) => (labelsById[item.what]?.value ?? '').toLowerCase().includes('final delivery'))
     .sort((a, b) => (a.end_date ?? '').localeCompare(b.end_date ?? ''))
     .map((item) => ({ category: categoriesById[item.category_id]?.name ?? 'Planning', date: formatShortPublicDate(item.end_date) }));
-  const clientMilestone = lineItems
-    .filter((item) => item.end_date && item.end_date >= todayKey && item.who?.some((id) => (labelsById[id]?.value ?? '').toLowerCase() === 'client'))
-    .sort((a, b) => a.end_date.localeCompare(b.end_date))[0];
-  const clientMilestoneWhat = clientMilestone ? {
-    asset: clientMilestone.asset ?? '-',
-    date: formatShortPublicDate(clientMilestone.end_date),
-    day: formatPublicWeekday(clientMilestone.end_date),
-    what: labelsById[clientMilestone.what]?.value ?? '-',
-    whatLabel: labelsById[clientMilestone.what] ?? null,
-    todoLabel: labelsById[clientMilestone.todo] ?? null,
-    who: clientMilestone.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', ') || 'Client',
-    whoLabels: clientMilestone.who.map((id) => labelsById[id]).filter(Boolean),
-  } : null;
+  const milestoneForWho = (whoValue) => {
+    const item = lineItems
+      .filter((candidate) => candidate.end_date && candidate.end_date >= todayKey && candidate.who?.some((id) => (labelsById[id]?.value ?? '').toLowerCase() === whoValue))
+      .sort((a, b) => a.end_date.localeCompare(b.end_date))[0];
+    return item ? {
+      asset: item.asset ?? '-',
+      date: formatShortPublicDate(item.end_date),
+      day: formatPublicWeekday(item.end_date),
+      whatLabel: labelsById[item.what] ?? null,
+      todoLabel: labelsById[item.todo] ?? null,
+      who: item.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', ') || whoValue,
+      whoLabels: item.who.map((id) => labelsById[id]).filter(Boolean),
+    } : null;
+  };
   return {
     producer: project.producer || '-',
     postProducer: project.post_producer || '-',
     runtimeWeeks: runtimeWeeks ? `${runtimeWeeks} ${runtimeWeeks === 1 ? 'week' : 'weeks'}` : '-',
     weeksLeft: dates.length ? `${weeksLeft} ${weeksLeft === 1 ? 'week' : 'weeks'} left` : '-',
     finalDeliveries,
-    clientMilestone: clientMilestoneWhat,
+    milestones: [
+      { key: 'wenneker', title: 'Next Wenneker milestone', milestone: milestoneForWho('wenneker') },
+      { key: 'client', title: 'Next Client milestone', milestone: milestoneForWho('client') },
+    ],
   };
 }
 
@@ -294,7 +298,7 @@ export default function PublicClientPage() {
     });
     return [...groups.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }, [payload?.categories, payload?.lineItems, payload?.project, uncategorizedName]);
-  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], clientMilestone: null }), [payload]);
+  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], milestones: [] }), [payload]);
   const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? []), [payload?.lineItems, payload?.project]);
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
   const lastEditedDate = formatPublicDate(payload?.project?.last_edited_at ?? payload?.project?.updated_at ?? payload?.project?.created_at);
@@ -434,27 +438,33 @@ export default function PublicClientPage() {
                 </article>
                 <article>
                   <Send size={17} />
-                  <span>Next milestone</span>
+                  <span>Next milestones</span>
                   <strong className="public-milestone-card">
-                    {stats.clientMilestone ? (
-                      <span className="public-milestone-layout">
-                        <span className="public-milestone-date">
-                          <em>{stats.clientMilestone.day}</em>
-                          <b>{stats.clientMilestone.date}</b>
-                        </span>
-                        <span className="public-milestone-details">
-                          <span className="public-milestone-asset">{stats.clientMilestone.asset}</span>
-                          <span className="public-milestone-label-row">
-                            <span className="public-milestone-labels">
-                              {stats.clientMilestone.whoLabels.length
-                                ? stats.clientMilestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
-                                : <span className="public-muted-label">{stats.clientMilestone.who}</span>}
+                    {stats.milestones?.some((item) => item.milestone) ? stats.milestones.map(({ key, title, milestone }) => (
+                      milestone ? (
+                        <span className="public-milestone-entry" key={key}>
+                          <span className="public-milestone-title">{title}</span>
+                          <span className="public-milestone-layout">
+                            <span className="public-milestone-date">
+                              <em>{milestone.day}</em>
+                              <b>{milestone.date}</b>
                             </span>
-                            {stats.clientMilestone.todoLabel ? <Pill label={stats.clientMilestone.todoLabel} subtle /> : <span className="public-muted-label">-</span>}
+                            <span className="public-milestone-details">
+                              <span className="public-milestone-asset">{milestone.asset}</span>
+                              <span className="public-milestone-label-row">
+                                <span className="public-milestone-labels">
+                                  {milestone.whoLabels.length
+                                    ? milestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
+                                    : <span className="public-muted-label">{milestone.who}</span>}
+                                </span>
+                                {milestone.whatLabel ? <Pill label={milestone.whatLabel} /> : null}
+                                {milestone.todoLabel ? <Pill label={milestone.todoLabel} subtle /> : null}
+                              </span>
+                            </span>
                           </span>
                         </span>
-                      </span>
-                    ) : '-'}
+                      ) : null
+                    )) : '-'}
                   </strong>
                 </article>
                 <article className="public-delivery-runtime-card">
@@ -522,7 +532,7 @@ export default function PublicClientPage() {
                     forceHideCategoryColumn
                     dateWindow="full"
                     hiddenWhoIds={hiddenWhoIds}
-                    columnPrefs={{ order: ['calendar', 'category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, rowColor: false, edit: false } }}
+                    columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'calendar'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, rowColor: false, edit: false } }}
                     showWeekColumn={false}
                   />
                 ) : (
