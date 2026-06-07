@@ -2234,7 +2234,7 @@ nav .tab-active {
   position: fixed;
   right: 0;
   top: 0;
-  z-index: 560;
+  z-index: 500;
 }
 
 .dark .public-client-page,
@@ -2245,7 +2245,7 @@ nav .tab-active {
 }
 
 .dark .public-client-header {
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: #ffffff !important;
   color: #191c1e !important;
 }
 
@@ -2267,7 +2267,7 @@ nav .tab-active {
 }
 
 .public-client-header {
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
   backdrop-filter: blur(18px) saturate(1.16);
   -webkit-backdrop-filter: blur(18px) saturate(1.16);
   border: 0;
@@ -2497,6 +2497,21 @@ nav .tab-active {
 .public-card-lines {
   display: grid;
   gap: 4px;
+}
+
+.public-summary-grid article .public-runtime-row {
+  align-items: center;
+  background: transparent;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  display: flex;
+  flex-wrap: wrap;
+  font-family: inherit;
+  gap: 10px;
+  letter-spacing: 0;
+  margin: 7px 0 0;
+  padding: 7px 0 0;
+  text-transform: none;
+  width: auto;
 }
 
 .public-card-lines em {
@@ -2875,6 +2890,9 @@ nav .tab-active {
   border-bottom: 1px solid rgba(226, 232, 240, 0.8);
   border-top: 14px solid #f7f9fb;
   padding: 10px 20px;
+  position: sticky;
+  top: 156px;
+  z-index: 190;
 }
 
 .public-client-page .client-week-separator-row span {
@@ -3108,6 +3126,18 @@ nav .tab-active {
   text-transform: uppercase;
 }
 
+.public-asset-category-row button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: inline-flex;
+  font: inherit;
+  gap: 8px;
+  padding: 0;
+  text-transform: inherit;
+}
+
 .public-asset-number {
   color: #565e74;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -3132,6 +3162,13 @@ nav .tab-active {
 .public-asset-notes {
   color: #565e74;
   max-width: 28ch;
+  overflow: visible;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-asset-notes .note-preview > span:first-of-type {
+  max-width: 18ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

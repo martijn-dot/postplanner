@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BarChart3, Eye, EyeOff, Flag, Search, Send, Timer, Users } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Flag, Search, Send, Timer, Users } from 'lucide-react';
 import { ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -133,14 +133,19 @@ function publicPlanningVersion(project, lineItems = []) {
 function PublicAssetList({ project, assetLists = [], clients = [] }) {
   const [activeId, setActiveId] = useState(assetLists[0]?.id ?? '');
   const [searchTerm, setSearchTerm] = useState('');
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
   const activeList = assetLists.find((list) => list.id === activeId) ?? assetLists[0];
   useEffect(() => {
     if (!activeId && assetLists[0]?.id) setActiveId(assetLists[0].id);
   }, [activeId, assetLists]);
+  useEffect(() => {
+    setCollapsedGroups(new Set());
+  }, [activeId]);
 
   if (!assetLists.length) return <div className="rounded-lg border border-black/10 bg-white px-4 py-10 text-center text-ink-500 dark:border-white/10 dark:bg-ink-900">No asset list published yet.</div>;
 
   const columns = assetColumns(activeList);
+  const visibleColumns = columns.filter((column) => !/frame\.?io/i.test(column.name ?? ''));
   const rows = assetRows(activeList);
   const groups = assetCategories(activeList);
   const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -156,6 +161,15 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
   };
   const visibleRows = rows.filter(rowMatchesSearch);
   const groupRows = (group) => (groups.length ? visibleRows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === group.id) : visibleRows);
+  const assetColSpan = visibleColumns.length + 3;
+  const toggleGroup = (groupId) => {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
 
   return (
     <section className="public-asset-card">
@@ -190,7 +204,7 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
           <thead>
             <tr>
               <th>Number</th>
-              {columns.filter((column) => !/frame\.?io/i.test(column.name ?? '')).map((column) => <th key={column.id}>{column.name}</th>)}
+              {visibleColumns.map((column) => <th key={column.id}>{column.name}</th>)}
               <th>Notes</th>
               <th>Frame.io</th>
             </tr>
@@ -200,12 +214,17 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
               groupRows(group).length ? (
                 <Fragment key={group.id ?? 'asset-list'}>
                   <tr key={`${group.id}-heading`} className="public-asset-category-row">
-                    <td colSpan={columns.length + 3}>{group.name}</td>
+                    <td colSpan={assetColSpan}>
+                      <button type="button" onClick={() => toggleGroup(group.id ?? 'asset-list')}>
+                        {collapsedGroups.has(group.id ?? 'asset-list') ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                        {group.name}
+                      </button>
+                    </td>
                   </tr>
-                  {groupRows(group).map((row) => (
+                  {!collapsedGroups.has(group.id ?? 'asset-list') && groupRows(group).map((row) => (
                     <tr key={row.id}>
                       <td className="public-asset-number">{row.number}</td>
-                      {columns.filter((column) => !/frame\.?io/i.test(column.name ?? '')).map((column) => {
+                      {visibleColumns.map((column) => {
                         const value = assetValue(row.values?.[column.id], column);
                         const isPillValue = value && !['text', 'length'].includes(column.type);
                         return (
@@ -214,7 +233,15 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
                           </td>
                         );
                       })}
-                      <td className="public-asset-notes">{row.notes || '-'}</td>
+                      <td className="public-asset-notes">
+                        {row.notes ? (
+                          <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300">
+                            <FileText size={14} className="shrink-0 text-ink-500" />
+                            <span>{row.notes}</span>
+                            <span className="note-tooltip">{row.notes}</span>
+                          </span>
+                        ) : null}
+                      </td>
                       <td>
                         {frameIoValue(row, columns)
                           ? <a className="public-asset-frame-button is-active" href={frameIoValue(row, columns)} target="_blank" rel="noreferrer">View</a>
@@ -227,7 +254,7 @@ function PublicAssetList({ project, assetLists = [], clients = [] }) {
             ))}
             {!visibleRows.length && (
               <tr>
-                <td colSpan={columns.length + 3} className="public-asset-empty">No assets match your search.</td>
+                <td colSpan={assetColSpan} className="public-asset-empty">No assets match your search.</td>
               </tr>
             )}
           </tbody>
@@ -417,8 +444,10 @@ export default function PublicClientPage() {
                         <Pill label={{ id: `${item.category}-${item.date}`, value: item.date, color: '#46d39b' }} />
                       </em>
                     )) : <em>-</em>}
-                    <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
-                    <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
+                    <span className="public-runtime-row">
+                      <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
+                      <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
+                    </span>
                   </strong>
                 </article>
               </section>
