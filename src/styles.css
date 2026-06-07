@@ -2225,6 +2225,18 @@ nav .tab-active {
   padding: 0 !important;
 }
 
+.public-client-page::before {
+  background: #f7f9fb;
+  content: "";
+  height: 15px;
+  left: 0;
+  pointer-events: none;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 560;
+}
+
 .dark .public-client-page,
 .dark .public-dashboard-frame,
 .dark .public-client-shell {
@@ -2435,8 +2447,9 @@ nav .tab-active {
   box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.04);
   display: grid;
   gap: 0;
-  min-height: 156px;
-  padding: 24px;
+  font-size: 75%;
+  min-height: 132px;
+  padding: 18px;
   place-content: start;
   transition: box-shadow 160ms ease, transform 160ms ease;
 }
@@ -2450,10 +2463,10 @@ nav .tab-active {
   background: rgba(70, 72, 212, 0.1);
   border-radius: 13px;
   color: #4648d4;
-  height: 40px;
-  margin-bottom: 16px;
-  padding: 10px;
-  width: 40px;
+  height: 30px;
+  margin-bottom: 12px;
+  padding: 7px;
+  width: 30px;
 }
 
 .public-summary-grid article span {
@@ -2463,11 +2476,11 @@ nav .tab-active {
   color: #464554;
   display: inline-flex;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 10px;
+  font-size: 7.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  line-height: 16px;
-  margin-bottom: 14px;
+  line-height: 12px;
+  margin-bottom: 10px;
   padding: 0;
   text-transform: uppercase;
   width: fit-content;
@@ -2475,9 +2488,9 @@ nav .tab-active {
 
 .public-summary-grid article strong {
   color: #191c1e;
-  font-size: 15px;
+  font-size: 11.25px;
   font-weight: 600;
-  line-height: 22px;
+  line-height: 16.5px;
   margin-top: 0;
 }
 
@@ -2508,9 +2521,9 @@ nav .tab-active {
 
 .public-card-lines small {
   color: rgba(70, 69, 84, 0.6);
-  font-size: 11px;
+  font-size: 8.25px;
   font-weight: 500;
-  line-height: 16px;
+  line-height: 12px;
 }
 
 .public-milestone-card {
@@ -2555,20 +2568,20 @@ nav .tab-active {
 .public-milestone-date em {
   color: rgba(70, 72, 212, 0.7);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 10px;
+  font-size: 7.5px;
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.08em;
-  line-height: 16px;
+  line-height: 12px;
   text-transform: uppercase;
 }
 
 .public-milestone-date b {
   color: #191c1e;
-  font-size: 22px;
+  font-size: 16.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  line-height: 28px;
+  line-height: 21px;
 }
 
 .public-summary-grid article .public-milestone-line {
@@ -2580,11 +2593,11 @@ nav .tab-active {
   display: flex;
   flex-wrap: wrap;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 10.5px;
   font-weight: 500;
   gap: 8px;
   letter-spacing: 0;
-  line-height: 20px;
+  line-height: 15px;
   margin: 0;
   padding: 0;
   text-transform: none;
@@ -2604,10 +2617,40 @@ nav .tab-active {
   width: auto;
 }
 
+.public-summary-grid article .public-milestone-asset {
+  background: transparent;
+  color: #191c1e;
+  display: block;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11.25px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 15px;
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+  width: auto;
+}
+
+.public-summary-grid article .public-milestone-label-row {
+  align-items: center;
+  background: transparent;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  width: auto;
+}
+
 .public-summary-grid article .public-milestone-line > span:first-child {
   color: #464554;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -2629,23 +2672,43 @@ nav .tab-active {
 
 .public-summary-grid article .public-milestone-labels > span,
 .public-summary-grid article .public-milestone-line > span[style],
-.public-card-lines .public-delivery-line > span[style] {
+.public-card-lines .public-delivery-line > span[style],
+.public-summary-grid article .public-milestone-label-row > span[style] {
   border-radius: 0.375rem;
   color: #0f172a;
   display: inline-flex;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.5625rem;
   font-weight: 600;
   letter-spacing: 0;
-  line-height: 1rem;
+  line-height: 0.75rem;
   margin: 0;
   max-width: 100%;
   overflow: hidden;
-  padding: 0.125rem 0.5rem;
+  padding: 0.09375rem 0.375rem;
   text-overflow: ellipsis;
   text-transform: none;
   white-space: nowrap;
   width: fit-content;
+}
+
+.public-summary-grid article .public-runtime-row {
+  align-items: center;
+  background: transparent;
+  display: flex;
+  flex-wrap: wrap;
+  font-family: inherit;
+  gap: 10px;
+  letter-spacing: 0;
+  margin: 0;
+  padding: 0;
+  text-transform: none;
+  width: auto;
+}
+
+.public-card-lines .public-runtime-row em {
+  font-size: 50%;
+  gap: 5px;
 }
 
 .public-muted-label {
@@ -2862,7 +2925,9 @@ nav .tab-active {
 
 .public-client-page .client-planning-table .date-group-cell.date-weekend-cell,
 .public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > td {
-  background: #f2f4f6 !important;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0 6px, transparent 6px 12px),
+    #f2f4f6 !important;
 }
 
 .public-client-page .client-planning-table .week-divider > td {
@@ -2879,7 +2944,7 @@ nav .tab-active {
 }
 
 .public-client-page .note-preview > span:first-of-type {
-  max-width: 6ch;
+  max-width: 18ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -99,10 +99,12 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
     .filter((item) => item.end_date && item.end_date >= todayKey && item.who?.some((id) => (labelsById[id]?.value ?? '').toLowerCase() === 'client'))
     .sort((a, b) => a.end_date.localeCompare(b.end_date))[0];
   const clientMilestoneWhat = clientMilestone ? {
+    asset: clientMilestone.asset ?? '-',
     date: formatShortPublicDate(clientMilestone.end_date),
     day: formatPublicWeekday(clientMilestone.end_date),
     what: labelsById[clientMilestone.what]?.value ?? '-',
     whatLabel: labelsById[clientMilestone.what] ?? null,
+    todoLabel: labelsById[clientMilestone.todo] ?? null,
     who: clientMilestone.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', ') || 'Client',
     whoLabels: clientMilestone.who.map((id) => labelsById[id]).filter(Boolean),
   } : null;
@@ -382,17 +384,14 @@ export default function PublicClientPage() {
                           <b>{stats.clientMilestone.date}</b>
                         </span>
                         <span className="public-milestone-details">
-                          <span className="public-milestone-line">
-                            <span>WHO:</span>
+                          <span className="public-milestone-asset">{stats.clientMilestone.asset}</span>
+                          <span className="public-milestone-label-row">
                             <span className="public-milestone-labels">
                               {stats.clientMilestone.whoLabels.length
                                 ? stats.clientMilestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
                                 : <span className="public-muted-label">{stats.clientMilestone.who}</span>}
                             </span>
-                          </span>
-                          <span className="public-milestone-line">
-                            <span>WHAT:</span>
-                            {stats.clientMilestone.whatLabel ? <Pill label={stats.clientMilestone.whatLabel} /> : <span className="public-muted-label">{stats.clientMilestone.what}</span>}
+                            {stats.clientMilestone.todoLabel ? <Pill label={stats.clientMilestone.todoLabel} subtle /> : <span className="public-muted-label">-</span>}
                           </span>
                         </span>
                       </span>
@@ -409,8 +408,10 @@ export default function PublicClientPage() {
                         <Pill label={{ id: `${item.category}-${item.date}`, value: item.date, color: '#46d39b' }} />
                       </em>
                     )) : <em>-</em>}
-                    <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
-                    <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
+                    <span className="public-runtime-row">
+                      <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
+                      <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
+                    </span>
                   </strong>
                 </article>
               </section>
@@ -445,7 +446,7 @@ export default function PublicClientPage() {
                   forceHideCategoryColumn={!showCategories}
                   dateWindow="full"
                   hiddenWhoIds={hiddenWhoIds}
-                  columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { notes: 96 }, visible: { category: false, rowColor: false, edit: false } }}
+                  columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes'], widths: { what: 126, todo: 133, notes: 180 }, visible: { category: false, rowColor: false, edit: false } }}
                   showWeekColumn={false}
                 />
               </>

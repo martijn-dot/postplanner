@@ -332,6 +332,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   }, [rows]);
   const widthForColumn = (column) => {
     if (column.key === 'asset' && autoWidths.assetResizable) return prefs.widths.asset ?? autoWidths.asset;
+    if (['what', 'todo'].includes(column.key) && prefs.widths[column.key]) return prefs.widths[column.key];
     if (column.key === 'notes') return prefs.widths.notes ?? autoWidths.notes;
     return autoWidths[column.key] ?? prefs.widths[column.key] ?? column.width;
   };
