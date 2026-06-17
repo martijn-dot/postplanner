@@ -247,7 +247,7 @@ export default function Dashboard() {
         {loading ? (
           <p className="text-ink-500">Loading projects...</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
+          <div className="space-y-4">
             {visibleProjects.map((project) => {
               const versions = versionsForProject(project, lineItems, categories, DEFAULT_PLANNING_TYPE);
               const preferredVersion = project.preferred_planning_version && versions.includes(project.preferred_planning_version) ? project.preferred_planning_version : versions[0];
@@ -287,14 +287,14 @@ export default function Dashboard() {
                       {locked && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                     </div>
                     <div className="project-planning-grid">
-                      {moduleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions }) => (
+                      {moduleLinks.filter((item) => item.exists).map(({ definition, exists, version: moduleVersion, versions: moduleVersions }) => (
                         <div key={definition.key} className="project-planning-group">
                           <button
                             type="button"
                             onClick={(event) => openProjectPlanning(definition, moduleVersion, exists, event)}
-                            className={`project-planning-button ${exists ? '' : 'is-empty'}`}
+                            className="project-planning-button"
                           >
-                            {exists ? definition.label : `Add ${definition.label}`}
+                            {definition.label}
                           </button>
                           <div className="project-version-row">
                             {(exists ? moduleVersions : []).map((version) => (
@@ -366,8 +366,8 @@ export default function Dashboard() {
                     >
                       <FileSpreadsheet size={17} />
                     </button>
-                      <button
-                        type="button"
+                    <button
+                      type="button"
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
@@ -376,9 +376,10 @@ export default function Dashboard() {
                       }}
                       className="project-action-button"
                       aria-label="Archive project"
+                      title="Archive project"
                     >
-                        <Trash2 size={17} />
-                      </button>
+                      <Trash2 size={17} />
+                    </button>
                   </div>
                 </>
               );
@@ -432,22 +433,18 @@ export default function Dashboard() {
               <button type="button" onClick={() => setVersionMenuProjectId(null)} className="secondary-button !px-3 !py-2">Close</button>
             </div>
             <div className="segmented mt-4">
-              {Object.values(PLANNING_TYPES).map((definition) => {
-                const exists = hasPlanningModule(versionMenuProject, definition.key, lineItems, categories);
-                return (
+              {Object.values(PLANNING_TYPES).filter((definition) => hasPlanningModule(versionMenuProject, definition.key, lineItems, categories)).map((definition) => (
                   <button
                     key={definition.key}
                     type="button"
                     onClick={() => {
-                      if (!exists) ensurePlanningModule(versionMenuProject.id, definition.key);
                       setVersionMenuType(definition.key);
                     }}
                     className={versionMenuType === definition.key ? 'selected' : ''}
                   >
-                    {exists ? definition.shortLabel : `Create ${definition.shortLabel}`}
+                    {definition.shortLabel}
                   </button>
-                );
-              })}
+              ))}
             </div>
             <div className="mt-5 space-y-2">
               {versionMenuVersions.map((version) => (

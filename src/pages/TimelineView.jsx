@@ -405,19 +405,12 @@ function SortableLine({
               </div>
             )}
             <div
-              className="timeline-bar"
+              className="timeline-labels"
               style={{
-                left: startOffset * dayWidth + 4,
-                width: Math.max(34, duration * dayWidth - 8),
-                transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
-                borderColor: transparentColor(whoLabels[0]?.color ?? labelsById[item.what]?.color, '80'),
-                '--marker-left': `${Math.max(14, (duration - 0.5) * dayWidth - 4)}px`,
+                left: startOffset * dayWidth + duration * dayWidth + 8,
+                transform: dragOffset ? `translate(${dragOffset}px, -50%)` : undefined,
               }}
-              onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
-              onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}
             >
-              <button className="resize-grip left-0" onPointerDown={(event) => onResizeStart(event, item, 'start')} aria-label="Resize start" />
-              <div className="timeline-labels">
                 {showWhatSelector && (
                   <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
                     <LabelSelect
@@ -447,7 +440,20 @@ function SortableLine({
                     {item.time || 'Time'}
                   </button>
                 )}
-              </div>
+            </div>
+            <div
+              className="timeline-bar"
+              style={{
+                left: startOffset * dayWidth + 4,
+                width: Math.max(34, duration * dayWidth - 8),
+                transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
+                borderColor: transparentColor(whoLabels[0]?.color ?? labelsById[item.what]?.color, '80'),
+                '--marker-left': `${Math.max(14, (duration - 0.5) * dayWidth - 4)}px`,
+              }}
+              onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
+              onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}
+            >
+              <button className="resize-grip left-0" onPointerDown={(event) => onResizeStart(event, item, 'start')} aria-label="Resize start" />
               <span
                 className={`timeline-end-marker ${endMarkerAnimating ? 'is-animating' : ''}`}
                 style={{ '--end-marker-color': labelsById[item.what]?.color ?? whoLabels[0]?.color ?? '#6d5dfc' }}

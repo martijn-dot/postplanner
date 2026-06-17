@@ -3482,20 +3482,22 @@ nav .tab-active {
 .project-row {
   align-items: center;
   background: #11101d;
-  border-bottom: 1px solid rgba(125, 113, 255, 0.08);
+  border: 1px solid rgba(148, 142, 157, 0.22);
+  border-radius: 24px;
   color: #f2eefc;
   cursor: pointer;
   display: grid;
   gap: 28px;
-  grid-template-columns: 112px minmax(360px, 1.25fr) minmax(260px, 0.75fr) 260px auto;
+  grid-template-columns: 112px minmax(320px, 1.25fr) minmax(220px, 0.75fr) 230px max-content;
   min-height: 128px;
   padding: 22px 28px;
-  transition: background 0.16s ease, border-color 0.16s ease;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .project-row:hover {
   background: #151426;
-  border-color: rgba(125, 113, 255, 0.2);
+  border-color: rgba(125, 113, 255, 0.48);
+  box-shadow: 0 18px 60px rgba(5, 4, 14, 0.24);
 }
 
 .project-row-number {
@@ -3636,6 +3638,7 @@ nav .tab-active {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  white-space: nowrap;
 }
 
 .project-action-button {
@@ -3644,6 +3647,7 @@ nav .tab-active {
   border-radius: 14px;
   color: rgba(202, 196, 211, 0.74);
   display: inline-flex;
+  flex: 0 0 auto;
   height: 48px;
   justify-content: center;
   transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
@@ -3886,30 +3890,25 @@ nav .tab-active {
   border-radius: 12px;
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.035) inset;
   height: 34px;
-  isolation: isolate;
   padding: 0 30px 0 8px;
   top: 9px;
   z-index: 8;
 }
 
 .timeline-bar::before {
-  background:
-    linear-gradient(180deg, rgba(10, 12, 19, 0.48), rgba(10, 12, 19, 0.62)),
-    linear-gradient(90deg, rgba(205, 189, 255, 0.18), rgba(123, 208, 255, 0.12), transparent);
+  background: linear-gradient(90deg, rgba(205, 189, 255, 0.22), rgba(123, 208, 255, 0.16), transparent);
   border-radius: inherit;
   content: "";
   inset: 0;
   pointer-events: none;
   position: absolute;
-  z-index: 1;
 }
 
 .timeline-labels {
-  left: 8px;
-  max-width: calc(100% - 42px);
-  min-width: 0;
-  overflow: hidden;
-  z-index: 0;
+  max-width: none;
+  min-width: max-content;
+  overflow: visible;
+  z-index: 4;
 }
 
 .timeline-block-select {
@@ -3941,7 +3940,7 @@ nav .tab-active {
 .timeline-end-marker {
   border-color: rgba(225, 225, 239, 0.46);
   height: 10px;
-  z-index: 2;
+  z-index: 10;
   width: 10px;
 }
 
