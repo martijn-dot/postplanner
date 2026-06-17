@@ -5,26 +5,34 @@ import { usePlanner } from '../context/PlannerContext.jsx';
 import TimelineView from './TimelineView.jsx';
 import ClientTableView from './ClientTableView.jsx';
 import AssetListPage from './AssetListPage.jsx';
+import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 
-function versionsForProject(project, lineItems = [], categories = []) {
+function safePlanningType(value) {
+  return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
+}
+
+function versionsForProject(project, lineItems = [], categories = [], planningType = DEFAULT_PLANNING_TYPE) {
+  const safeType = safePlanningType(planningType);
   const versions = [...new Set([
-    ...(Array.isArray(project?.planning_versions) ? project.planning_versions : []),
-    project?.preferred_planning_version,
-    ...lineItems.filter((item) => item.project_id === project?.id).map((item) => item.planning_version ?? 'V1'),
-    ...categories.filter((category) => category.project_id === project?.id).map((category) => category.planning_version ?? 'V1'),
+    ...(safeType === DEFAULT_PLANNING_TYPE && Array.isArray(project?.planning_versions) ? project.planning_versions : []),
+    safeType === DEFAULT_PLANNING_TYPE ? project?.preferred_planning_version : null,
+    ...lineItems.filter((item) => item.project_id === project?.id && safePlanningType(item.planning_type) === safeType).map((item) => item.planning_version ?? 'V1'),
+    ...categories.filter((category) => category.project_id === project?.id && safePlanningType(category.planning_type) === safeType).map((category) => category.planning_version ?? 'V1'),
   ].filter(Boolean))];
   const ordered = versions.sort((a, b) => Number(String(a).replace(/^V/i, '')) - Number(String(b).replace(/^V/i, '')));
-  return ordered.length ? ordered : ['V1'];
+  return ordered.length ? ordered : [];
 }
 
 export default function ProjectPage() {
   const { projectId } = useParams();
   const [searchParams] = useSearchParams();
-  const { projects, lineItems, categories, loading, upsertPresence, clearPresence, markProjectEdited } = usePlanner();
+  const { projects, lineItems, categories, loading, upsertPresence, clearPresence, markProjectEdited, ensurePlanningModule } = usePlanner();
   const project = projects.find((item) => item.id === projectId);
-  const versions = versionsForProject(project, lineItems, categories);
+  const requestedType = safePlanningType(searchParams.get('type'));
+  const versions = versionsForProject(project, lineItems, categories, requestedType);
   const requestedVersion = searchParams.get('version');
-  const activeVersion = versions.includes(requestedVersion) ? requestedVersion : project?.preferred_planning_version ?? versions[0];
+  const fallbackVersion = requestedType === DEFAULT_PLANNING_TYPE ? project?.preferred_planning_version : null;
+  const activeVersion = versions.includes(requestedVersion) ? requestedVersion : (versions.includes(fallbackVersion) ? fallbackVersion : versions[0] ?? 'V1');
   const actionsRef = useRef({ upsertPresence, clearPresence, markProjectEdited });
 
   useEffect(() => {
@@ -47,6 +55,11 @@ export default function ProjectPage() {
     };
   }, [projectId]);
 
+  useEffect(() => {
+    if (!project || versions.length) return;
+    ensurePlanningModule(project.id, requestedType);
+  }, [ensurePlanningModule, project, requestedType, versions.length]);
+
   if (loading) return <div className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">Loading project...</div>;
   if (!project) return <Navigate to="/" replace />;
 
@@ -54,13 +67,13 @@ export default function ProjectPage() {
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar project={project} />
       <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
-        <NavLink end to={`/projects/${projectId}?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
-        <NavLink to={`/projects/${projectId}/client?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
-        <NavLink to={`/projects/${projectId}/assets?version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Asset List</NavLink>
+        <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
+        <NavLink to={`/projects/${projectId}/client?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
+        <NavLink to={`/projects/${projectId}/assets?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Asset List</NavLink>
       </nav>
       <Routes>
-        <Route index element={<TimelineView project={project} planningVersion={activeVersion} planningVersions={versions} />} />
-        <Route path="client" element={<ClientTableView project={project} planningVersion={activeVersion} />} />
+        <Route index element={<TimelineView project={project} planningType={requestedType} planningVersion={activeVersion} planningVersions={versions.length ? versions : ['V1']} />} />
+        <Route path="client" element={<ClientTableView project={project} planningType={requestedType} planningVersion={activeVersion} />} />
         <Route path="assets" element={<AssetListPage project={project} />} />
       </Routes>
     </div>

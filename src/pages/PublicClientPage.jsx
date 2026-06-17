@@ -7,9 +7,14 @@ import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import Pill from '../components/Pill.jsx';
 import wennekerLogo from '../assets/wenneker-logo.png';
+import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
 const PLANNER_STORAGE_KEY = 'post-production-planner:v1';
+
+function safePlanningType(value) {
+  return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
+}
 
 function tokenFromSlug(value) {
   return String(value ?? '').split('-').at(-1) ?? value;
@@ -20,10 +25,13 @@ function readLocalShare(token) {
   const share = shares[token] ?? null;
   if (!share?.projectId) return share;
   const planner = JSON.parse(localStorage.getItem(PLANNER_STORAGE_KEY) ?? '{}');
+  const planningType = safePlanningType(share.planningType);
+  const planningVersion = share.planningVersion ?? 'V1';
   return {
     project: planner.projects?.find((project) => project.id === share.projectId),
-    categories: planner.categories?.filter((category) => category.project_id === share.projectId) ?? [],
-    lineItems: planner.lineItems?.filter((item) => item.project_id === share.projectId) ?? [],
+    share: { planning_type: planningType, planning_version: planningVersion },
+    categories: planner.categories?.filter((category) => category.project_id === share.projectId && safePlanningType(category.planning_type) === planningType && (category.planning_version ?? 'V1') === planningVersion) ?? [],
+    lineItems: planner.lineItems?.filter((item) => item.project_id === share.projectId && safePlanningType(item.planning_type) === planningType && (item.planning_version ?? 'V1') === planningVersion) ?? [],
     labels: planner.labels?.filter((label) => !label.project_id || label.project_id === share.projectId) ?? [],
     assetLists: planner.assetLists?.filter((list) => list.project_id === share.projectId) ?? [],
     clients: planner.clients ?? [],
@@ -153,10 +161,11 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
   };
 }
 
-function publicPlanningVersion(project, lineItems = []) {
-  return project?.preferred_planning_version
-    ?? project?.planning_version
+function publicPlanningVersion(project, lineItems = [], share = null) {
+  return share?.planning_version
     ?? lineItems.find((item) => item.planning_version)?.planning_version
+    ?? project?.preferred_planning_version
+    ?? project?.planning_version
     ?? 'V1';
 }
 
@@ -325,7 +334,7 @@ export default function PublicClientPage() {
     return [...groups.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }, [payload?.categories, payload?.lineItems, payload?.project, uncategorizedName]);
   const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], milestones: [] }), [payload]);
-  const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? []), [payload?.lineItems, payload?.project]);
+  const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? [], payload?.share), [payload?.lineItems, payload?.project, payload?.share]);
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
   const lastEditedDate = formatPublicDate(payload?.project?.last_edited_at ?? payload?.project?.updated_at ?? payload?.project?.created_at);
   const whoFilterIds = useMemo(() => ({
@@ -470,7 +479,7 @@ export default function PublicClientPage() {
                     <span>Next milestones</span>
                   </div>
                   <strong className="public-milestone-card">
-                    {stats.milestones?.some((item) => item.milestone) ? stats.milestones.map(({ key, title, milestone }) => (
+                    {stats.milestones?.some((item) => item.milestone) ? stats.milestones.map(({ key, milestone }) => (
                       milestone ? (
                         <span className="public-milestone-entry" key={key}>
                           <span className="public-milestone-title">

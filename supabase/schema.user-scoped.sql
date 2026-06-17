@@ -120,6 +120,7 @@ end $$;
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
+  planning_type text not null default 'post',
   planning_version text not null default 'V1',
   name text not null,
   sort_order int not null default 0
@@ -128,6 +129,7 @@ create table if not exists public.categories (
 create table if not exists public.line_items (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
+  planning_type text not null default 'post',
   planning_version text not null default 'V1',
   category_id uuid references public.categories(id) on delete set null,
   who text[] not null default '{}',
@@ -143,7 +145,9 @@ create table if not exists public.line_items (
   constraint line_items_valid_range check (start_date is null or end_date is null or end_date >= start_date)
 );
 
+alter table public.categories add column if not exists planning_type text not null default 'post';
 alter table public.categories add column if not exists planning_version text not null default 'V1';
+alter table public.line_items add column if not exists planning_type text not null default 'post';
 alter table public.line_items add column if not exists planning_version text not null default 'V1';
 alter table public.line_items add column if not exists time text not null default '';
 alter table public.line_items add column if not exists notes text not null default '';
@@ -190,9 +194,14 @@ create table if not exists public.public_share_links (
   project_id uuid not null references public.projects(id) on delete cascade,
   token text not null unique,
   page_type text not null default 'client_planning' check (page_type in ('client_planning')),
+  planning_type text not null default 'post',
+  planning_version text not null default 'V1',
   created_at timestamptz not null default now(),
   revoked_at timestamptz
 );
+
+alter table public.public_share_links add column if not exists planning_type text not null default 'post';
+alter table public.public_share_links add column if not exists planning_version text not null default 'V1';
 
 create table if not exists public.project_presence (
   id uuid primary key default gen_random_uuid(),
@@ -552,7 +561,7 @@ security definer
 set search_path = public
 as $$
   with share as (
-    select project_id
+    select project_id, planning_type, planning_version
     from public.public_share_links
     where token = share_token
       and page_type = 'client_planning'
@@ -565,15 +574,23 @@ as $$
       from public.projects p
       join share s on s.project_id = p.id
     ),
+    'share', (
+      select to_jsonb(s)
+      from share s
+    ),
     'categories', coalesce((
       select jsonb_agg(to_jsonb(c) order by c.sort_order)
       from public.categories c
       join share s on s.project_id = c.project_id
+      where c.planning_type = s.planning_type
+        and c.planning_version = s.planning_version
     ), '[]'::jsonb),
     'lineItems', coalesce((
       select jsonb_agg(to_jsonb(li) order by li.sort_order)
       from public.line_items li
       join share s on s.project_id = li.project_id
+      where li.planning_type = s.planning_type
+        and li.planning_version = s.planning_version
     ), '[]'::jsonb),
     'labels', coalesce((
       select jsonb_agg(to_jsonb(l) order by l.column_type, l.value)
@@ -627,6 +644,10 @@ insert into public.labels (project_id, column_type, value, color, is_default, sc
   (null, 'what', 'CAD/MUS/PGD', '#8b8f9a', true, 'global'),
   (null, 'what', 'CIMA', '#8b8f9a', true, 'global'),
   (null, 'what', 'Shoot', '#8b8f9a', true, 'global'),
+  (null, 'what', 'Prep', '#28b8ff', true, 'global'),
+  (null, 'what', 'Pre-light', '#8d79ff', true, 'global'),
+  (null, 'what', 'Strike', '#ff8f4f', true, 'global'),
+  (null, 'what', 'Travel', '#10b981', true, 'global'),
   (null, 'todo', 'Share', '#46d39b', true, 'global'),
   (null, 'todo', 'Viewing at Wenneker', '#46d39b', true, 'global'),
   (null, 'todo', 'Session at Wenneker', '#46d39b', true, 'global'),
@@ -636,5 +657,10 @@ insert into public.labels (project_id, column_type, value, color, is_default, sc
   (null, 'todo', 'Internal', '#8b8f9a', true, 'global'),
   (null, 'todo', 'Upload PAL & EG+', '#ff5e84', true, 'global'),
   (null, 'todo', 'Upload DAM', '#ff5e84', true, 'global'),
-  (null, 'todo', 'Upload SAL', '#ff5e84', true, 'global')
+  (null, 'todo', 'Upload SAL', '#ff5e84', true, 'global'),
+  (null, 'todo', 'Schedule', '#46d39b', true, 'global'),
+  (null, 'todo', 'Book crew', '#28b8ff', true, 'global'),
+  (null, 'todo', 'Confirm talent', '#b793ff', true, 'global'),
+  (null, 'todo', 'Location check', '#f59e0b', true, 'global'),
+  (null, 'todo', 'Call sheet', '#ff8f4f', true, 'global')
 on conflict do nothing;

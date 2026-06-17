@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
+import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 import { buildProjectSummary } from '../lib/projectSummary.js';
 
 function ComboField({ label, value, onChange, options, placeholder, required = false }) {
@@ -77,20 +78,29 @@ function isUuidLike(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
-function versionsForProject(project, lineItems = [], categories = []) {
+function safePlanningType(value) {
+  return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
+}
+
+function versionsForProject(project, lineItems = [], categories = [], planningType = DEFAULT_PLANNING_TYPE) {
+  const safeType = safePlanningType(planningType);
   const versions = [...new Set([
-    ...(Array.isArray(project.planning_versions) ? project.planning_versions : []),
-    project.preferred_planning_version,
-    ...lineItems.filter((item) => item.project_id === project.id).map((item) => item.planning_version ?? 'V1'),
-    ...categories.filter((category) => category.project_id === project.id).map((category) => category.planning_version ?? 'V1'),
+    ...(safeType === DEFAULT_PLANNING_TYPE && Array.isArray(project.planning_versions) ? project.planning_versions : []),
+    safeType === DEFAULT_PLANNING_TYPE ? project.preferred_planning_version : null,
+    ...lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === safeType).map((item) => item.planning_version ?? 'V1'),
+    ...categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === safeType).map((category) => category.planning_version ?? 'V1'),
   ].filter(Boolean))];
   const ordered = versions.sort((a, b) => Number(String(a).replace(/^V/i, '')) - Number(String(b).replace(/^V/i, '')));
-  return ordered.length ? ordered : ['V1'];
+  return ordered.length ? ordered : [];
+}
+
+function hasPlanningModule(project, type, lineItems = [], categories = []) {
+  return versionsForProject(project, lineItems, categories, type).length > 0;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
@@ -206,7 +216,8 @@ export default function Dashboard() {
       return matchesSearch && matchesUser && matchesClient;
     });
   const versionMenuProject = projects.find((project) => project.id === versionMenuProjectId);
-  const versionMenuVersions = versionMenuProject ? versionsForProject(versionMenuProject, lineItems, categories) : [];
+  const [versionMenuType, setVersionMenuType] = useState(DEFAULT_PLANNING_TYPE);
+  const versionMenuVersions = versionMenuProject ? versionsForProject(versionMenuProject, lineItems, categories, versionMenuType) : [];
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -248,8 +259,13 @@ export default function Dashboard() {
               <span className="text-right">Actions</span>
             </div>
             {visibleProjects.map((project) => {
-              const versions = versionsForProject(project, lineItems, categories);
+              const versions = versionsForProject(project, lineItems, categories, DEFAULT_PLANNING_TYPE);
               const preferredVersion = project.preferred_planning_version && versions.includes(project.preferred_planning_version) ? project.preferred_planning_version : versions[0];
+              const moduleLinks = Object.values(PLANNING_TYPES).map((definition) => {
+                const moduleVersions = versionsForProject(project, lineItems, categories, definition.key);
+                const moduleVersion = moduleVersions.includes(project.preferred_planning_version) ? project.preferred_planning_version : moduleVersions[0] ?? 'V1';
+                return { definition, versions: moduleVersions, version: moduleVersion, exists: hasPlanningModule(project, definition.key, lineItems, categories) };
+              });
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
               const postProducerName = project.post_producer || '-';
@@ -258,9 +274,9 @@ export default function Dashboard() {
               const clientLabel = knownClient ? project.client : 'no client';
               const missingClient = clientLabel === 'no client';
               const summary = buildProjectSummary({
-                lineItems: (lineItems ?? []).filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === preferredVersion),
+                lineItems: (lineItems ?? []).filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === DEFAULT_PLANNING_TYPE && (item.planning_version ?? 'V1') === preferredVersion),
                 labelsById,
-                categories: (categories ?? []).filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === preferredVersion),
+                categories: (categories ?? []).filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === DEFAULT_PLANNING_TYPE && (category.planning_version ?? 'V1') === preferredVersion),
               });
               const activeNames = activeNamesForProject(project.id);
               const locked = activeNames.length > 0;
@@ -284,7 +300,7 @@ export default function Dashboard() {
                                 window.alert(`${currentActiveNames.join(', ')} ${currentActiveNames.length === 1 ? 'is' : 'are'} working in this project.`);
                                 return;
                               }
-                              window.location.href = `/projects/${project.id}?version=${version}`;
+                              window.location.href = `/projects/${project.id}?type=${DEFAULT_PLANNING_TYPE}&version=${version}`;
                             }}
                             className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-semibold text-ink-400 transition hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100"
                           >
@@ -300,6 +316,28 @@ export default function Dashboard() {
                       {summary.offlineLock !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Offline lock</span> <span className="text-ink-500">{summary.offlineLock}</span></span>}
                       {summary.grading !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Grading</span> <span className="text-ink-500">{summary.grading}</span></span>}
                       {summary.final !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Final</span> <span className="text-ink-500">{summary.final}</span></span>}
+                    </span>
+                    <span className="mt-2 flex flex-wrap gap-1">
+                      {moduleLinks.map(({ definition, exists, version }) => (
+                        <button
+                          key={definition.key}
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            const currentActiveNames = activeNamesForProject(project.id);
+                            if (currentActiveNames.length) {
+                              window.alert(`${currentActiveNames.join(', ')} ${currentActiveNames.length === 1 ? 'is' : 'are'} working in this project.`);
+                              return;
+                            }
+                            if (!exists) ensurePlanningModule(project.id, definition.key);
+                            window.location.href = `/projects/${project.id}?type=${definition.key}&version=${version}`;
+                          }}
+                          className={`rounded-md border px-2 py-1 text-xs font-semibold transition ${exists ? 'border-accent-400/60 bg-accent-500/15 text-accent-100' : 'border-white/10 bg-white/5 text-ink-400 hover:border-accent-400 hover:text-accent-100'}`}
+                        >
+                          {exists ? definition.label : `Create ${definition.label}`}
+                        </button>
+                      ))}
                     </span>
                   </span>
                   <span className="flex min-w-0 items-center gap-2 text-sm text-ink-500">
@@ -334,6 +372,7 @@ export default function Dashboard() {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
+                        setVersionMenuType(DEFAULT_PLANNING_TYPE);
                         setVersionMenuProjectId(project.id);
                       }}
                       className="icon-button font-bold"
@@ -347,7 +386,7 @@ export default function Dashboard() {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        window.location.href = `/projects/${project.id}/assets?version=${preferredVersion}`;
+                        window.location.href = `/projects/${project.id}/assets?type=${DEFAULT_PLANNING_TYPE}&version=${preferredVersion}`;
                       }}
                       className="icon-button"
                       aria-label="Start building asset list"
@@ -388,7 +427,7 @@ export default function Dashboard() {
                 );
               }
               return (
-                <Link key={project.id} to={`/projects/${project.id}?version=V1`} onClick={(event) => guardProjectOpen(event, project.id)} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-4 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
+                <Link key={project.id} to={`/projects/${project.id}?type=${DEFAULT_PLANNING_TYPE}&version=${preferredVersion ?? 'V1'}`} onClick={(event) => guardProjectOpen(event, project.id)} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-4 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
                   {rowContent}
                 </Link>
               );
@@ -408,13 +447,31 @@ export default function Dashboard() {
               </div>
               <button type="button" onClick={() => setVersionMenuProjectId(null)} className="secondary-button !px-3 !py-2">Close</button>
             </div>
+            <div className="segmented mt-4">
+              {Object.values(PLANNING_TYPES).map((definition) => {
+                const exists = hasPlanningModule(versionMenuProject, definition.key, lineItems, categories);
+                return (
+                  <button
+                    key={definition.key}
+                    type="button"
+                    onClick={() => {
+                      if (!exists) ensurePlanningModule(versionMenuProject.id, definition.key);
+                      setVersionMenuType(definition.key);
+                    }}
+                    className={versionMenuType === definition.key ? 'selected' : ''}
+                  >
+                    {exists ? definition.shortLabel : `Create ${definition.shortLabel}`}
+                  </button>
+                );
+              })}
+            </div>
             <div className="mt-5 space-y-2">
               {versionMenuVersions.map((version) => (
                 <div key={version} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
                   <button
                     type="button"
                     onClick={() => {
-                      window.location.href = `/projects/${versionMenuProject.id}?version=${version}`;
+                      window.location.href = `/projects/${versionMenuProject.id}?type=${versionMenuType}&version=${version}`;
                     }}
                     className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm font-semibold text-ink-300 transition hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100"
                   >
@@ -425,7 +482,7 @@ export default function Dashboard() {
                       <button
                         type="button"
                         onClick={() => {
-                          duplicateProjectPlanning(versionMenuProject.id, version);
+                          duplicateProjectPlanning(versionMenuProject.id, version, versionMenuType);
                         }}
                         className="icon-button"
                         aria-label={`Duplicate ${version}`}
@@ -440,7 +497,7 @@ export default function Dashboard() {
                         type="button"
                         onClick={() => {
                           if (window.confirm(`Use ${version} as the current planning and delete all other versions? This cannot be undone.`)) {
-                            keepProjectPlanningVersion(versionMenuProject.id, version);
+                            keepProjectPlanningVersion(versionMenuProject.id, version, versionMenuType);
                             setVersionMenuProjectId(null);
                           }
                         }}
@@ -452,7 +509,7 @@ export default function Dashboard() {
                         type="button"
                         onClick={() => {
                           if (window.confirm(`Delete ${version}? This cannot be undone.`)) {
-                            deleteProjectPlanningVersion(versionMenuProject.id, version);
+                            deleteProjectPlanningVersion(versionMenuProject.id, version, versionMenuType);
                             if (versionMenuVersions.length === 2) setVersionMenuProjectId(null);
                           }
                         }}

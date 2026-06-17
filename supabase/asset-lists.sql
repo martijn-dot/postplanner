@@ -76,7 +76,7 @@ security definer
 set search_path = public
 as $$
   with share as (
-    select project_id
+    select project_id, planning_type, planning_version
     from public.public_share_links
     where token = share_token
       and page_type = 'client_planning'
@@ -89,15 +89,23 @@ as $$
       from public.projects p
       join share s on s.project_id = p.id
     ),
+    'share', (
+      select to_jsonb(s)
+      from share s
+    ),
     'categories', coalesce((
       select jsonb_agg(to_jsonb(c) order by c.sort_order)
       from public.categories c
       join share s on s.project_id = c.project_id
+      where c.planning_type = s.planning_type
+        and c.planning_version = s.planning_version
     ), '[]'::jsonb),
     'lineItems', coalesce((
       select jsonb_agg(to_jsonb(li) order by li.sort_order)
       from public.line_items li
       join share s on s.project_id = li.project_id
+      where li.planning_type = s.planning_type
+        and li.planning_version = s.planning_version
     ), '[]'::jsonb),
     'labels', coalesce((
       select jsonb_agg(to_jsonb(l) order by l.column_type, l.value)

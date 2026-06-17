@@ -7,6 +7,7 @@ import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import { weekNumber } from '../lib/dates.js';
+import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 
 const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v4';
 const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
@@ -43,6 +44,10 @@ const ROW_COLOR_OPTIONS = [
   { value: 'purple', label: 'Purple', color: '#b793ff' },
   { value: 'orange', label: 'Orange', color: '#ff8f4f' },
 ];
+
+function safePlanningType(value) {
+  return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
+}
 
 function readClientColumnPrefs() {
   const defaultOrder = CLIENT_COLUMNS.map((column) => column.key);
@@ -702,8 +707,10 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
   );
 }
 
-export default function ClientTableView({ project, planningVersion = 'V1' }) {
+export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
   const { lineItems, labels, categories, createShareLink, updateLineItem, addLabel } = usePlanner();
+  const activePlanningType = safePlanningType(planningType);
+  const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [dateWindow, setDateWindow] = useState('future');
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
@@ -724,8 +731,8 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
     wenneker: labels.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: labels.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
   }), [labels]);
-  const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === planningVersion), [lineItems, planningVersion, project.id]);
-  const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === planningVersion), [categories, planningVersion, project.id]);
+  const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion), [activePlanningType, lineItems, planningVersion, project.id]);
+  const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion), [activePlanningType, categories, planningVersion, project.id]);
   const categoriesById = useMemo(() => Object.fromEntries(versionCategories.map((category) => [category.id, category])), [versionCategories]);
   const bookingFilteredLineItems = useMemo(() => versionLineItems.filter((item) => {
     if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
@@ -759,7 +766,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
   const publish = async () => {
     setPublishing(true);
     try {
-      const token = await createShareLink(project.id);
+      const token = await createShareLink(project.id, activePlanningType, planningVersion);
       const url = `${window.location.origin}/share/${slugifyProjectName(project.name)}-${token}`;
       setPublishedUrl(url);
       await navigator.clipboard?.writeText(url);
@@ -812,6 +819,7 @@ export default function ClientTableView({ project, planningVersion = 'V1' }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold">Client Planning</h1>
+            <span className="rounded-md border border-accent-400/35 bg-accent-500/12 px-2 py-1 text-xs font-bold uppercase text-accent-100">{planningDefinition.label}</span>
             <span className="rounded-md border border-amber-300/35 bg-amber-300/12 px-2 py-1 text-xs font-bold uppercase text-amber-200">{planningVersion}</span>
           </div>
           <p className="mt-1 text-sm text-ink-500">Milestones are generated from the final day of each timeline item.</p>

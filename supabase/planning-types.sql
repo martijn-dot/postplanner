@@ -1,19 +1,35 @@
-alter table public.clients
-  add column if not exists abbreviation text;
+alter table public.categories add column if not exists planning_type text not null default 'post';
+alter table public.line_items add column if not exists planning_type text not null default 'post';
+alter table public.public_share_links add column if not exists planning_type text not null default 'post';
+alter table public.public_share_links add column if not exists planning_version text not null default 'V1';
 
-alter table public.clients
-  drop constraint if exists clients_abbreviation_check;
+update public.categories
+set planning_type = 'post'
+where planning_type is null or btrim(planning_type) = '';
 
-alter table public.clients
-  add constraint clients_abbreviation_check
-  check (abbreviation is null or abbreviation ~ '^[A-Z]{2}$');
+update public.line_items
+set planning_type = 'post'
+where planning_type is null or btrim(planning_type) = '';
 
-drop policy if exists "Admins can update clients" on public.clients;
+update public.public_share_links
+set planning_type = 'post'
+where planning_type is null or btrim(planning_type) = '';
 
-create policy "Admins can update clients"
-on public.clients for update
-using (public.is_admin())
-with check (public.is_admin());
+update public.public_share_links
+set planning_version = 'V1'
+where planning_version is null or btrim(planning_version) = '';
+
+insert into public.labels (project_id, column_type, value, color, is_default, scope) values
+  (null, 'what', 'Prep', '#28b8ff', true, 'global'),
+  (null, 'what', 'Pre-light', '#8d79ff', true, 'global'),
+  (null, 'what', 'Strike', '#ff8f4f', true, 'global'),
+  (null, 'what', 'Travel', '#10b981', true, 'global'),
+  (null, 'todo', 'Schedule', '#46d39b', true, 'global'),
+  (null, 'todo', 'Book crew', '#28b8ff', true, 'global'),
+  (null, 'todo', 'Confirm talent', '#b793ff', true, 'global'),
+  (null, 'todo', 'Location check', '#f59e0b', true, 'global'),
+  (null, 'todo', 'Call sheet', '#ff8f4f', true, 'global')
+on conflict do nothing;
 
 create or replace function public.get_public_client_planning(share_token text)
 returns jsonb

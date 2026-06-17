@@ -30,6 +30,10 @@ export const DEFAULT_LABELS = [
   { column_type: 'what', value: 'CAD/MUS/PGD', color: '#8b8f9a', is_default: true },
   { column_type: 'what', value: 'CIMA', color: '#8b8f9a', is_default: true },
   { column_type: 'what', value: 'Shoot', color: '#8b8f9a', is_default: true },
+  { column_type: 'what', value: 'Prep', color: '#28b8ff', is_default: true },
+  { column_type: 'what', value: 'Pre-light', color: '#8d79ff', is_default: true },
+  { column_type: 'what', value: 'Strike', color: '#ff8f4f', is_default: true },
+  { column_type: 'what', value: 'Travel', color: '#10b981', is_default: true },
   { column_type: 'todo', value: 'Share', color: '#46d39b', is_default: true },
   { column_type: 'todo', value: 'Viewing at Wenneker', color: '#46d39b', is_default: true },
   { column_type: 'todo', value: 'Session at Wenneker', color: '#46d39b', is_default: true },
@@ -40,6 +44,11 @@ export const DEFAULT_LABELS = [
   { column_type: 'todo', value: 'Upload PAL & EG+', color: '#ff5e84', is_default: true },
   { column_type: 'todo', value: 'Upload DAM', color: '#ff5e84', is_default: true },
   { column_type: 'todo', value: 'Upload SAL', color: '#ff5e84', is_default: true },
+  { column_type: 'todo', value: 'Schedule', color: '#46d39b', is_default: true },
+  { column_type: 'todo', value: 'Book crew', color: '#28b8ff', is_default: true },
+  { column_type: 'todo', value: 'Confirm talent', color: '#b793ff', is_default: true },
+  { column_type: 'todo', value: 'Location check', color: '#f59e0b', is_default: true },
+  { column_type: 'todo', value: 'Call sheet', color: '#ff8f4f', is_default: true },
 ];
 
 export const DEFAULT_PROJECT = {
@@ -55,6 +64,46 @@ export const DEFAULT_PLANNING_WHAT_LABELS = [
   'PreFinal V2',
   'Final',
   'Final Delivery',
+];
+
+export const PLANNING_TYPES = {
+  post: {
+    key: 'post',
+    label: 'Post Production',
+    shortLabel: 'Post',
+    defaultCategoryName: 'Post Production Planning',
+    whatLabel: 'What',
+    assetLabel: 'Asset',
+    showWhatSelector: true,
+  },
+  production: {
+    key: 'production',
+    label: 'Production',
+    shortLabel: 'Production',
+    defaultCategoryName: 'Production Planning',
+    whatLabel: 'What',
+    assetLabel: 'What',
+    showWhatSelector: false,
+  },
+};
+
+export const DEFAULT_PLANNING_TYPE = PLANNING_TYPES.post.key;
+
+export const PRODUCTION_WHAT_LABELS = [
+  'Prep',
+  'Pre-light',
+  'Shoot',
+  'Strike',
+  'Travel',
+];
+
+export const PRODUCTION_TODO_LABELS = [
+  'Schedule',
+  'Book crew',
+  'Confirm talent',
+  'Location check',
+  'Call sheet',
+  'Approval',
 ];
 
 export const DEFAULT_PLANNING_ALIASES = {

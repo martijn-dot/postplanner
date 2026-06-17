@@ -24,7 +24,7 @@ import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { buildTimelineDays, daysBetween, isToday, iso, monthSegments } from '../lib/dates.js';
-import { DEFAULT_PLANNING_WHAT_LABELS } from '../lib/defaults.js';
+import { DEFAULT_PLANNING_TYPE, DEFAULT_PLANNING_WHAT_LABELS, PLANNING_TYPES, PRODUCTION_WHAT_LABELS } from '../lib/defaults.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import { buildProjectSummary } from '../lib/projectSummary.js';
 
@@ -44,6 +44,10 @@ const OPTIONAL_COLUMNS = ['who', 'asset'];
 const COLUMN_LABELS = { who: 'Who', asset: 'Asset', what: 'What', todo: 'Todo' };
 const HEADER_HEIGHT = 92;
 const CELL_CLIPBOARD_TYPE = 'application/x-postplanner-cell';
+
+function safePlanningType(value) {
+  return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
+}
 
 function readJson(key, fallback) {
   try {
@@ -174,6 +178,14 @@ function cellText(item, column, labelsById) {
   return labelText(labelsById, item[column]);
 }
 
+function timelineBlockLabelText(item, labelsById, showMetaLabels, showWhat = true) {
+  return [
+    showWhat ? labelsById[item.what]?.value : null,
+    labelsById[item.todo]?.value,
+    showMetaLabels ? item.time : null,
+  ].filter(Boolean).join(' ');
+}
+
 function findLabelId(labels, value) {
   const normalized = value.trim().toLowerCase();
   return labels.find((label) => !label.is_divider && label.value.toLowerCase() === normalized)?.id;
@@ -220,6 +232,7 @@ function SortableLine({
   onSpreadsheetUpdate,
   showMetaLabels,
   showAssetLabels,
+  planningDefinition,
   onUpdateLineItem,
   endMarkerAnimating,
 }) {
@@ -341,6 +354,8 @@ function SortableLine({
       </button>
     </span>
   );
+  const assetColumnLabel = planningDefinition.assetLabel ?? COLUMN_LABELS.asset;
+  const showWhatSelector = planningDefinition.showWhatSelector !== false;
 
   return (
     <div
@@ -355,7 +370,7 @@ function SortableLine({
           <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
           {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} /></div>}
-          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder="Asset" />{fillHandle('asset')}</div>}
+          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder={assetColumnLabel} />{fillHandle('asset')}</div>}
           {optionsVisible && (
             <div className="timeline-option-cluster">
               <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button" aria-label="Focus booking on timeline">F</button>
@@ -375,56 +390,73 @@ function SortableLine({
       )}
       <div className="relative h-full" style={timelineColumnStyle(tableVisible)} onClick={scheduleOnClick}>
         {block ? (
-          <div
-            className="timeline-bar"
-            style={{
-              left: startOffset * dayWidth + 4,
-              width: Math.max(34, duration * dayWidth - 8),
-              transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
-              borderColor: transparentColor(whoLabels[0]?.color ?? labelsById[item.what]?.color, '80'),
-              '--marker-left': `${Math.max(14, (duration - 0.5) * dayWidth - 4)}px`,
-            }}
-            onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
-            onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}
-          >
-            <button className="resize-grip left-0" onPointerDown={(event) => onResizeStart(event, item, 'start')} aria-label="Resize start" />
-            <div className="timeline-labels">
-              <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
-                <LabelSelect
-                  labels={labelsByType.what}
-                  value={item.what}
-                  placeholder="What"
-                  open={openBlockMenu === 'what'}
-                  onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'what' : null)}
-                  onChange={(what) => { onInteract(item.id); onUpdateLineItem(item.id, { what }); }}
-                  onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)}
-                />
-              </span>
-              <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
-                <LabelSelect
-                  labels={labelsByType.todo}
-                  value={item.todo}
-                  placeholder="Todo"
-                  open={openBlockMenu === 'todo'}
-                  onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'todo' : null)}
-                  onChange={(todo) => { onInteract(item.id); onUpdateLineItem(item.id, { todo }); }}
-                  onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)}
-                />
-              </span>
-              {showMetaLabels && (
-                <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
-                  {item.time || 'Time'}
-                </button>
-              )}
+          <>
+            {timelineBlockLabelText(item, labelsById, showMetaLabels, showWhatSelector) && (
+              <div
+                className="timeline-labels-underlay"
+                style={{
+                  left: startOffset * dayWidth + 4,
+                  width: Math.max(34, duration * dayWidth - 8),
+                  transform: dragOffset ? `translate(${dragOffset}px, -50%)` : undefined,
+                }}
+                aria-hidden="true"
+              >
+                {timelineBlockLabelText(item, labelsById, showMetaLabels, showWhatSelector)}
+              </div>
+            )}
+            <div
+              className="timeline-bar"
+              style={{
+                left: startOffset * dayWidth + 4,
+                width: Math.max(34, duration * dayWidth - 8),
+                transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
+                borderColor: transparentColor(whoLabels[0]?.color ?? labelsById[item.what]?.color, '80'),
+                '--marker-left': `${Math.max(14, (duration - 0.5) * dayWidth - 4)}px`,
+              }}
+              onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
+              onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}
+            >
+              <button className="resize-grip left-0" onPointerDown={(event) => onResizeStart(event, item, 'start')} aria-label="Resize start" />
+              <div className="timeline-labels">
+                {showWhatSelector && (
+                  <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+                    <LabelSelect
+                      labels={labelsByType.what}
+                      value={item.what}
+                      placeholder="What"
+                      open={openBlockMenu === 'what'}
+                      onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'what' : null)}
+                      onChange={(what) => { onInteract(item.id); onUpdateLineItem(item.id, { what }); }}
+                      onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)}
+                    />
+                  </span>
+                )}
+                <span className="timeline-block-select" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+                  <LabelSelect
+                    labels={labelsByType.todo}
+                    value={item.todo}
+                    placeholder="Todo"
+                    open={openBlockMenu === 'todo'}
+                    onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'todo' : null)}
+                    onChange={(todo) => { onInteract(item.id); onUpdateLineItem(item.id, { todo }); }}
+                    onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)}
+                  />
+                </span>
+                {showMetaLabels && (
+                  <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
+                    {item.time || 'Time'}
+                  </button>
+                )}
+              </div>
+              <span
+                className={`timeline-end-marker ${endMarkerAnimating ? 'is-animating' : ''}`}
+                style={{ '--end-marker-color': labelsById[item.what]?.color ?? whoLabels[0]?.color ?? '#6d5dfc' }}
+                aria-hidden="true"
+              />
+              {showAssetLabels && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
+              <button className="resize-grip right-0" onPointerDown={(event) => onResizeStart(event, item, 'end')} aria-label="Resize end" />
             </div>
-            <span
-              className={`timeline-end-marker ${endMarkerAnimating ? 'is-animating' : ''}`}
-              style={{ '--end-marker-color': labelsById[item.what]?.color ?? whoLabels[0]?.color ?? '#6d5dfc' }}
-              aria-hidden="true"
-            />
-            {showAssetLabels && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
-            <button className="resize-grip right-0" onPointerDown={(event) => onResizeStart(event, item, 'end')} aria-label="Resize end" />
-          </div>
+          </>
         ) : (
           <div className="timeline-empty-hint">Click a date to add block</div>
         )}
@@ -471,6 +503,7 @@ function CategoryBlock({
   canAddReviews,
   showMetaLabels,
   showAssetLabels,
+  planningDefinition,
   categoryCount,
   onUpdateLineItem,
   endMarkerIds,
@@ -631,6 +664,7 @@ function CategoryBlock({
                 onSpreadsheetUpdate={onSpreadsheetUpdate}
                 showMetaLabels={showMetaLabels}
                 showAssetLabels={showAssetLabels}
+                planningDefinition={planningDefinition}
                 onUpdateLineItem={onUpdateLineItem}
                 endMarkerAnimating={endMarkerIds.includes(item.id)}
               />
@@ -647,8 +681,10 @@ function CategoryBlock({
   );
 }
 
-export default function TimelineView({ project, planningVersion = 'V1', planningVersions = ['V1'] }) {
+export default function TimelineView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1', planningVersions = ['V1'] }) {
   const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem } = usePlanner();
+  const activePlanningType = safePlanningType(planningType);
+  const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
   const [zoom, setZoom] = useState('month');
   const [tableVisible, setTableVisible] = useState(true);
   const [columns, setColumns] = useState(() => readJson(COLUMN_STORAGE_KEY, DEFAULT_COLUMNS));
@@ -677,8 +713,8 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   const scrollAnchorRef = useRef(null);
   const timelineUndoRef = useRef([]);
 
-  const allRows = useMemo(() => lineItems.filter((item) => item.project_id === project.id && (item.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [lineItems, planningVersion, project.id]);
-  const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && (category.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [categories, planningVersion, project.id]);
+  const allRows = useMemo(() => lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [activePlanningType, lineItems, planningVersion, project.id]);
+  const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [activePlanningType, categories, planningVersion, project.id]);
   const projectLabels = useMemo(() => labels.filter((label) => !label.project_id || label.project_id === project.id), [labels, project.id]);
   const labelsById = useMemo(() => Object.fromEntries(projectLabels.map((label) => [label.id, label])), [projectLabels]);
   const sortLabels = (items) => items.sort((a, b) => {
@@ -842,16 +878,17 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   };
 
   const addItemToday = (projectId, categoryId) => {
-    addLineItem(projectId, categoryId, iso(new Date()), {}, planningVersion);
+    addLineItem(projectId, categoryId, iso(new Date()), {}, planningVersion, activePlanningType);
   };
 
   const addDefaultPlanning = (categoryId = projectCategories[0]?.id ?? null) => {
     const today = iso(new Date());
     const wenneker = labelsByType.who.find((label) => label.value.toLowerCase() === 'wenneker');
-    const fallbackIds = DEFAULT_PLANNING_WHAT_LABELS
+    const defaultLabelNames = activePlanningType === PLANNING_TYPES.production.key ? PRODUCTION_WHAT_LABELS : DEFAULT_PLANNING_WHAT_LABELS;
+    const fallbackIds = defaultLabelNames
       .map((labelName) => labelsByType.what.find((label) => label.value.toLowerCase() === labelName.toLowerCase())?.id)
       .filter(Boolean);
-    const defaultPlanningIds = appSettings?.defaultPlanning?.length ? appSettings.defaultPlanning : fallbackIds;
+    const defaultPlanningIds = activePlanningType === PLANNING_TYPES.production.key ? fallbackIds : (appSettings?.defaultPlanning?.length ? appSettings.defaultPlanning : fallbackIds);
     const createdIds = defaultPlanningIds.map((labelId) => {
       const whatLabel = labelsByType.what.find((label) => label.id === labelId && !label.is_divider);
       if (!whatLabel) return null;
@@ -859,7 +896,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
         who: wenneker ? [wenneker.id] : [],
         what: whatLabel.id,
         time: 'EOD',
-      }, planningVersion);
+      }, planningVersion, activePlanningType);
       return itemId;
     }).filter(Boolean);
     if (!createdIds.length) return;
@@ -1014,7 +1051,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
         if (targetId && targetId !== item.id && !selectedIds.includes(targetId)) {
           const rect = targetLine.getBoundingClientRect();
           const placement = currentY > rect.top + rect.height / 2 ? 'after' : 'before';
-          moveLineItemRelative(project.id, item.id, targetId, placement, planningVersion);
+          moveLineItemRelative(project.id, item.id, targetId, placement, planningVersion, activePlanningType);
         }
       } else if (latestDelta !== 0) {
         pushTimelineUndo([{
@@ -1101,7 +1138,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
     const shareFeedbackId = reviewLabels.shareFeedback
       ?? addLabel(project.id, 'todo', 'Share Feedback', '#6d5dfc')?.id;
     const reviewTodoIds = [shareFeedbackId, reviewLabels.share].filter(Boolean);
-    const createdIds = addClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, shareFeedbackId, offsetDays, reviewTodoIds, categoryId, planningVersion) ?? [];
+    const createdIds = addClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, shareFeedbackId, offsetDays, reviewTodoIds, categoryId, planningVersion, activePlanningType) ?? [];
     if (!createdIds.length) return;
     setDuplicatedIds((current) => [...current, ...createdIds]);
     window.setTimeout(() => {
@@ -1110,7 +1147,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   };
 
   const removeClientReviewRows = (categoryId) => {
-    const removedIds = removeClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, [reviewLabels.shareFeedback, reviewLabels.share], categoryId, planningVersion) ?? [];
+    const removedIds = removeClientReviews(project.id, reviewLabels.wenneker, reviewLabels.client, [reviewLabels.shareFeedback, reviewLabels.share], categoryId, planningVersion, activePlanningType) ?? [];
     if (removedIds.length) setSelectedIds((current) => current.filter((id) => !removedIds.includes(id)));
   };
 
@@ -1230,19 +1267,20 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
   };
 
   return (
-    <main className="h-[calc(100vh-7rem)] overflow-hidden">
+    <main className="timeline-planner h-[calc(100vh-7rem)] overflow-hidden">
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
+        <div className="timeline-project-header flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold">{project.name}</h1>
+              <span className="rounded-md border border-accent-400/40 bg-accent-500/15 px-2 py-1 text-xs font-semibold uppercase text-accent-100">{planningDefinition.label}</span>
               {planningVersions.length > 1 && (
                 <span className="flex items-center gap-1">
                   <span className="rounded-md border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-xs font-semibold uppercase text-amber-200">Working in {planningVersion}</span>
                   {planningVersions.map((version) => (
                     <Link
                       key={version}
-                      to={`/projects/${project.id}?version=${version}`}
+                      to={`/projects/${project.id}?type=${activePlanningType}&version=${version}`}
                       className={`rounded-md border px-2 py-1 text-xs font-semibold transition ${version === planningVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 text-ink-500 hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100'}`}
                     >
                       {version}
@@ -1254,6 +1292,17 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
             <p className="text-sm text-ink-500">{project.client || 'Internal project'}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="segmented">
+              {Object.values(PLANNING_TYPES).map((definition) => (
+                <Link
+                  key={definition.key}
+                  to={`/projects/${project.id}?type=${definition.key}&version=V1`}
+                  className={activePlanningType === definition.key ? 'selected' : ''}
+                >
+                  {definition.shortLabel}
+                </Link>
+              ))}
+            </div>
             <button type="button" onClick={() => setTableVisible((next) => !next)} className="secondary-button">
               {tableVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               {tableVisible ? 'Hide table' : 'Show table'}
@@ -1265,7 +1314,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
           </div>
         </div>
 
-        {infoVisible && <div className="grid gap-2 border-b border-black/10 bg-white px-5 py-3 text-sm dark:border-white/10 dark:bg-ink-950 md:grid-cols-5">
+        {infoVisible && <div className="timeline-info-grid grid gap-2 border-b border-black/10 bg-white px-5 py-3 text-sm dark:border-white/10 dark:bg-ink-950 md:grid-cols-5">
           <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Start</span>{projectInfo.start}</div>
           <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Project running</span>{projectInfo.running}</div>
           <div className="rounded-md border border-black/10 px-3 py-2 dark:border-white/10"><span className="block text-xs font-semibold uppercase text-ink-500">Offline lock</span>{projectInfo.offlineLock}</div>
@@ -1279,7 +1328,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
               {tableVisible && (
                 <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
                   <div className="absolute left-2 right-2 top-2 flex flex-wrap items-center gap-1 normal-case">
-                    <button type="button" onClick={() => addCategory(project.id, planningVersion)} className="timeline-header-chip"><Plus size={13} /> Category</button>
+                    <button type="button" onClick={() => addCategory(project.id, planningVersion, activePlanningType)} className="timeline-header-chip"><Plus size={13} /> Category</button>
                     <ToolbarMenu id="who" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Eye} label="Who">
                       {labelsByType.who.map((label) => (
                         <label key={label.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-white/5">
@@ -1298,7 +1347,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                   <span />
                   <span />
                   {columnVisibility.who && <HeaderCell columnKey="who" onResizeStart={onColumnResizeStart}>Who</HeaderCell>}
-                  {columnVisibility.asset && <HeaderCell columnKey="asset" onResizeStart={onColumnResizeStart}>Asset</HeaderCell>}
+                  {columnVisibility.asset && <HeaderCell columnKey="asset" onResizeStart={onColumnResizeStart}>{planningDefinition.assetLabel}</HeaderCell>}
                   {optionsVisible && (
                     <div className="timeline-option-cluster timeline-option-cluster-header">
                         <button
@@ -1374,10 +1423,10 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                 const activeId = String(active.id);
                 const overId = String(over.id);
                 if (activeId.startsWith('category:') && overId.startsWith('category:')) {
-                  reorderCategories(project.id, activeId.replace('category:', ''), overId.replace('category:', ''), planningVersion);
+                  reorderCategories(project.id, activeId.replace('category:', ''), overId.replace('category:', ''), planningVersion, activePlanningType);
                   return;
                 }
-                reorderLineItems(project.id, active.id, over.id, planningVersion);
+                reorderLineItems(project.id, active.id, over.id, planningVersion, activePlanningType);
               }}
             >
               <SortableContext items={projectCategories.map((category) => `category:${category.id}`)} strategy={verticalListSortingStrategy}>
@@ -1422,6 +1471,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                       canAddReviews={Boolean(reviewLabels.wenneker && reviewLabels.client)}
                       showMetaLabels={showMetaLabels}
                       showAssetLabels={showAssetLabels}
+                      planningDefinition={planningDefinition}
                       categoryCount={projectCategories.length}
                       onUpdateLineItem={updateLineItemWithUndo}
                       endMarkerIds={endMarkerIds}
@@ -1468,6 +1518,7 @@ export default function TimelineView({ project, planningVersion = 'V1', planning
                   canAddReviews={Boolean(reviewLabels.wenneker && reviewLabels.client)}
                   showMetaLabels={showMetaLabels}
                   showAssetLabels={showAssetLabels}
+                  planningDefinition={planningDefinition}
                   categoryCount={projectCategories.length}
                   onUpdateLineItem={updateLineItemWithUndo}
                   endMarkerIds={endMarkerIds}
