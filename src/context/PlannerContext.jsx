@@ -829,6 +829,28 @@ export function PlannerProvider({ children }) {
         if (useSupabase) void saveCategoryInsert('planning module category', category);
         return DEFAULT_PLANNING_VERSION;
       }),
+      deletePlanningModule: (projectId, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
+        const safeType = planningType(type);
+        const project = draft.projects.find((item) => item.id === projectId);
+        const removedCategoryIds = draft.categories
+          .filter((item) => item.project_id === projectId && planningType(item.planning_type) === safeType)
+          .map((item) => item.id);
+        draft.categories = draft.categories.filter((item) => item.project_id !== projectId || planningType(item.planning_type) !== safeType);
+        draft.lineItems = draft.lineItems.filter((item) => item.project_id !== projectId || planningType(item.planning_type) !== safeType);
+        if (project && safeType === DEFAULT_PLANNING_TYPE) {
+          project.planning_versions = [];
+          project.preferred_planning_version = DEFAULT_PLANNING_VERSION;
+        }
+        markDirty(projectId);
+        if (useSupabase) {
+          if (safeType === DEFAULT_PLANNING_TYPE) {
+            void saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: [], preferred_planning_version: DEFAULT_PLANNING_VERSION }).eq('id', projectId));
+          }
+          removedCategoryIds.forEach((categoryId) => void saveSupabase('planning module category delete', supabase.from('categories').delete().eq('id', categoryId)));
+          void saveSupabase('planning module line items delete', supabase.from('line_items').delete().eq('project_id', projectId).eq('planning_type', safeType));
+          void saveSupabase('planning module shares revoke', supabase.from('public_share_links').update({ revoked_at: new Date().toISOString() }).eq('project_id', projectId).eq('planning_type', safeType).is('revoked_at', null));
+        }
+      }),
       duplicateProjectPlanning: (projectId, sourceVersion = DEFAULT_PLANNING_VERSION, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);
         if (!project) return null;

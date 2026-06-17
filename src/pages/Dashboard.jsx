@@ -1,12 +1,10 @@
 import { ChevronDown, Copy, FileSpreadsheet, Plus, Search, Settings, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
-import { buildProjectSummary } from '../lib/projectSummary.js';
 
 function ComboField({ label, value, onChange, options, placeholder, required = false }) {
   const [open, setOpen] = useState(false);
@@ -100,7 +98,7 @@ function hasPlanningModule(project, type, lineItems = [], categories = []) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, labels, categories, createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, categories, createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, deletePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
@@ -121,7 +119,6 @@ export default function Dashboard() {
   const postProducers = [...new Set((profiles ?? []).map((profile) => profile.display_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const producers = [...new Set([...(savedProducers ?? []).map((item) => item.name)].filter((item) => item && !isUuidLike(item)))].sort((a, b) => a.localeCompare(b));
   const profileByName = Object.fromEntries((profiles ?? []).map((profile) => [profile.display_name, profile]));
-  const labelsById = Object.fromEntries((labels ?? []).map((label) => [label.id, label]));
   const activeProjects = projects.filter((project) => !project.is_archived);
   const activeUserOptions = [...new Set(activeProjects.flatMap((project) => [
     project.post_producer,
@@ -251,13 +248,6 @@ export default function Dashboard() {
           <p className="text-ink-500">Loading projects...</p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
-            <div className="grid grid-cols-[84px_1.6fr_220px_180px_190px] border-b border-black/10 px-4 py-3 text-xs font-semibold uppercase text-ink-500 dark:border-white/10">
-              <span>Project #</span>
-              <span>Project</span>
-              <span>Post Producer</span>
-              <span>Last Edited</span>
-              <span className="text-right">Actions</span>
-            </div>
             {visibleProjects.map((project) => {
               const versions = versionsForProject(project, lineItems, categories, DEFAULT_PLANNING_TYPE);
               const preferredVersion = project.preferred_planning_version && versions.includes(project.preferred_planning_version) ? project.preferred_planning_version : versions[0];
@@ -266,6 +256,7 @@ export default function Dashboard() {
                 const moduleVersion = moduleVersions.includes(project.preferred_planning_version) ? project.preferred_planning_version : moduleVersions[0] ?? 'V1';
                 return { definition, versions: moduleVersions, version: moduleVersion, exists: hasPlanningModule(project, definition.key, lineItems, categories) };
               });
+              const postPlanningLink = moduleLinks.find((item) => item.definition.key === DEFAULT_PLANNING_TYPE);
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
               const postProducerName = project.post_producer || '-';
@@ -273,88 +264,69 @@ export default function Dashboard() {
               const knownClient = project.client && savedClients.some((item) => item.name === project.client);
               const clientLabel = knownClient ? project.client : 'no client';
               const missingClient = clientLabel === 'no client';
-              const summary = buildProjectSummary({
-                lineItems: (lineItems ?? []).filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === DEFAULT_PLANNING_TYPE && (item.planning_version ?? 'V1') === preferredVersion),
-                labelsById,
-                categories: (categories ?? []).filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === DEFAULT_PLANNING_TYPE && (category.planning_version ?? 'V1') === preferredVersion),
-              });
               const activeNames = activeNamesForProject(project.id);
               const locked = activeNames.length > 0;
+              const openProjectPlanning = (definition, version, exists, event) => {
+                event?.preventDefault();
+                event?.stopPropagation();
+                const currentActiveNames = activeNamesForProject(project.id);
+                if (currentActiveNames.length) {
+                  window.alert(`${currentActiveNames.join(', ')} ${currentActiveNames.length === 1 ? 'is' : 'are'} working in this project.`);
+                  return;
+                }
+                if (!exists) ensurePlanningModule(project.id, definition.key);
+                window.location.href = `/projects/${project.id}?type=${definition.key}&version=${version}`;
+              };
               const rowContent = (
                 <>
-                  <span className="font-mono text-sm text-ink-500">{project.project_number || '-'}</span>
-                  <span className="min-w-0">
-                    <span className="font-semibold">{project.name}</span>
-                    {clientLabel && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${missingClient ? 'bg-red-500/15 text-red-300' : 'bg-accent-500/15 text-accent-300'}`}>{clientLabel}</span>}
-                    {versions.length > 1 && (
-                      <span className="ml-2 inline-flex gap-1 align-middle">
-                        {versions.map((version) => (
+                  <div className="project-row-number">{project.project_number || '-'}</div>
+                  <div className="project-row-main min-w-0">
+                    <div className="project-row-title">
+                      <span>{project.name}</span>
+                      {clientLabel && <span className={`project-client-badge ${missingClient ? 'is-missing' : ''}`}>{clientLabel}</span>}
+                      {locked && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
+                    </div>
+                    <div className="project-planning-grid">
+                      {moduleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions }) => (
+                        <div key={definition.key} className="project-planning-group">
                           <button
-                            key={version}
                             type="button"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              const currentActiveNames = activeNamesForProject(project.id);
-                              if (currentActiveNames.length) {
-                                window.alert(`${currentActiveNames.join(', ')} ${currentActiveNames.length === 1 ? 'is' : 'are'} working in this project.`);
-                                return;
-                              }
-                              window.location.href = `/projects/${project.id}?type=${DEFAULT_PLANNING_TYPE}&version=${version}`;
-                            }}
-                            className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-semibold text-ink-400 transition hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100"
+                            onClick={(event) => openProjectPlanning(definition, moduleVersion, exists, event)}
+                            className={`project-planning-button ${exists ? '' : 'is-empty'}`}
                           >
-                            {version}
+                            {exists ? definition.label : `Add ${definition.label}`}
                           </button>
-                        ))}
-                      </span>
-                    )}
-                    {locked && <span className="ml-2 text-xs text-ink-500">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
-                    <span className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[0.55rem] leading-tight">
-                      <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Start</span> <span className="text-ink-500">{summary.start}</span></span>
-                      <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Running</span> <span className="text-ink-500">{summary.running}</span></span>
-                      {summary.offlineLock !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Offline lock</span> <span className="text-ink-500">{summary.offlineLock}</span></span>}
-                      {summary.grading !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Grading</span> <span className="text-ink-500">{summary.grading}</span></span>}
-                      {summary.final !== '-' && <span><span className="rounded bg-amber-300/10 px-1 py-0.5 font-semibold uppercase text-amber-200/50">Final</span> <span className="text-ink-500">{summary.final}</span></span>}
-                    </span>
-                    <span className="mt-2 flex flex-wrap gap-1">
-                      {moduleLinks.map(({ definition, exists, version }) => (
-                        <button
-                          key={definition.key}
-                          type="button"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            const currentActiveNames = activeNamesForProject(project.id);
-                            if (currentActiveNames.length) {
-                              window.alert(`${currentActiveNames.join(', ')} ${currentActiveNames.length === 1 ? 'is' : 'are'} working in this project.`);
-                              return;
-                            }
-                            if (!exists) ensurePlanningModule(project.id, definition.key);
-                            window.location.href = `/projects/${project.id}?type=${definition.key}&version=${version}`;
-                          }}
-                          className={`rounded-md border px-2 py-1 text-xs font-semibold transition ${exists ? 'border-accent-400/60 bg-accent-500/15 text-accent-100' : 'border-white/10 bg-white/5 text-ink-400 hover:border-accent-400 hover:text-accent-100'}`}
-                        >
-                          {exists ? definition.label : `Create ${definition.label}`}
-                        </button>
+                          <div className="project-version-row">
+                            {(exists ? moduleVersions : []).map((version) => (
+                              <button
+                                key={version}
+                                type="button"
+                                onClick={(event) => openProjectPlanning(definition, version, true, event)}
+                                className="project-version-button"
+                              >
+                                {version}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
-                    </span>
-                  </span>
-                  <span className="flex min-w-0 items-center gap-2 text-sm text-ink-500">
-                    <span className="grid h-7 w-7 shrink-0 overflow-hidden place-items-center rounded-full bg-accent-500/20 text-[10px] font-bold text-accent-100">
+                    </div>
+                  </div>
+                  <div className="project-row-producer">
+                    <span className="project-avatar">
                       {postProducerProfile?.avatar_url ? (
                         <img src={postProducerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
                       ) : (
                         postProducerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
                       )}
                     </span>
-                    <span className="truncate">{postProducerName}</span>
-                  </span>
-                  <span className="text-sm text-ink-500">
+                    <span>{postProducerName}</span>
+                  </div>
+                  <div className="project-row-edited">
                     {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'}
                     <span className="block text-xs">by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</span>
-                  </span>
-                  <span className="flex justify-end gap-1">
+                  </div>
+                  <div className="project-row-actions">
                     <button
                       type="button"
                       onClick={(event) => {
@@ -362,7 +334,7 @@ export default function Dashboard() {
                         event.stopPropagation();
                         openProjectSettings(project);
                       }}
-                      className="icon-button"
+                      className="project-action-button"
                       aria-label="Project settings"
                     >
                       <Settings size={17} />
@@ -375,7 +347,7 @@ export default function Dashboard() {
                         setVersionMenuType(DEFAULT_PLANNING_TYPE);
                         setVersionMenuProjectId(project.id);
                       }}
-                      className="icon-button font-bold"
+                      className="project-action-button font-bold"
                       aria-label="Planning versions"
                       title="Planning versions"
                     >
@@ -388,7 +360,7 @@ export default function Dashboard() {
                         event.stopPropagation();
                         window.location.href = `/projects/${project.id}/assets?type=${DEFAULT_PLANNING_TYPE}&version=${preferredVersion}`;
                       }}
-                      className="icon-button"
+                      className="project-action-button"
                       aria-label="Start building asset list"
                       title="Start building asset list"
                     >
@@ -402,12 +374,12 @@ export default function Dashboard() {
                         setArchiveProjectTarget(project);
                         setArchiveConfirmText('');
                       }}
-                      className="icon-button"
+                      className="project-action-button"
                       aria-label="Archive project"
                     >
                         <Trash2 size={17} />
                       </button>
-                  </span>
+                  </div>
                 </>
               );
               if (locked) {
@@ -420,16 +392,28 @@ export default function Dashboard() {
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') guardProjectOpen(event, project.id);
                     }}
-                    className="grid cursor-not-allowed grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 bg-zinc-100/80 px-4 py-4 opacity-60 grayscale dark:border-white/5 dark:bg-white/[0.04]"
+                    className="project-row is-locked cursor-not-allowed opacity-60 grayscale"
                   >
                     {rowContent}
                   </div>
                 );
               }
               return (
-                <Link key={project.id} to={`/projects/${project.id}?type=${DEFAULT_PLANNING_TYPE}&version=${preferredVersion ?? 'V1'}`} onClick={(event) => guardProjectOpen(event, project.id)} className="grid grid-cols-[84px_1.6fr_220px_180px_190px] items-center border-b border-black/5 px-4 py-4 transition hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]">
+                <div
+                  key={project.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => {
+                    guardProjectOpen(event, project.id);
+                    if (!event.defaultPrevented) openProjectPlanning(PLANNING_TYPES.post, postPlanningLink?.version ?? preferredVersion ?? 'V1', postPlanningLink?.exists ?? false, event);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') openProjectPlanning(PLANNING_TYPES.post, postPlanningLink?.version ?? preferredVersion ?? 'V1', postPlanningLink?.exists ?? false, event);
+                  }}
+                  className="project-row"
+                >
                   {rowContent}
-                </Link>
+                </div>
               );
             })}
             {!visibleProjects.length && <p className="px-4 py-10 text-center text-ink-500">No projects match these filters.</p>}
@@ -577,6 +561,46 @@ export default function Dashboard() {
               <ComboField label="Client" value={client} onChange={setClient} options={clients} placeholder="Client" required />
               <ComboField label="Post Producer" value={postProducer} onChange={setPostProducer} options={postProducers} placeholder="Post producer" required />
               <ComboField label="Producer" value={producer} onChange={setProducer} options={producers} placeholder="Producer" required />
+              {editingProject && (
+                <div className="project-settings-planning">
+                  <div className="text-xs font-semibold uppercase text-ink-500">Planning modules</div>
+                  <div className="mt-2 space-y-2">
+                    {Object.values(PLANNING_TYPES).map((definition) => {
+                      const exists = hasPlanningModule(editingProject, definition.key, lineItems, categories);
+                      const moduleVersions = versionsForProject(editingProject, lineItems, categories, definition.key);
+                      return (
+                        <div key={definition.key} className="project-settings-planning-row">
+                          <div>
+                            <div className="font-semibold">{definition.label}</div>
+                            <div className="mt-1 text-xs text-ink-500">{exists ? moduleVersions.join(', ') : 'Not created yet'}</div>
+                          </div>
+                          {exists ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Delete all ${definition.label} planning versions for this project? This cannot be undone.`)) {
+                                  deletePlanningModule(editingProject.id, definition.key);
+                                }
+                              }}
+                              className="secondary-button !px-2 !py-1 text-xs text-red-300"
+                            >
+                              Delete
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => ensurePlanningModule(editingProject.id, definition.key)}
+                              className="secondary-button !px-2 !py-1 text-xs"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {formError && <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{formError}</p>}
             </div>
             <div className="mt-5 flex justify-end gap-2">
