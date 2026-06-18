@@ -667,8 +667,10 @@ export function PlannerProvider({ children }) {
       loading,
       saveError,
       clearSaveError: () => setSaveError(''),
-      createProject: async ({ projectNumber, name, client, postProducer, producer }) => {
+      createProject: async ({ projectNumber, name, client, postProducer, producer, planningType: initialPlanningType = DEFAULT_PLANNING_TYPE }) => {
         const now = new Date().toISOString();
+        const safePlanningType = planningType(initialPlanningType);
+        const planningDefinition = PLANNING_TYPES[safePlanningType] ?? PLANNING_TYPES.post;
         const project = {
           id: id(),
           user_id: user.id,
@@ -687,7 +689,7 @@ export function PlannerProvider({ children }) {
           planning_versions: [DEFAULT_PLANNING_VERSION],
           preferred_planning_version: DEFAULT_PLANNING_VERSION,
         };
-        const category = { id: id(), project_id: project.id, planning_type: DEFAULT_PLANNING_TYPE, planning_version: DEFAULT_PLANNING_VERSION, name: PLANNING_TYPES.post.defaultCategoryName, sort_order: 0, collapsed: false };
+        const category = { id: id(), project_id: project.id, planning_type: safePlanningType, planning_version: DEFAULT_PLANNING_VERSION, name: planningDefinition.defaultCategoryName, sort_order: 0, collapsed: false };
         mutate((draft) => {
           draft.projects.unshift(project);
           draft.categories.push(category);

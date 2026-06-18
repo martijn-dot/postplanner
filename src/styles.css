@@ -1182,11 +1182,12 @@ nav .tab-active {
 }
 
 .timeline-block-select > .relative > button {
-  background: rgba(128, 128, 140, 0.16);
+  background: transparent;
   border: 0;
-  border-radius: 6px;
-  min-height: 20px;
-  padding: 1px 5px;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: auto;
+  padding: 0;
   width: auto;
 }
 
@@ -3480,17 +3481,14 @@ nav .tab-active {
 }
 
 .project-row {
-  align-items: center;
   background: #11101d;
   border: 1px solid rgba(148, 142, 157, 0.22);
   border-radius: 24px;
   color: #f2eefc;
   cursor: pointer;
-  display: grid;
-  gap: 28px;
-  grid-template-columns: 112px minmax(320px, 1.25fr) minmax(220px, 0.75fr) 230px max-content;
-  min-height: 128px;
-  padding: 22px 28px;
+  display: block;
+  min-height: 0;
+  padding: 24px 28px 26px;
   transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
@@ -3505,6 +3503,13 @@ nav .tab-active {
   font-family: var(--font-data);
   font-size: 1.05rem;
   font-weight: 800;
+}
+
+.project-row-header {
+  align-items: center;
+  display: grid;
+  gap: 28px;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
 }
 
 .project-row-title {
@@ -3537,22 +3542,82 @@ nav .tab-active {
   font-weight: 700;
 }
 
-.project-planning-grid {
+.project-row-meta {
+  align-items: center;
+  color: rgba(202, 196, 211, 0.58);
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 10px;
+  margin-top: 12px;
 }
 
-.project-planning-group {
-  display: grid;
+.project-row-user {
+  color: rgba(202, 196, 211, 0.76);
+}
+
+.project-row-change {
+  color: rgba(202, 196, 211, 0.54);
+}
+
+.project-label-button {
+  align-items: center;
+  border: 1px solid rgba(86, 101, 140, 0.75);
+  border-radius: 14px;
+  color: rgba(202, 196, 211, 0.78);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 850;
   gap: 8px;
+  height: 42px;
+  justify-content: center;
+  padding: 0 14px;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+.project-label-button:hover {
+  background: rgba(125, 113, 255, 0.12);
+  border-color: rgba(125, 113, 255, 0.95);
+  color: #f2eefc;
+}
+
+.project-planning-rows {
+  border-top: 1px solid rgba(148, 142, 157, 0.12);
+  display: grid;
+  gap: 0;
+  margin-top: 22px;
+}
+
+.project-planning-row {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 66px;
+  padding: 13px 0;
+}
+
+.project-planning-row + .project-planning-row {
+  border-top: 1px solid rgba(148, 142, 157, 0.12);
+}
+
+.project-planning-row.is-empty {
+  opacity: 0.58;
+}
+
+.project-planning-row-main {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
 }
 
 .project-planning-button {
-  border: 1px solid rgba(125, 113, 255, 0.95);
+  border: 1px solid transparent;
   border-radius: 8px;
-  color: #f2eefc;
+  color: #10101a;
   font-size: 0.78rem;
   font-weight: 850;
   min-height: 34px;
@@ -3561,7 +3626,23 @@ nav .tab-active {
 }
 
 .project-planning-button:hover {
-  background: rgba(125, 113, 255, 0.18);
+  filter: brightness(1.06);
+}
+
+.project-planning-button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+.project-planning-button.is-production {
+  background: #ffd166;
+  border-color: rgba(255, 209, 102, 0.78);
+}
+
+.project-planning-button.is-post {
+  background: #8d79ff;
+  border-color: rgba(141, 121, 255, 0.82);
+  color: #f7f4ff;
 }
 
 .project-planning-button.is-empty {
@@ -3571,6 +3652,7 @@ nav .tab-active {
 
 .project-version-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -3636,7 +3718,7 @@ nav .tab-active {
 
 .project-row-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
   white-space: nowrap;
 }
@@ -3648,16 +3730,21 @@ nav .tab-active {
   color: rgba(202, 196, 211, 0.74);
   display: inline-flex;
   flex: 0 0 auto;
-  height: 48px;
+  height: 42px;
   justify-content: center;
   transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
-  width: 48px;
+  width: 42px;
 }
 
 .project-action-button:hover {
   background: rgba(125, 113, 255, 0.12);
   border-color: rgba(125, 113, 255, 0.95);
   color: #f2eefc;
+}
+
+.project-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
 }
 
 .project-settings-planning {
@@ -3676,19 +3763,44 @@ nav .tab-active {
   padding: 10px;
 }
 
+.project-create-type {
+  border: 1px solid rgba(148, 142, 157, 0.24);
+  border-radius: 8px;
+  color: rgba(242, 238, 252, 0.72);
+  font-size: 0.82rem;
+  font-weight: 850;
+  min-height: 42px;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.project-create-type.is-production.is-selected {
+  background: #ffd166;
+  border-color: rgba(255, 209, 102, 0.86);
+  color: #10101a;
+}
+
+.project-create-type.is-post.is-selected {
+  background: #8d79ff;
+  border-color: rgba(141, 121, 255, 0.86);
+  color: #f7f4ff;
+}
+
 @media (max-width: 1100px) {
-  .project-row {
+  .project-row-header {
     grid-template-columns: 92px minmax(0, 1fr);
   }
 
-  .project-row-producer,
-  .project-row-edited,
-  .project-row-actions {
+  .project-label-button {
     grid-column: 2;
+    justify-self: start;
   }
 
   .project-row-actions {
     justify-content: flex-start;
+  }
+
+  .project-planning-row {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -3916,14 +4028,20 @@ nav .tab-active {
 }
 
 .timeline-block-select > .relative > button,
-.dark .timeline-block-select > .relative > button,
+.dark .timeline-block-select > .relative > button {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
+  color: #e1e1ef;
+  min-height: auto;
+  padding: 0;
+}
+
 .timeline-meta-chip,
 .dark .timeline-meta-chip {
-  background: rgba(12, 14, 23, 0.34) !important;
-  border: 1px solid rgba(148, 142, 157, 0.22) !important;
-  border-radius: 8px;
-  color: #e1e1ef;
-  min-height: 23px;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .timeline-block-select span.inline-flex {

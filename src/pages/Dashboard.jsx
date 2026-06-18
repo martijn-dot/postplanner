@@ -96,6 +96,8 @@ function hasPlanningModule(project, type, lineItems = [], categories = []) {
   return versionsForProject(project, lineItems, categories, type).length > 0;
 }
 
+const DASHBOARD_PLANNING_ORDER = [PLANNING_TYPES.production, PLANNING_TYPES.post];
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, categories, createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, deletePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
@@ -114,6 +116,7 @@ export default function Dashboard() {
   const currentUserName = currentProfile?.display_name ?? user.email?.split('@')[0] ?? '';
   const [postProducer, setPostProducer] = useState(currentUserName);
   const [producer, setProducer] = useState('');
+  const [initialPlanningType, setInitialPlanningType] = useState(DEFAULT_PLANNING_TYPE);
   const [formError, setFormError] = useState('');
   const clients = [...new Set([...(savedClients ?? []).map((item) => item.name)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const postProducers = [...new Set((profiles ?? []).map((profile) => profile.display_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -145,6 +148,7 @@ export default function Dashboard() {
     setClient('');
     setPostProducer(currentUserName);
     setProducer('');
+    setInitialPlanningType(DEFAULT_PLANNING_TYPE);
   };
   const openNewProject = () => {
     setEditingProject(null);
@@ -153,6 +157,7 @@ export default function Dashboard() {
     setClient('');
     setPostProducer(currentUserName);
     setProducer('');
+    setInitialPlanningType(DEFAULT_PLANNING_TYPE);
     setFormError('');
     setOpen(true);
   };
@@ -163,6 +168,7 @@ export default function Dashboard() {
     setClient(project.client ?? '');
     setPostProducer(project.post_producer ?? '');
     setProducer(project.producer ?? '');
+    setInitialPlanningType(DEFAULT_PLANNING_TYPE);
     setOpen(true);
   };
 
@@ -183,17 +189,29 @@ export default function Dashboard() {
       resetForm();
       return;
     }
-    const duplicateProject = projects.find((project) => project.project_number && project.project_number === projectNumber);
-    if (duplicateProject && !window.confirm(`Project number ${projectNumber} already exists. Do you want to create this project anyway?`)) {
-      setFormError(`Project number ${projectNumber} already exists${duplicateProject.is_archived ? ' in archived projects' : ''}.`);
-      return;
-    }
     if (!/^\d{5}$/.test(projectNumber)) {
       setFormError('Project code should be exactly 5 numbers.');
       return;
     }
+    const duplicateProject = projects.find((project) => project.project_number && project.project_number === projectNumber);
+    if (duplicateProject) {
+      const selectedDefinition = PLANNING_TYPES[initialPlanningType] ?? PLANNING_TYPES.post;
+      const selectedExists = hasPlanningModule(duplicateProject, selectedDefinition.key, lineItems, categories);
+      const missingDefinitions = DASHBOARD_PLANNING_ORDER.filter((definition) => !hasPlanningModule(duplicateProject, definition.key, lineItems, categories));
+      if (selectedExists) {
+        setFormError(`${selectedDefinition.label} already exists for project code ${projectNumber}. ${missingDefinitions.length ? `Choose ${missingDefinitions.map((item) => item.label).join(' or ')} to add it to this project.` : 'Both planning modules already exist.'}`);
+        return;
+      }
+      if (window.confirm(`Project code ${projectNumber} already exists. Add ${selectedDefinition.label} planning to that project?`)) {
+        ensurePlanningModule(duplicateProject.id, selectedDefinition.key);
+        resetForm();
+      } else {
+        setFormError(`Project code ${projectNumber} already exists. Choose the missing planning type to add it to the existing project.`);
+      }
+      return;
+    }
     try {
-      await createProject({ projectNumber, name, client, postProducer, producer });
+      await createProject({ projectNumber, name, client, postProducer, producer, planningType: initialPlanningType });
       if (client) addClient(client);
       if (postProducer) addProducer(postProducer);
       if (producer) addProducer(producer);
@@ -250,13 +268,14 @@ export default function Dashboard() {
           <div className="space-y-4">
             {visibleProjects.map((project) => {
               const versions = versionsForProject(project, lineItems, categories, DEFAULT_PLANNING_TYPE);
-              const preferredVersion = project.preferred_planning_version && versions.includes(project.preferred_planning_version) ? project.preferred_planning_version : versions[0];
-              const moduleLinks = Object.values(PLANNING_TYPES).map((definition) => {
+              const preferredVersion = project.preferred_planning_version && versions.includes(project.preferred_planning_version) ? project.preferred_planning_version : versions[0] ?? 'V1';
+              const moduleLinks = DASHBOARD_PLANNING_ORDER.map((definition) => {
                 const moduleVersions = versionsForProject(project, lineItems, categories, definition.key);
                 const moduleVersion = moduleVersions.includes(project.preferred_planning_version) ? project.preferred_planning_version : moduleVersions[0] ?? 'V1';
                 return { definition, versions: moduleVersions, version: moduleVersion, exists: hasPlanningModule(project, definition.key, lineItems, categories) };
               });
               const postPlanningLink = moduleLinks.find((item) => item.definition.key === DEFAULT_PLANNING_TYPE);
+              const firstPlanningLink = moduleLinks.find((item) => item.exists) ?? postPlanningLink ?? moduleLinks[0];
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
               const postProducerName = project.post_producer || '-';
@@ -277,22 +296,73 @@ export default function Dashboard() {
                 if (!exists) ensurePlanningModule(project.id, definition.key);
                 window.location.href = `/projects/${project.id}?type=${definition.key}&version=${version}`;
               };
+              const openProjectSettingsAction = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openProjectSettings(project);
+              };
+              const openVersionMenuAction = (definition, event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setVersionMenuType(definition.key);
+                setVersionMenuProjectId(project.id);
+              };
+              const openArchiveAction = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setArchiveProjectTarget(project);
+                setArchiveConfirmText('');
+              };
+              const openAssetListAction = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                window.location.href = `/projects/${project.id}/assets?type=${DEFAULT_PLANNING_TYPE}&version=${preferredVersion}`;
+              };
               const rowContent = (
                 <>
-                  <div className="project-row-number">{project.project_number || '-'}</div>
-                  <div className="project-row-main min-w-0">
-                    <div className="project-row-title">
-                      <span>{project.name}</span>
-                      {clientLabel && <span className={`project-client-badge ${missingClient ? 'is-missing' : ''}`}>{clientLabel}</span>}
-                      {locked && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
+                  <div className="project-row-header">
+                    <div className="project-row-number">{project.project_number || '-'}</div>
+                    <div className="project-row-main min-w-0">
+                      <div className="project-row-title">
+                        <span>{project.name}</span>
+                        {clientLabel && <span className={`project-client-badge ${missingClient ? 'is-missing' : ''}`}>{clientLabel}</span>}
+                        {locked && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
+                      </div>
+                      <div className="project-row-meta">
+                        <span className="project-avatar">
+                          {postProducerProfile?.avatar_url ? (
+                            <img src={postProducerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+                          ) : (
+                            postProducerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+                          )}
+                        </span>
+                        <span className="project-row-user">{postProducerName}</span>
+                        <span className="project-row-change">
+                          changed {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'} by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="project-planning-grid">
-                      {moduleLinks.filter((item) => item.exists).map(({ definition, exists, version: moduleVersion, versions: moduleVersions }) => (
-                        <div key={definition.key} className="project-planning-group">
+                    <button
+                      type="button"
+                      onClick={openAssetListAction}
+                      className="project-label-button"
+                      aria-label="Open labels"
+                      title="Open labels"
+                    >
+                      <FileSpreadsheet size={16} /> Label
+                    </button>
+                  </div>
+                  <div className="project-planning-rows">
+                    {moduleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions }) => (
+                      <div key={definition.key} className={`project-planning-row is-${definition.key} ${exists ? '' : 'is-empty'}`}>
+                        <div className="project-planning-row-main">
                           <button
                             type="button"
-                            onClick={(event) => openProjectPlanning(definition, moduleVersion, exists, event)}
-                            className="project-planning-button"
+                            onClick={(event) => {
+                              if (exists) openProjectPlanning(definition, moduleVersion, true, event);
+                            }}
+                            disabled={!exists}
+                            className={`project-planning-button is-${definition.key}`}
                           >
                             {definition.label}
                           </button>
@@ -309,77 +379,37 @@ export default function Dashboard() {
                             ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="project-row-producer">
-                    <span className="project-avatar">
-                      {postProducerProfile?.avatar_url ? (
-                        <img src={postProducerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
-                      ) : (
-                        postProducerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
-                      )}
-                    </span>
-                    <span>{postProducerName}</span>
-                  </div>
-                  <div className="project-row-edited">
-                    {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'}
-                    <span className="block text-xs">by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</span>
-                  </div>
-                  <div className="project-row-actions">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        openProjectSettings(project);
-                      }}
-                      className="project-action-button"
-                      aria-label="Project settings"
-                    >
-                      <Settings size={17} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setVersionMenuType(DEFAULT_PLANNING_TYPE);
-                        setVersionMenuProjectId(project.id);
-                      }}
-                      className="project-action-button font-bold"
-                      aria-label="Planning versions"
-                      title="Planning versions"
-                    >
-                      V
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        window.location.href = `/projects/${project.id}/assets?type=${DEFAULT_PLANNING_TYPE}&version=${preferredVersion}`;
-                      }}
-                      className="project-action-button"
-                      aria-label="Start building asset list"
-                      title="Start building asset list"
-                    >
-                      <FileSpreadsheet size={17} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setArchiveProjectTarget(project);
-                        setArchiveConfirmText('');
-                      }}
-                      className="project-action-button"
-                      aria-label="Archive project"
-                      title="Archive project"
-                    >
-                      <Trash2 size={17} />
-                    </button>
+                        <div className="project-row-actions">
+                          <button
+                            type="button"
+                            onClick={openProjectSettingsAction}
+                            className="project-action-button"
+                            aria-label={`${definition.label} settings`}
+                          >
+                            <Settings size={17} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => openVersionMenuAction(definition, event)}
+                            disabled={!exists}
+                            className="project-action-button font-bold"
+                            aria-label={`${definition.label} versions`}
+                            title={`${definition.label} versions`}
+                          >
+                            V
+                          </button>
+                          <button
+                            type="button"
+                            onClick={openArchiveAction}
+                            className="project-action-button"
+                            aria-label={`Archive ${definition.label} project`}
+                            title="Archive project"
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </>
               );
@@ -406,10 +436,10 @@ export default function Dashboard() {
                   tabIndex={0}
                   onClick={(event) => {
                     guardProjectOpen(event, project.id);
-                    if (!event.defaultPrevented) openProjectPlanning(PLANNING_TYPES.post, postPlanningLink?.version ?? preferredVersion ?? 'V1', postPlanningLink?.exists ?? false, event);
+                    if (!event.defaultPrevented) openProjectPlanning(firstPlanningLink.definition, firstPlanningLink.version, firstPlanningLink.exists, event);
                   }}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter') openProjectPlanning(PLANNING_TYPES.post, postPlanningLink?.version ?? preferredVersion ?? 'V1', postPlanningLink?.exists ?? false, event);
+                    if (event.key === 'Enter') openProjectPlanning(firstPlanningLink.definition, firstPlanningLink.version, firstPlanningLink.exists, event);
                   }}
                   className="project-row"
                 >
@@ -433,7 +463,7 @@ export default function Dashboard() {
               <button type="button" onClick={() => setVersionMenuProjectId(null)} className="secondary-button !px-3 !py-2">Close</button>
             </div>
             <div className="segmented mt-4">
-              {Object.values(PLANNING_TYPES).filter((definition) => hasPlanningModule(versionMenuProject, definition.key, lineItems, categories)).map((definition) => (
+              {DASHBOARD_PLANNING_ORDER.filter((definition) => hasPlanningModule(versionMenuProject, definition.key, lineItems, categories)).map((definition) => (
                   <button
                     key={definition.key}
                     type="button"
@@ -539,6 +569,23 @@ export default function Dashboard() {
           <form onSubmit={submit} className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 text-ink-100 shadow-glow">
             <h2 className="text-xl font-semibold">{editingProject ? 'Project settings' : 'New project'}</h2>
             <div className="mt-5 space-y-3">
+              {!editingProject && (
+                <div>
+                  <div className="mb-2 text-xs font-semibold uppercase text-ink-500">Start project as</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {DASHBOARD_PLANNING_ORDER.map((definition) => (
+                      <button
+                        key={definition.key}
+                        type="button"
+                        onClick={() => setInitialPlanningType(definition.key)}
+                        className={`project-create-type is-${definition.key} ${initialPlanningType === definition.key ? 'is-selected' : ''}`}
+                      >
+                        {definition.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <label className="block space-y-1">
                 <span className="text-xs font-semibold uppercase text-ink-500">Project Code</span>
                 <input
@@ -562,7 +609,7 @@ export default function Dashboard() {
                 <div className="project-settings-planning">
                   <div className="text-xs font-semibold uppercase text-ink-500">Planning modules</div>
                   <div className="mt-2 space-y-2">
-                    {Object.values(PLANNING_TYPES).map((definition) => {
+                    {DASHBOARD_PLANNING_ORDER.map((definition) => {
                       const exists = hasPlanningModule(editingProject, definition.key, lineItems, categories);
                       const moduleVersions = versionsForProject(editingProject, lineItems, categories, definition.key);
                       return (
