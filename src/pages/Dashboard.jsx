@@ -279,7 +279,7 @@ export default function Dashboard() {
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
               const postProducerName = project.post_producer || '-';
-              const postProducerProfile = profileByName[postProducerName];
+              const productionProducerName = project.producer || '-';
               const knownClient = project.client && savedClients.some((item) => item.name === project.client);
               const clientLabel = knownClient ? project.client : 'no client';
               const missingClient = clientLabel === 'no client';
@@ -328,19 +328,6 @@ export default function Dashboard() {
                         {clientLabel && <span className={`project-client-badge ${missingClient ? 'is-missing' : ''}`}>{clientLabel}</span>}
                         {locked && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                       </div>
-                      <div className="project-row-meta">
-                        <span className="project-avatar">
-                          {postProducerProfile?.avatar_url ? (
-                            <img src={postProducerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
-                          ) : (
-                            postProducerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
-                          )}
-                        </span>
-                        <span className="project-row-user">{postProducerName}</span>
-                        <span className="project-row-change">
-                          changed {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'} by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}
-                        </span>
-                      </div>
                     </div>
                     <button
                       type="button"
@@ -353,63 +340,82 @@ export default function Dashboard() {
                     </button>
                   </div>
                   <div className="project-planning-rows">
-                    {moduleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions }) => (
-                      <div key={definition.key} className={`project-planning-row is-${definition.key} ${exists ? '' : 'is-empty'}`}>
-                        <div className="project-planning-row-main">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              if (exists) openProjectPlanning(definition, moduleVersion, true, event);
-                            }}
-                            disabled={!exists}
-                            className={`project-planning-button is-${definition.key}`}
-                          >
-                            {definition.label}
-                          </button>
-                          <div className="project-version-row">
-                            {(exists ? moduleVersions : []).map((version) => (
-                              <button
-                                key={version}
-                                type="button"
-                                onClick={(event) => openProjectPlanning(definition, version, true, event)}
-                                className="project-version-button"
-                              >
-                                {version}
-                              </button>
-                            ))}
+                    {moduleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions }) => {
+                      const ownerName = definition.key === PLANNING_TYPES.production.key ? productionProducerName : postProducerName;
+                      const ownerProfile = profileByName[ownerName] ?? createdBy;
+                      const ownerInitials = ownerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+                      return (
+                        <div key={definition.key} className={`project-planning-row is-${definition.key} ${exists ? '' : 'is-empty'}`}>
+                          <div className="project-planning-row-main">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                if (exists) openProjectPlanning(definition, moduleVersion, true, event);
+                              }}
+                              disabled={!exists}
+                              className={`project-planning-button is-${definition.key}`}
+                            >
+                              {definition.label}
+                            </button>
+                            <div className="project-version-row">
+                              {(exists ? moduleVersions : []).map((version) => (
+                                <button
+                                  key={version}
+                                  type="button"
+                                  onClick={(event) => openProjectPlanning(definition, version, true, event)}
+                                  className="project-version-button"
+                                >
+                                  {version}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="project-planning-person">
+                            <span className="project-avatar">
+                              {ownerProfile?.avatar_url ? (
+                                <img src={ownerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+                              ) : (
+                                ownerInitials || '?'
+                              )}
+                            </span>
+                            <span>{ownerName}</span>
+                          </div>
+                          <div className="project-row-change-block">
+                            <span>changed {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'}</span>
+                            <span>by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</span>
+                          </div>
+                          <div className="project-row-actions">
+                            <button
+                              type="button"
+                              onClick={openProjectSettingsAction}
+                              className="project-action-button"
+                              aria-label={`${definition.label} settings`}
+                            >
+                              <Settings size={17} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => openVersionMenuAction(definition, event)}
+                              disabled={!exists}
+                              className="project-action-button font-bold"
+                              aria-label={`${definition.label} versions`}
+                              title={`${definition.label} versions`}
+                            >
+                              V
+                            </button>
+                            <button
+                              type="button"
+                              onClick={openArchiveAction}
+                              className="project-action-button"
+                              aria-label={`Archive ${definition.label} project`}
+                              title="Archive project"
+                            >
+                              <Trash2 size={17} />
+                            </button>
                           </div>
                         </div>
-                        <div className="project-row-actions">
-                          <button
-                            type="button"
-                            onClick={openProjectSettingsAction}
-                            className="project-action-button"
-                            aria-label={`${definition.label} settings`}
-                          >
-                            <Settings size={17} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(event) => openVersionMenuAction(definition, event)}
-                            disabled={!exists}
-                            className="project-action-button font-bold"
-                            aria-label={`${definition.label} versions`}
-                            title={`${definition.label} versions`}
-                          >
-                            V
-                          </button>
-                          <button
-                            type="button"
-                            onClick={openArchiveAction}
-                            className="project-action-button"
-                            aria-label={`Archive ${definition.label} project`}
-                            title="Archive project"
-                          >
-                            <Trash2 size={17} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </>
               );
