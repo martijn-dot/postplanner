@@ -3483,12 +3483,12 @@ nav .tab-active {
 .project-row {
   background: #11101d;
   border: 1px solid rgba(125, 113, 255, 0.42);
-  border-radius: 24px;
+  border-radius: 16px;
   color: #f2eefc;
   cursor: pointer;
   display: block;
   min-height: 0;
-  padding: 38px 38px 34px;
+  padding: 19px;
   transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
@@ -3501,34 +3501,34 @@ nav .tab-active {
 .project-row-number {
   color: rgba(202, 196, 211, 0.56);
   font-family: var(--font-data);
-  font-size: 1.08rem;
+  font-size: 0.54rem;
   font-weight: 800;
 }
 
 .project-row-header {
   align-items: center;
   display: grid;
-  gap: 34px;
-  grid-template-columns: 130px minmax(0, 1fr) auto;
+  gap: 17px;
+  grid-template-columns: 65px minmax(0, 1fr) auto;
 }
 
 .project-row-title {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  font-size: 1.05rem;
+  gap: 5px;
+  font-size: 0.58rem;
   font-weight: 850;
   line-height: 1.1;
 }
 
 .project-client-badge {
   background: rgba(109, 93, 252, 0.3);
-  border-radius: 6px;
+  border-radius: 4px;
   color: #cdbdff;
-  font-size: 0.75rem;
+  font-size: 0.42rem;
   font-weight: 850;
-  padding: 3px 10px;
+  padding: 2px 6px;
 }
 
 .project-client-badge.is-missing {
@@ -3564,16 +3564,33 @@ nav .tab-active {
 .project-label-button {
   align-items: center;
   border: 1px solid rgba(86, 101, 140, 0.75);
-  border-radius: 14px;
+  border-radius: 10px;
   color: rgba(202, 196, 211, 0.78);
   display: inline-flex;
-  font-size: 0.78rem;
+  flex-direction: column;
+  font-size: 0.5rem;
   font-weight: 850;
-  gap: 8px;
-  height: 56px;
+  gap: 3px;
+  height: 36px;
   justify-content: center;
-  padding: 0 20px;
+  padding: 0 12px;
   transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+.project-label-button > span:first-child {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.project-asset-status {
+  border: 1px solid rgba(141, 121, 255, 0.42);
+  border-radius: 999px;
+  color: rgba(205, 189, 255, 0.86);
+  font-size: 0.42rem;
+  line-height: 1;
+  padding: 2px 6px;
+  text-transform: uppercase;
 }
 
 .project-label-button:hover {
@@ -3586,16 +3603,16 @@ nav .tab-active {
   border-top: 1px solid rgba(148, 142, 157, 0.12);
   display: grid;
   gap: 0;
-  margin-top: 44px;
+  margin-top: 22px;
 }
 
 .project-planning-row {
   align-items: center;
   display: grid;
-  gap: 30px;
-  grid-template-columns: minmax(300px, 0.95fr) minmax(260px, 0.72fr) minmax(230px, 0.55fr) auto;
-  min-height: 92px;
-  padding: 18px 0;
+  gap: 15px;
+  grid-template-columns: minmax(180px, 0.95fr) minmax(150px, 0.72fr) minmax(130px, 0.55fr) auto;
+  min-height: 46px;
+  padding: 9px 0;
 }
 
 .project-planning-row + .project-planning-row {
@@ -3610,18 +3627,18 @@ nav .tab-active {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 7px;
   min-width: 0;
 }
 
 .project-planning-button {
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #10101a;
-  font-size: 0.82rem;
+  font-size: 0.46rem;
   font-weight: 850;
-  min-height: 46px;
-  padding: 0 18px;
+  min-height: 24px;
+  padding: 0 9px;
   transition: background 0.16s ease, border-color 0.16s ease;
 }
 
@@ -3653,19 +3670,41 @@ nav .tab-active {
 .project-version-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .project-version-button {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(148, 142, 157, 0.24);
-  border-radius: 8px;
+  border-radius: 6px;
   color: #f2eefc;
-  font-size: 0.74rem;
+  font-size: 0.42rem;
   font-weight: 900;
-  min-height: 40px;
-  min-width: 58px;
-  padding: 7px 12px;
+  min-height: 24px;
+  min-width: 30px;
+  padding: 4px 7px;
+}
+
+.project-publish-badge {
+  align-items: center;
+  border: 1px solid rgba(141, 121, 255, 0.72);
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 0.42rem;
+  font-weight: 850;
+  min-height: 24px;
+  padding: 0 7px;
+  text-transform: uppercase;
+}
+
+.project-publish-badge.is-published {
+  background: rgba(109, 93, 252, 0.3);
+  color: #cdbdff;
+}
+
+.project-publish-badge.is-unpublished {
+  background: transparent;
+  color: #cdbdff;
 }
 
 .project-version-button:hover {
@@ -3695,21 +3734,21 @@ nav .tab-active {
   color: #cdbdff;
   display: grid;
   flex: 0 0 auto;
-  font-size: 0.7rem;
+  font-size: 0.42rem;
   font-weight: 900;
-  height: 46px;
+  height: 24px;
   overflow: hidden;
   place-items: center;
-  width: 46px;
+  width: 24px;
 }
 
 .project-planning-person {
   align-items: center;
   color: rgba(202, 196, 211, 0.74);
   display: flex;
-  font-size: 0.9rem;
+  font-size: 0.5rem;
   font-weight: 850;
-  gap: 14px;
+  gap: 7px;
   min-width: 0;
 }
 
@@ -3722,14 +3761,15 @@ nav .tab-active {
 .project-row-change-block {
   color: rgba(202, 196, 211, 0.58);
   display: grid;
-  font-size: 0.82rem;
-  font-weight: 850;
+  font-size: 0.48rem;
+  font-weight: 500;
   line-height: 1.25;
 }
 
 .project-row-change-block span:last-child {
   color: rgba(202, 196, 211, 0.52);
-  margin-top: 4px;
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .project-row-edited {
@@ -3748,7 +3788,7 @@ nav .tab-active {
 
 .project-row-actions {
   display: flex;
-  gap: 10px;
+  gap: 5px;
   justify-content: flex-end;
   white-space: nowrap;
 }
@@ -3756,14 +3796,19 @@ nav .tab-active {
 .project-action-button {
   align-items: center;
   border: 1px solid rgba(86, 101, 140, 0.75);
-  border-radius: 14px;
+  border-radius: 9px;
   color: rgba(202, 196, 211, 0.74);
   display: inline-flex;
   flex: 0 0 auto;
-  height: 56px;
+  height: 28px;
   justify-content: center;
   transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
-  width: 56px;
+  width: 28px;
+}
+
+.project-action-button svg {
+  height: 12px;
+  width: 12px;
 }
 
 .project-action-button:hover {

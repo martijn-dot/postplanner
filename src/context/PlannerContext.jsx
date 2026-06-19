@@ -255,6 +255,17 @@ function dbAssetList(list) {
   };
 }
 
+function localShareLinks() {
+  return Object.entries(readShares()).map(([token, share]) => ({
+    token,
+    project_id: share.projectId,
+    planning_type: planningType(share.planningType),
+    planning_version: share.planningVersion ?? DEFAULT_PLANNING_VERSION,
+    page_type: 'client_planning',
+    revoked_at: null,
+  }));
+}
+
 function readShares() {
   return JSON.parse(localStorage.getItem(SHARE_STORAGE_KEY) ?? '{}');
 }
@@ -348,6 +359,7 @@ function hydrateDefaults(user) {
     presence: [],
     invitations: [],
     assetLists: [],
+    shareLinks: [],
     appSettings: { ...DEFAULT_APP_SETTINGS, defaultPlanning: resolveDefaultPlanning(DEFAULT_APP_SETTINGS, labels) },
   };
 }
@@ -433,6 +445,7 @@ function normalizeLocalData(data, user) {
     presence: data.presence ?? [],
     invitations: data.invitations ?? [],
     assetLists: data.assetLists ?? [],
+    shareLinks: data.shareLinks ?? localShareLinks(),
     appSettings: {
       ...DEFAULT_APP_SETTINGS,
       ...(data.appSettings ?? {}),
@@ -454,7 +467,7 @@ function readLocal(user) {
 }
 
 async function loadSupabaseData() {
-  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers, appSettings, assetLists] = await Promise.all([
+  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers, appSettings, assetLists, shareLinks] = await Promise.all([
     supabase.from('projects').select('*').order('created_at', { ascending: false }),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('line_items').select('*').order('sort_order'),
@@ -466,6 +479,7 @@ async function loadSupabaseData() {
     supabase.from('producers').select('*').order('name'),
     supabase.from('app_settings').select('*').eq('key', 'default_planning').maybeSingle(),
     supabase.from('asset_lists').select('*').order('sort_order'),
+    supabase.from('public_share_links').select('*').is('revoked_at', null),
   ]);
   for (const result of [projects, categories, lineItems, labels, profiles, presence]) {
     if (result.error) throw result.error;
@@ -475,6 +489,7 @@ async function loadSupabaseData() {
   if (producers.error && producers.error.code !== '42P01' && producers.error.code !== '42501') throw producers.error;
   if (appSettings.error && appSettings.error.code !== '42P01' && appSettings.error.code !== '42501' && appSettings.error.code !== 'PGRST205') throw appSettings.error;
   if (assetLists.error && assetLists.error.code !== '42P01' && assetLists.error.code !== '42501' && assetLists.error.code !== 'PGRST205') throw assetLists.error;
+  if (shareLinks.error && shareLinks.error.code !== '42P01' && shareLinks.error.code !== '42501' && shareLinks.error.code !== 'PGRST205') throw shareLinks.error;
   const loadedProfiles = profiles.data ?? [];
   const loadedClients = (clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name, abbreviation: '' }))).map((client) => ({ ...client, abbreviation: client.abbreviation ?? '' }));
   const loadedProjects = projects.data.map((project) => ({
@@ -503,6 +518,11 @@ async function loadSupabaseData() {
       filename_options: list.filename_options ?? {},
       global_separator: list.global_separator ?? '_',
     })),
+    shareLinks: (shareLinks.data ?? []).map((share) => ({
+      ...share,
+      planning_type: share.planning_type ?? DEFAULT_PLANNING_TYPE,
+      planning_version: share.planning_version ?? DEFAULT_PLANNING_VERSION,
+    })),
     appSettings: {
       ...DEFAULT_APP_SETTINGS,
       defaultPlanning: resolveDefaultPlanning({ defaultPlanning: appSettings.data?.value }, loadedLabels),
@@ -512,7 +532,7 @@ async function loadSupabaseData() {
 
 export function PlannerProvider({ children }) {
   const { user, demoMode, hasSupabaseConfig } = useAuth();
-  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [], assetLists: [], appSettings: DEFAULT_APP_SETTINGS });
+  const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [], assetLists: [], shareLinks: [], appSettings: DEFAULT_APP_SETTINGS });
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
   const [dirtyProjectIds, setDirtyProjectIds] = useState([]);
@@ -1488,7 +1508,14 @@ export function PlannerProvider({ children }) {
             .eq('planning_version', safeVersion)
             .is('revoked_at', null)
             .maybeSingle();
-          if (existing.data?.token) return existing.data.token;
+          if (existing.data?.token) {
+            mutate((draft) => {
+              if (!draft.shareLinks.some((share) => share.token === existing.data.token)) {
+                draft.shareLinks.push({ token: existing.data.token, project_id: projectId, page_type: 'client_planning', planning_type: safeType, planning_version: safeVersion, revoked_at: null });
+              }
+            });
+            return existing.data.token;
+          }
 
           const token = shareToken();
           const inserted = await supabase
@@ -1497,15 +1524,28 @@ export function PlannerProvider({ children }) {
             .select('token')
             .single();
           if (inserted.error) throw inserted.error;
+          mutate((draft) => {
+            draft.shareLinks.push({ token: inserted.data.token, project_id: projectId, page_type: 'client_planning', planning_type: safeType, planning_version: safeVersion, revoked_at: null });
+          });
           return inserted.data.token;
         }
 
         const token = shareToken();
         const shares = readShares();
         const existingToken = Object.entries(shares).find(([, share]) => share.projectId === projectId && planningType(share.planningType) === safeType && (share.planningVersion ?? DEFAULT_PLANNING_VERSION) === safeVersion)?.[0];
-        if (existingToken) return existingToken;
+        if (existingToken) {
+          mutate((draft) => {
+            if (!draft.shareLinks.some((share) => share.token === existingToken)) {
+              draft.shareLinks.push({ token: existingToken, project_id: projectId, page_type: 'client_planning', planning_type: safeType, planning_version: safeVersion, revoked_at: null });
+            }
+          });
+          return existingToken;
+        }
         shares[token] = { projectId, planningType: safeType, planningVersion: safeVersion };
         writeShares(shares);
+        mutate((draft) => {
+          draft.shareLinks.push({ token, project_id: projectId, page_type: 'client_planning', planning_type: safeType, planning_version: safeVersion, revoked_at: null });
+        });
         return token;
       },
     }),

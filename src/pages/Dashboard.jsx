@@ -96,11 +96,25 @@ function hasPlanningModule(project, type, lineItems = [], categories = []) {
   return versionsForProject(project, lineItems, categories, type).length > 0;
 }
 
+function slugifyProjectName(name) {
+  return (name || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'project';
+}
+
+function assetListHasValues(list) {
+  return (list?.rows ?? []).some((row) => Object.values(row.values ?? {}).some((value) => String(value ?? '').trim()));
+}
+
+function assetStatusLabel(list) {
+  const status = list?.filename_options?.status ?? 'none';
+  if (list?.filename_options?.asset_published_at && !assetListHasValues(list)) return 'current';
+  return status;
+}
+
 const DASHBOARD_PLANNING_ORDER = [PLANNING_TYPES.production, PLANNING_TYPES.post];
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, categories, createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, deletePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, categories, assetLists = [], shareLinks = [], createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, deletePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
@@ -272,10 +286,12 @@ export default function Dashboard() {
               const moduleLinks = DASHBOARD_PLANNING_ORDER.map((definition) => {
                 const moduleVersions = versionsForProject(project, lineItems, categories, definition.key);
                 const moduleVersion = moduleVersions.includes(project.preferred_planning_version) ? project.preferred_planning_version : moduleVersions[0] ?? 'V1';
-                return { definition, versions: moduleVersions, version: moduleVersion, exists: hasPlanningModule(project, definition.key, lineItems, categories) };
+                const shareLink = shareLinks.find((share) => share.project_id === project.id && share.page_type === 'client_planning' && safePlanningType(share.planning_type) === definition.key && (share.planning_version ?? 'V1') === moduleVersion && !share.revoked_at);
+                return { definition, versions: moduleVersions, version: moduleVersion, exists: hasPlanningModule(project, definition.key, lineItems, categories), shareLink };
               });
+              const visibleModuleLinks = moduleLinks.filter((item) => item.exists);
               const postPlanningLink = moduleLinks.find((item) => item.definition.key === DEFAULT_PLANNING_TYPE);
-              const firstPlanningLink = moduleLinks.find((item) => item.exists) ?? postPlanningLink ?? moduleLinks[0];
+              const firstPlanningLink = visibleModuleLinks[0] ?? postPlanningLink ?? moduleLinks[0];
               const createdBy = (profiles ?? []).find((profile) => profile.id === (project.created_by ?? project.user_id));
               const editedBy = (profiles ?? []).find((profile) => profile.id === (project.last_edited_by ?? project.user_id));
               const postProducerName = project.post_producer || '-';
@@ -285,6 +301,9 @@ export default function Dashboard() {
               const missingClient = clientLabel === 'no client';
               const activeNames = activeNamesForProject(project.id);
               const locked = activeNames.length > 0;
+              const projectAssetLists = assetLists.filter((list) => list.project_id === project.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+              const primaryAssetList = projectAssetLists[0];
+              const assetStatus = assetStatusLabel(primaryAssetList);
               const openProjectPlanning = (definition, version, exists, event) => {
                 event?.preventDefault();
                 event?.stopPropagation();
@@ -333,17 +352,19 @@ export default function Dashboard() {
                       type="button"
                       onClick={openAssetListAction}
                       className="project-label-button"
-                      aria-label="Open labels"
-                      title="Open labels"
+                      aria-label="Open assetlist"
+                      title="Open assetlist"
                     >
-                      <FileSpreadsheet size={16} /> Label
+                      <span><FileSpreadsheet size={14} /> ASSETLIST</span>
+                      <span className={`project-asset-status is-${assetStatus.replace(/\s+/g, '-')}`}>{assetStatus}</span>
                     </button>
                   </div>
                   <div className="project-planning-rows">
-                    {moduleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions }) => {
+                    {visibleModuleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions, shareLink }) => {
                       const ownerName = definition.key === PLANNING_TYPES.production.key ? productionProducerName : postProducerName;
                       const ownerProfile = profileByName[ownerName] ?? createdBy;
                       const ownerInitials = ownerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+                      const publishUrl = shareLink ? `/share/${slugifyProjectName(project.name)}-${shareLink.token}` : '';
                       return (
                         <div key={definition.key} className={`project-planning-row is-${definition.key} ${exists ? '' : 'is-empty'}`}>
                           <div className="project-planning-row-main">
@@ -368,6 +389,17 @@ export default function Dashboard() {
                                   {version}
                                 </button>
                               ))}
+                              {shareLink ? (
+                                <a
+                                  href={publishUrl}
+                                  onClick={(event) => event.stopPropagation()}
+                                  className="project-publish-badge is-published"
+                                >
+                                  Published
+                                </a>
+                              ) : (
+                                <span className="project-publish-badge is-unpublished">Not published</span>
+                              )}
                             </div>
                           </div>
                           <div className="project-planning-person">

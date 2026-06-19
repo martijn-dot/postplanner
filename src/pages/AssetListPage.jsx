@@ -24,6 +24,7 @@ const STANDARD_COLUMNS = [
 ];
 
 const SEPARATORS = ['-', '_', ' '];
+const ASSET_STATUS_OPTIONS = ['none', 'in progress', 'shared', 'updating', 'approved'];
 const FILENAME_COLUMN_OFFSET = 0;
 const COPY_COLUMN_OFFSET = 1;
 const NOTES_COLUMN_OFFSET = 2;
@@ -364,6 +365,8 @@ export default function AssetListPage({ project }) {
   const categories = orderedCategories(activeList);
   const fallbackCategory = categories[0] ?? { id: 'default', name: 'Category 1', collapsed: false, sort_order: 0 };
   const settingsColumn = columns.find((column) => column.id === settingsColumnId);
+  const assetStatus = activeList?.filename_options?.status ?? 'none';
+  const assetPublished = Boolean(activeList?.filename_options?.asset_published_at);
 
   useEffect(() => {
     undoStackRef.current = [];
@@ -380,6 +383,22 @@ export default function AssetListPage({ project }) {
     const previous = undoStackRef.current.pop();
     if (!previous) return;
     updateAssetList(activeList.id, previous);
+  };
+
+  const updateAssetStatus = (status) => {
+    saveList({ filename_options: { ...(activeList.filename_options ?? {}), status } }, { trackUndo: false });
+    markProjectEdited(project.id);
+  };
+
+  const publishAssetList = () => {
+    saveList({
+      filename_options: {
+        ...(activeList.filename_options ?? {}),
+        asset_published_at: new Date().toISOString(),
+        status: activeList.filename_options?.status && activeList.filename_options.status !== 'none' ? activeList.filename_options.status : 'shared',
+      },
+    }, { trackUndo: false });
+    markProjectEdited(project.id);
   };
 
   const saveColumns = (nextColumns, nextRows = activeList.rows) => {
@@ -846,6 +865,15 @@ export default function AssetListPage({ project }) {
               </span>
             </label>
             <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all', clients)} className="secondary-button"><Download size={16} /> Download Excel</button>
+            <label className="flex items-center gap-2 text-sm font-semibold text-ink-500">
+              Status
+              <select className="field !w-36 !py-2" value={assetStatus} onChange={(event) => updateAssetStatus(event.target.value)}>
+                {ASSET_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+            </label>
+            <button type="button" onClick={publishAssetList} className={`secondary-button ${assetPublished ? 'border-accent-400/50 text-accent-100' : ''}`}>
+              {assetPublished ? 'Published' : 'Publish assetlist'}
+            </button>
           </div>
         </div>
       </div>
