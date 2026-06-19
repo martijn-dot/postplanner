@@ -332,6 +332,13 @@ export default function Dashboard() {
                 setArchiveProjectTarget(project);
                 setArchiveConfirmText('');
               };
+              const archivePlanningModuleAction = (definition, event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (window.confirm(`Archive ${definition.label} planning for ${project.name}? This removes that planning row from the project panel.`)) {
+                  deletePlanningModule(project.id, definition.key);
+                }
+              };
               const openAssetListAction = (event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -348,16 +355,29 @@ export default function Dashboard() {
                         {locked && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={openAssetListAction}
-                      className="project-label-button"
-                      aria-label="Open assetlist"
-                      title="Open assetlist"
-                    >
-                      <span><FileSpreadsheet size={14} /> ASSETLIST</span>
-                      <span className={`project-asset-status is-${assetStatus.replace(/\s+/g, '-')}`}>{assetStatus}</span>
-                    </button>
+                    <div className="project-header-actions">
+                      <div className="project-assetlist-stack">
+                        <button
+                          type="button"
+                          onClick={openAssetListAction}
+                          className="project-label-button"
+                          aria-label="Open assetlist"
+                          title="Open assetlist"
+                        >
+                          <FileSpreadsheet size={14} /> ASSETLIST
+                        </button>
+                        <span className={`project-asset-status is-${assetStatus.replace(/\s+/g, '-')}`}>{assetStatus}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openArchiveAction}
+                        className="project-action-button project-archive-button"
+                        aria-label="Archive project"
+                        title="Archive whole project"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
                   </div>
                   <div className="project-planning-rows">
                     {visibleModuleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions, shareLink }) => {
@@ -437,10 +457,10 @@ export default function Dashboard() {
                             </button>
                             <button
                               type="button"
-                              onClick={openArchiveAction}
+                              onClick={(event) => archivePlanningModuleAction(definition, event)}
                               className="project-action-button"
-                              aria-label={`Archive ${definition.label} project`}
-                              title="Archive project"
+                              aria-label={`Archive ${definition.label} planning`}
+                              title={`Archive ${definition.label} planning`}
                             >
                               <Trash2 size={17} />
                             </button>
