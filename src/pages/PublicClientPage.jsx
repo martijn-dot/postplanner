@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Flag, Search, Send, Timer, Users } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronRight, Download, Eye, EyeOff, FileText, Flag, Info, Search, Send, Users } from 'lucide-react';
 import { ClientGanttChart, ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -443,6 +443,7 @@ export default function PublicClientPage() {
                     onClick={() => setShowInfo((next) => !next)}
                     className="public-info-button"
                   >
+                    <Info size={15} aria-hidden="true" />
                     {showInfo ? 'Hide Info' : 'Show Info'}
                   </button>
                   <button
@@ -453,6 +454,7 @@ export default function PublicClientPage() {
                     )}
                     className="public-download-button"
                   >
+                    <Download size={15} aria-hidden="true" />
                     Download Excel
                   </button>
                 </div>
@@ -590,6 +592,10 @@ export default function PublicClientPage() {
             ) : (
               <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} labels={payload.labels ?? []} />
             )}
+            <footer className="public-client-footer">
+              <span>{new Date().getFullYear()} · {payload.project.name}</span>
+              <span>Published planning</span>
+            </footer>
           </div>
         </div>
       </div>
