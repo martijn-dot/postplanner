@@ -312,7 +312,7 @@ function RowColorSelect({ value, onChange, readOnly = false }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false }) {
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
@@ -385,6 +385,73 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     nextOrder.splice(side === 'after' ? targetIndex + 1 : targetIndex, 0, draggedColumn);
     updatePrefs({ ...prefs, order: nextOrder });
   };
+
+  if (publicCardLayout) {
+    const gridColumns = `110px ${orderedColumns.map((column) => `minmax(${Math.min(widthForColumn(column), 110)}px, ${column.key === 'asset' || column.key === 'notes' ? '1.4fr' : '1fr'})`).join(' ')}`;
+    const weeks = rows.reduce((groups, row) => {
+      let week = groups.at(-1);
+      if (!week || week.number !== row.Week) {
+        week = { number: row.Week, dates: [] };
+        groups.push(week);
+      }
+      let date = week.dates.at(-1);
+      if (!date || date.key !== row._dateKey) {
+        date = { key: row._dateKey, rows: [] };
+        week.dates.push(date);
+      }
+      date.rows.push(row);
+      return groups;
+    }, []);
+    const renderPublicCell = (row, column) => {
+      const hiddenBooking = row._item && row._item.who?.some((id) => hiddenWhoIds.includes(id));
+      if (hiddenBooking) return null;
+      if (column.key === 'calendar') return row._item ? <a className="client-calendar-button" href={googleCalendarUrl(row)} target="_blank" rel="noreferrer">Add to calendar</a> : null;
+      if (column.key === 'time') return row._item ? (row.Time || '-') : null;
+      if (column.key === 'who') return row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null;
+      if (column.key === 'asset') return row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null;
+      if (column.key === 'what') return row._item ? <Pill label={labelsById[row._item.what]} /> : null;
+      if (column.key === 'todo') return row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null;
+      if (column.key === 'notes') return row._item?.notes ? <span className="note-preview group relative inline-flex min-w-0 items-center gap-2"><FileText size={14} /><span className="truncate">{row._item.notes}</span><span className="note-tooltip">{row._item.notes}</span></span> : null;
+      if (column.key === 'category') return row._item ? row.Category : null;
+      return null;
+    };
+
+    return (
+      <section className="public-calendar-cards">
+        <div className="public-calendar-column-head" style={{ gridTemplateColumns: gridColumns }}>
+          <span>Date</span>
+          {orderedColumns.map((column) => <span key={column.key}>{column.label}</span>)}
+        </div>
+        {weeks.map((week) => (
+          <section className="public-calendar-week" key={week.number}>
+            <div className="public-calendar-week-band"><CalendarDays size={21} /><strong>Week {week.number}</strong></div>
+            {week.dates.map((date) => {
+              const firstRow = date.rows[0];
+              const [dayNumber, month] = firstRow.Date.split(' ');
+              const hasVisibleEvent = date.rows.some((row) => row._item && !row._item.who?.some((id) => hiddenWhoIds.includes(id)));
+              return (
+                <article className="public-calendar-date-card" key={date.key}>
+                  <div className="public-calendar-date-block">
+                    <span>{firstRow.Day}</span>
+                    <strong>{dayNumber}</strong>
+                    <b>{month}</b>
+                  </div>
+                  <div className="public-calendar-date-events">
+                    {hasVisibleEvent ? date.rows.filter((row) => !row._item?.who?.some((id) => hiddenWhoIds.includes(id))).map((row, index) => (
+                      <div className="public-calendar-event-row" style={{ gridTemplateColumns: orderedColumns.map((column) => `minmax(${Math.min(widthForColumn(column), 110)}px, ${column.key === 'asset' || column.key === 'notes' ? '1.4fr' : '1fr'})`).join(' ') }} key={row._item?.id ?? `${date.key}-${index}`}>
+                        {orderedColumns.map((column) => <div key={column.key}>{renderPublicCell(row, column)}</div>)}
+                      </div>
+                    )) : <div className="public-calendar-empty">No events scheduled</div>}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        ))}
+        {!rows.length && <div className="public-calendar-no-results">No milestones yet.</div>}
+      </section>
+    );
+  }
 
   return (
     <>

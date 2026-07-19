@@ -160,14 +160,6 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
   };
 }
 
-function publicPlanningVersion(project, lineItems = [], share = null) {
-  return share?.planning_version
-    ?? lineItems.find((item) => item.planning_version)?.planning_version
-    ?? project?.preferred_planning_version
-    ?? project?.planning_version
-    ?? 'V1';
-}
-
 function PublicAssetList({ project, assetLists = [], clients = [], labels = [] }) {
   const [activeId, setActiveId] = useState(assetLists[0]?.id ?? '');
   const [searchTerm, setSearchTerm] = useState('');
@@ -333,7 +325,6 @@ export default function PublicClientPage() {
     return [...groups.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }, [payload?.categories, payload?.lineItems, payload?.project, uncategorizedName]);
   const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], milestones: [] }), [payload]);
-  const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? [], payload?.share), [payload?.lineItems, payload?.project, payload?.share]);
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
@@ -424,7 +415,6 @@ export default function PublicClientPage() {
                     </div>
                     <div className="public-publish-line">
                       <span>Planning Created: <strong>{publishedDate}</strong></span>
-                      <span className="public-version-label">{planningVersion}</span>
                     </div>
                   </div>
                   <div className="public-client-tabs">
@@ -567,7 +557,8 @@ export default function PublicClientPage() {
                     forceHideCategoryColumn
                     dateWindow="full"
                     hiddenWhoIds={hiddenWhoIds}
-                    columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'calendar'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, rowColor: false, edit: false } }}
+                    publicCardLayout
+                    columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'calendar'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, notes: false, rowColor: false, edit: false } }}
                     showWeekColumn={false}
                   />
                 ) : (

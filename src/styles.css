@@ -1646,6 +1646,228 @@ body.public-share-body {
   }
 }
 
+/* Reference-matched public calendar structure. */
+.public-client-header,
+.dark .public-client-header {
+  min-height: 102px;
+  padding-bottom: 22px;
+  padding-top: 22px;
+}
+
+.public-project-title-row h1 {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 30px;
+}
+
+.public-publish-line {
+  color: #45464d;
+  font-size: 13px;
+  margin-top: 1px;
+}
+
+.public-publish-line strong {
+  color: inherit;
+  font-weight: 500;
+}
+
+.public-brand-block {
+  gap: 36px;
+}
+
+.public-brand-block .public-client-tabs {
+  gap: 30px;
+  margin-left: 0;
+}
+
+.public-client-page .tab {
+  font-size: 13px;
+  letter-spacing: .02em;
+  padding: 13px 0 10px;
+  text-transform: none;
+}
+
+.public-info-button,
+.public-download-button {
+  border-radius: 10px;
+  font-size: 13px;
+  letter-spacing: .01em;
+  min-height: 48px;
+  padding: 0 20px;
+  text-transform: none;
+}
+
+.public-info-button {
+  background: #eff4ff;
+}
+
+.public-header-actions {
+  gap: 16px;
+}
+
+.public-client-controls {
+  min-height: 76px;
+  top: 102px;
+}
+
+.public-calendar-cards {
+  color: #0b1c30;
+  min-width: 980px;
+  padding-top: 18px;
+}
+
+.public-calendar-column-head {
+  align-items: center;
+  background: #eff4ff;
+  border-bottom: 1px solid #c6c6cd;
+  border-radius: 12px 12px 0 0;
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
+  min-height: 58px;
+  padding: 0 18px;
+}
+
+.public-calendar-column-head > span {
+  color: #45464d;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.public-calendar-week {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.public-calendar-week-band {
+  align-items: center;
+  background: linear-gradient(100deg, #1e1b4b 0%, #4c1d95 100%);
+  border-radius: 9px;
+  color: #ffffff;
+  display: flex;
+  gap: 14px;
+  min-height: 56px;
+  padding: 0 20px;
+}
+
+.public-calendar-week-band strong {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.public-calendar-date-card {
+  background: #ffffff;
+  border: 1px solid #dfe3e7;
+  border-radius: 14px;
+  display: grid;
+  grid-template-columns: 126px minmax(0, 1fr);
+  min-height: 118px;
+  overflow: hidden;
+}
+
+.public-calendar-date-block {
+  align-content: center;
+  align-self: center;
+  border-right: 1px solid #c6c6cd;
+  display: grid;
+  margin: 22px 0;
+  min-height: 72px;
+  padding: 0 20px;
+}
+
+.public-calendar-date-block span {
+  color: #45464d;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 15px;
+  text-transform: uppercase;
+}
+
+.public-calendar-date-block strong {
+  color: #0b1c30;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 28px;
+}
+
+.public-calendar-date-block b {
+  color: #0b1c30;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.public-calendar-date-events {
+  align-self: stretch;
+  display: grid;
+  min-width: 0;
+}
+
+.public-calendar-event-row {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  min-height: 78px;
+  padding: 14px 18px;
+}
+
+.public-calendar-event-row + .public-calendar-event-row {
+  border-top: 1px solid #e7e9ec;
+}
+
+.public-calendar-event-row > div {
+  min-width: 0;
+}
+
+.public-calendar-empty {
+  align-items: center;
+  color: rgba(69, 70, 77, .42);
+  display: flex;
+  font-size: 14px;
+  font-style: italic;
+  justify-content: center;
+  min-height: 116px;
+}
+
+.public-calendar-no-results {
+  background: #ffffff;
+  border: 1px solid #dfe3e7;
+  border-radius: 14px;
+  color: #76777d;
+  padding: 48px 20px;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .public-client-header,
+  .dark .public-client-header {
+    min-height: 0;
+  }
+
+  .public-client-controls {
+    min-height: 0;
+  }
+
+  .public-calendar-cards {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .public-brand-block {
+    gap: 12px;
+  }
+
+  .public-project-title-row h1 {
+    font-size: 21px;
+  }
+}
+
 .timeline-month-label::before {
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
@@ -4554,4 +4776,136 @@ body.public-share-body {
   color: #dced55;
   font-family: var(--font-data);
   font-weight: 800;
+}
+
+/* Final public header overrides live last so the published layout stays reference-accurate. */
+.public-client-header,
+.dark .public-client-header {
+  background: #ffffff !important;
+  border: 0;
+  border-bottom: 1px solid #c6c6cd;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0 -40px;
+  min-height: 102px;
+  padding: 22px 40px;
+  top: 0;
+}
+
+.public-project-title-row h1 {
+  color: #000000;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 30px;
+}
+
+.public-publish-line {
+  color: #45464d;
+  font-size: 13px;
+  line-height: 18px;
+  margin-top: 1px;
+}
+
+.public-publish-line strong {
+  color: inherit;
+  font-weight: 500;
+}
+
+.public-brand-block {
+  gap: 36px;
+}
+
+.public-brand-block .public-client-tabs {
+  background: transparent;
+  gap: 30px;
+  margin-left: 0;
+  padding: 0;
+}
+
+.public-brand-block .public-client-tabs::before {
+  display: none;
+}
+
+.public-client-page .public-client-tabs .tab {
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: #45464d;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 13px 0 10px;
+  text-transform: none;
+}
+
+.public-client-page .public-client-tabs .tab-active,
+.public-client-page .public-client-tabs .tab-active:hover {
+  border-bottom-color: #0058be;
+  color: #0058be;
+}
+
+.public-info-button,
+.public-download-button {
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  min-height: 48px;
+  padding: 0 20px;
+  text-transform: none;
+}
+
+.public-info-button {
+  background: #eff4ff;
+  border-color: #c6c6cd;
+  color: #45464d;
+}
+
+.public-download-button {
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+}
+
+.public-client-controls {
+  min-height: 76px;
+  top: 102px;
+}
+
+@media (max-width: 1100px) {
+  .public-client-header,
+  .dark .public-client-header {
+    margin: 0 -24px;
+    min-height: 0;
+    padding: 18px 24px;
+  }
+
+  .public-header-inner {
+    align-items: flex-start;
+  }
+
+  .public-client-controls {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .public-client-header,
+  .dark .public-client-header {
+    margin: 0 -16px 20px;
+    padding: 16px;
+  }
+
+  .public-brand-block {
+    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .public-brand-block .public-client-tabs {
+    flex-basis: 100%;
+  }
+
+  .public-project-title-row h1 {
+    font-size: 21px;
+  }
 }
