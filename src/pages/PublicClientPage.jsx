@@ -1,12 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BarChart3, ChevronDown, ChevronRight, Download, Eye, EyeOff, FileText, Flag, Info, Search, Send, Users } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Flag, Search, Send, Users } from 'lucide-react';
 import { ClientGanttChart, ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import Pill from '../components/Pill.jsx';
-import wennekerLogo from '../assets/wenneker-logo.png';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
@@ -315,7 +314,7 @@ export default function PublicClientPage() {
   const [showClientBookings, setShowClientBookings] = useState(true);
   const [planningView, setPlanningView] = useState('calendar');
   const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
-  const [showInfo, setShowInfo] = useState(true);
+  const [showInfo, setShowInfo] = useState(false);
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
@@ -336,7 +335,6 @@ export default function PublicClientPage() {
   const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], milestones: [] }), [payload]);
   const planningVersion = useMemo(() => publicPlanningVersion(payload?.project, payload?.lineItems ?? [], payload?.share), [payload?.lineItems, payload?.project, payload?.share]);
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
-  const lastEditedDate = formatPublicDate(payload?.project?.last_edited_at ?? payload?.project?.updated_at ?? payload?.project?.created_at);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
@@ -420,30 +418,26 @@ export default function PublicClientPage() {
             <header className="public-client-header">
               <div className="public-header-inner">
                 <div className="public-brand-block">
-                  <span className="public-header-logo"><img src={wennekerLogo} alt="Wenneker" /></span>
                   <div className="public-project-heading">
                     <div className="public-project-title-row">
                       <h1>{payload.project.name}</h1>
-                      <span className="public-version-label">{planningVersion}</span>
                     </div>
-                    <p>{payload.project.client || 'Client'}</p>
                     <div className="public-publish-line">
                       <span>Planning Created: <strong>{publishedDate}</strong></span>
-                      <span>Planning Edited: <strong>{lastEditedDate}</strong></span>
+                      <span className="public-version-label">{planningVersion}</span>
                     </div>
                   </div>
-                </div>
-                <div className="public-header-actions">
                   <div className="public-client-tabs">
                     <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
                     <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
                   </div>
+                </div>
+                <div className="public-header-actions">
                   <button
                     type="button"
                     onClick={() => setShowInfo((next) => !next)}
                     className="public-info-button"
                   >
-                    <Info size={15} aria-hidden="true" />
                     {showInfo ? 'Hide Info' : 'Show Info'}
                   </button>
                   <button
@@ -454,7 +448,6 @@ export default function PublicClientPage() {
                     )}
                     className="public-download-button"
                   >
-                    <Download size={15} aria-hidden="true" />
                     Download Excel
                   </button>
                 </div>

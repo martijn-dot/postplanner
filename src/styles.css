@@ -1309,6 +1309,10 @@ body.public-share-body {
   gap: 16px;
 }
 
+.public-brand-block .public-client-tabs {
+  margin-left: 16px;
+}
+
 .public-header-logo {
   box-shadow: none;
   height: 38px;
@@ -1328,15 +1332,20 @@ body.public-share-body {
 }
 
 .public-publish-line {
+  align-items: center;
   color: #76777d;
   font-size: 10px;
+  gap: 8px;
   line-height: 14px;
 }
 
 .public-version-label {
-  background: #dae2fd;
+  background: #eff4ff;
   border-radius: 999px;
-  color: #131b2e;
+  color: #45464d;
+  font-size: 8px;
+  line-height: 13px;
+  padding: 1px 6px;
   text-transform: uppercase;
 }
 
@@ -1590,6 +1599,13 @@ body.public-share-body {
 
   .public-brand-block {
     align-items: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .public-brand-block .public-client-tabs {
+    flex-basis: 100%;
+    margin-left: 0;
   }
 
   .public-header-actions {
