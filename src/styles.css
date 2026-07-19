@@ -1726,14 +1726,25 @@ body.public-share-body {
   margin-bottom: 20px;
   min-height: 58px;
   padding: 0 18px;
+  position: sticky;
+  top: 178px;
+  z-index: 420;
 }
 
 .public-calendar-column-head > span {
+  align-items: center;
   color: #45464d;
+  display: inline-flex;
   font-size: 11px;
   font-weight: 700;
+  gap: 9px;
   letter-spacing: .05em;
   text-transform: uppercase;
+}
+
+.public-calendar-column-head > span svg {
+  color: #45464d;
+  flex: 0 0 auto;
 }
 
 .public-calendar-week {
@@ -1856,6 +1867,10 @@ body.public-share-body {
   .public-calendar-cards {
     overflow-x: auto;
   }
+
+  .public-calendar-column-head {
+    top: 0;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1865,6 +1880,154 @@ body.public-share-body {
 
   .public-project-title-row h1 {
     font-size: 21px;
+  }
+}
+
+/* Exact two-tier framed header from the published-view reference. */
+.public-client-header,
+.dark .public-client-header {
+  background: #ffffff !important;
+  border: 4px solid #6557e8;
+  border-bottom: 1px solid #c6c6cd;
+  border-radius: 16px 16px 0 0;
+  box-sizing: border-box;
+  margin: 0 -20px;
+  min-height: 102px;
+  padding: 20px 36px;
+}
+
+.public-client-controls {
+  background: #fbfbff;
+  border: 4px solid #6557e8;
+  border-radius: 0 0 16px 16px;
+  border-top: 0;
+  box-shadow: inset 0 1px 0 #e1e3e7;
+  box-sizing: border-box;
+  margin: 0 -20px 28px;
+  min-height: 78px;
+  padding: 14px 36px;
+  top: 102px;
+}
+
+.public-header-inner {
+  min-height: 54px;
+}
+
+.public-project-heading {
+  min-width: 300px;
+}
+
+.public-project-title-row h1 {
+  font-size: 23px;
+  letter-spacing: -.02em;
+  line-height: 28px;
+}
+
+.public-brand-block {
+  gap: 38px;
+}
+
+.public-client-page .public-client-tabs .tab {
+  font-size: 13px;
+  padding: 12px 0 10px;
+}
+
+.public-header-actions {
+  flex-wrap: nowrap;
+  gap: 16px;
+}
+
+.public-info-button,
+.public-download-button {
+  min-height: 48px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.public-filter-left {
+  gap: 10px;
+}
+
+.public-controls-label {
+  font-size: 11px;
+  letter-spacing: .02em;
+  padding-right: 4px;
+}
+
+.public-controls-label-secondary {
+  border-left: 1px solid #c6c6cd;
+  margin-left: 12px;
+  padding-left: 24px;
+}
+
+.public-client-page .client-filter-pill {
+  font-size: 10px;
+  min-height: 30px;
+  padding: 6px 14px;
+}
+
+.public-view-select {
+  gap: 12px;
+}
+
+.public-view-select span {
+  color: #45464d;
+  font-size: 10px;
+}
+
+.public-view-select select {
+  border: 1px solid #c6c6cd;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 40px;
+  min-width: 170px;
+}
+
+.public-calendar-column-head {
+  top: 180px;
+}
+
+@media (max-width: 1100px) {
+  .public-client-header,
+  .dark .public-client-header,
+  .public-client-controls {
+    margin-left: -8px;
+    margin-right: -8px;
+  }
+
+  .public-client-header,
+  .dark .public-client-header {
+    padding: 18px 20px;
+  }
+
+  .public-client-controls {
+    padding: 14px 20px;
+  }
+
+  .public-project-heading {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .public-client-header,
+  .dark .public-client-header,
+  .public-client-controls {
+    border-left-width: 0;
+    border-radius: 0;
+    border-right-width: 0;
+    margin-left: -16px;
+    margin-right: -16px;
+  }
+
+  .public-client-header,
+  .dark .public-client-header {
+    border-top-width: 0;
+  }
+
+  .public-client-controls {
+    border-bottom-width: 1px;
   }
 }
 

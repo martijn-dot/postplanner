@@ -420,7 +420,15 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
       <section className="public-calendar-cards">
         <div className="public-calendar-column-head" style={{ gridTemplateColumns: gridColumns }}>
           <span>Date</span>
-          {orderedColumns.map((column) => <span key={column.key}>{column.label}</span>)}
+          {orderedColumns.map((column) => {
+            const ColumnIcon = CLIENT_COLUMN_ICONS[column.key];
+            return (
+              <span key={column.key}>
+                {ColumnIcon ? <ColumnIcon size={15} strokeWidth={1.8} aria-hidden="true" /> : null}
+                {column.key === 'calendar' ? 'Actions' : column.label}
+              </span>
+            );
+          })}
         </div>
         {weeks.map((week) => (
           <section className="public-calendar-week" key={week.number}>
