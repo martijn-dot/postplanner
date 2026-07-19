@@ -325,6 +325,11 @@ export default function PublicClientPage() {
     return [...groups.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }, [payload?.categories, payload?.lineItems, payload?.project, uncategorizedName]);
   const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], milestones: [] }), [payload]);
+  const planningVersion = payload?.share?.planning_version
+    ?? payload?.lineItems?.find((item) => item.planning_version)?.planning_version
+    ?? payload?.project?.preferred_planning_version
+    ?? payload?.project?.planning_version
+    ?? 'V1';
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
@@ -412,6 +417,7 @@ export default function PublicClientPage() {
                   <div className="public-project-heading">
                     <div className="public-project-title-row">
                       <h1>{payload.project.name}</h1>
+                      <span className="public-version-label">{planningVersion}</span>
                     </div>
                     <div className="public-publish-line">
                       <span>Planning Created: <strong>{publishedDate}</strong></span>

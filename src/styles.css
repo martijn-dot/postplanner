@@ -2031,6 +2031,56 @@ body.public-share-body {
   }
 }
 
+/* Published header refinements. */
+.public-client-header,
+.dark .public-client-header {
+  border-bottom: 0;
+  box-shadow: none;
+}
+
+.public-client-controls {
+  box-shadow: none;
+}
+
+.public-client-page .public-client-tabs .tab,
+.public-client-page .public-client-tabs .tab-active {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none !important;
+  outline: 0;
+  position: relative;
+}
+
+.public-client-page .public-client-tabs .tab::after {
+  background: transparent;
+  bottom: 2px;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.public-client-page .public-client-tabs .tab-active::after {
+  background: #0058be;
+}
+
+.public-version-label {
+  align-self: center;
+  background: #f4d83d;
+  border: 0;
+  border-radius: 4px;
+  color: #191c1e;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  line-height: 16px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
 .timeline-month-label::before {
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
