@@ -763,21 +763,10 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
                     <div className="relative min-h-14">
                       {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
                       <div className="client-gantt-booking" style={{ left: offset * dayWidth + 4, width: duration * dayWidth - 8, '--client-gantt-color': blockColor }}>
-                        {Array.from({ length: duration }, (_, index) => {
-                          const day = new Date(visibleStart);
-                          day.setDate(day.getDate() + index);
-                          const isLast = index === duration - 1;
-                          return (
-                            <span key={index} className={`client-gantt-booking-day ${isLast ? 'is-last' : ''}`}>
-                              {isLast && (
-                                <>
-                                  <strong>{format(day, 'd')}</strong>
-                                  <em>{format(day, 'MMM')}</em>
-                                </>
-                              )}
-                            </span>
-                          );
-                        })}
+                        <span className="client-gantt-booking-day is-last" style={{ left: (duration - 1) * dayWidth + 4 }}>
+                          <strong>{format(visibleEnd, 'd')}</strong>
+                          <em>{format(visibleEnd, 'MMM')}</em>
+                        </span>
                         <span className="client-gantt-labels">
                           {what && <Pill label={what} />}
                           {todo && <Pill label={todo} subtle />}

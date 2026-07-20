@@ -2722,13 +2722,20 @@ body.public-share-body {
 
 .client-gantt-booking-day.is-last {
   background: var(--client-gantt-color, #6d5dfc);
-  border-radius: 9px;
-  height: 32px;
-  margin: 4px;
-  min-width: 50px;
+  border-radius: 7px;
+  height: 28px;
+  margin: 0;
+  min-width: 42px;
   color: #100e1d;
   opacity: 1;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
 }
+
+.client-gantt-booking-day.is-last strong { font-size: 0.6rem; }
+.client-gantt-booking-day.is-last em { font-size: 0.43rem; margin-top: 0.12rem; }
 
 .client-gantt-booking .client-gantt-labels {
   left: calc(100% + 10px);
