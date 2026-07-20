@@ -1054,12 +1054,11 @@ export default function AssetListPage({ project }) {
                 <div className="asset-category-body">
                 {!category.collapsed && groupRows.map((row) => {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
-                  const ratioChildCount = row.ratio_group ? rows.filter((item) => item.ratio_parent_id === row.id).length : 0;
                   return (
                     <div
                       key={row.id}
                       className={`asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950 ${row.ratio_group ? 'is-ratio-group-parent' : ''} ${row.ratio_parent_id ? 'is-ratio-group-child' : ''}`}
-                      style={{ gridTemplateColumns: fullGridTemplate, '--ratio-group-rows': ratioChildCount + 1 }}
+                      style={{ gridTemplateColumns: fullGridTemplate }}
                     >
                       <div className="asset-row-actions">
                         <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>
@@ -1089,6 +1088,7 @@ export default function AssetListPage({ project }) {
                         const columnIndex = columns.findIndex((item) => item.id === column.id);
                         const isUniqueRatioColumn = column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? '');
                         const isRatioColumn = column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? '');
+                        const isAssetTypeColumn = column.label_type === 'asset_type' || /^asset\s*type$/i.test(column.name ?? '');
                         const isRatioSharedColumn = !isUniqueRatioColumn && !isRatioColumn;
                         const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
                         const value = row.values?.[column.id] ?? '';
@@ -1097,7 +1097,7 @@ export default function AssetListPage({ project }) {
                             key={column.id}
                             data-asset-row={absoluteRowIndex}
                             data-asset-column={columnIndex}
-                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${isRatioSharedColumn && row.ratio_group ? 'is-ratio-shared-parent' : ''} ${isRatioSharedColumn && row.ratio_parent_id ? 'is-ratio-shared-child' : ''}`}
+                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${isRatioSharedColumn && row.ratio_group ? 'is-ratio-shared-parent' : ''} ${isRatioSharedColumn && row.ratio_parent_id ? 'is-ratio-shared-child' : ''} ${isAssetTypeColumn && row.ratio_parent_id ? 'is-ratio-branch-cell' : ''}`}
                             {...cellSelectionProps(absoluteRowIndex, columnIndex, row.id, column.id)}
                             onCopy={(event) => {
                               event.preventDefault();
@@ -1183,7 +1183,9 @@ export default function AssetListPage({ project }) {
                               </div>
                             ) : isRatioColumn && row.ratio_parent_id ? (
                               <span className="asset-ratio-child-label">{row.ratio_value || value}</span>
-                            ) : column.label_type === 'asset_type' || /^asset\s*type$/i.test(column.name ?? '') ? (
+                            ) : isAssetTypeColumn && row.ratio_parent_id ? (
+                              <span className="asset-ratio-branch" aria-label="Ratio variant" />
+                            ) : isAssetTypeColumn ? (
                               <div className="asset-type-label-select">
                                 <LabelSelect
                                   labels={assetTypeLabels}
