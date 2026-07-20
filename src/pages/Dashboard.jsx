@@ -251,35 +251,35 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar />
-      <main className="mx-auto max-w-7xl px-5 py-8">
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <main className="dashboard-projects-shell">
+        <div className="dashboard-projects-header">
           <div>
-            <h1 className="text-3xl font-semibold">Projects</h1>
-            <p className="mt-2 text-sm text-ink-500">Plan delivery timelines, client milestones, and review moments.</p>
+            <h1 className="dashboard-projects-title">Projects</h1>
+            <p className="dashboard-projects-subtitle">Plan delivery timelines, client milestones, and review moments.</p>
           </div>
-          <button type="button" onClick={openNewProject} className="primary-button">
-            <Plus size={17} /> New Project
-          </button>
-        </div>
-        <div className="mb-5 grid gap-2 md:grid-cols-[1fr_220px_220px]">
-          <label className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" size={16} />
-            <input className="field !py-2 pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search projects" />
-          </label>
-          <select className="field !py-2" value={userFilter} onChange={(event) => setUserFilter(event.target.value)}>
-            <option value="">Filter user</option>
-            {activeUserOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-          <select className="field !py-2" value={clientFilter} onChange={(event) => setClientFilter(event.target.value)}>
-            <option value="">Filter client</option>
-            {activeClientOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
+          <div className="dashboard-projects-actions">
+            <label className="dashboard-project-search">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" size={16} />
+              <input className="field !py-2 pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search projects..." />
+            </label>
+            <select className="field dashboard-project-filter" value={userFilter} onChange={(event) => setUserFilter(event.target.value)} aria-label="Filter projects by user">
+              <option value="">All Users</option>
+              {activeUserOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+            <select className="field dashboard-project-filter" value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} aria-label="Filter projects by client">
+              <option value="">All Clients</option>
+              {activeClientOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+            <button type="button" onClick={openNewProject} className="primary-button dashboard-new-project">
+              <Plus size={17} /> New Project
+            </button>
+          </div>
         </div>
 
         {loading ? (
           <p className="text-ink-500">Loading projects...</p>
         ) : (
-          <div className="space-y-4">
+          <div className="dashboard-project-list">
             {visibleProjects.map((project) => {
               const versions = versionsForProject(project, lineItems, categories, DEFAULT_PLANNING_TYPE);
               const preferredVersion = project.preferred_planning_version && versions.includes(project.preferred_planning_version) ? project.preferred_planning_version : versions[0] ?? 'V1';
@@ -347,7 +347,7 @@ export default function Dashboard() {
               const rowContent = (
                 <>
                   <div className="project-row-header">
-                    <div className="project-row-number">{project.project_number || '-'}</div>
+                    <div className="project-row-number">{project.project_number ? `#${project.project_number}` : '-'}</div>
                     <div className="project-row-main min-w-0">
                       <div className="project-row-title">
                         <span>{project.name}</span>

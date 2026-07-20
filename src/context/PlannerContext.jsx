@@ -109,13 +109,16 @@ function labelKey(label) {
 }
 
 const DEFAULT_LABEL_COLOR_BY_KEY = Object.fromEntries(DEFAULT_LABELS.map((label) => [`${label.column_type}:${label.value}`, label.color]));
+const DEFAULT_LABEL_PLANNING_TYPE_BY_KEY = Object.fromEntries(DEFAULT_LABELS.map((label) => [`${label.column_type}:${label.value}`, label.planning_type]));
 
 function applyDefaultLabelColor(label) {
   const defaultColor = DEFAULT_LABEL_COLOR_BY_KEY[`${label.column_type}:${label.value}`];
-  if (!defaultColor || label.project_id) return label;
+  const defaultPlanningType = DEFAULT_LABEL_PLANNING_TYPE_BY_KEY[`${label.column_type}:${label.value}`];
+  if (!defaultColor || label.project_id) return { ...label, planning_type: label.planning_type ?? 'both' };
   return {
     ...label,
     color: label.is_default || defaultColor ? defaultColor : label.color,
+    planning_type: label.planning_type ?? defaultPlanningType ?? 'both',
   };
 }
 
@@ -1285,9 +1288,20 @@ export function PlannerProvider({ children }) {
       addLabel: (projectId, columnType, value, color, options = {}) => {
         const trimmed = value.trim();
         const existing = data.labels.find((item) => item.project_id === projectId && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed));
-        if (existing) return existing;
+        if (existing) {
+          const requestedPlanningType = options.planningType ?? 'both';
+          if (existing.planning_type !== 'both' && existing.planning_type !== requestedPlanningType) {
+            mutate((draft) => {
+              const draftLabel = draft.labels.find((item) => item.id === existing.id);
+              if (draftLabel) draftLabel.planning_type = 'both';
+            });
+            if (useSupabase) void saveSupabase('project label availability', supabase.from('labels').update({ planning_type: 'both' }).eq('id', existing.id));
+            return { ...existing, planning_type: 'both' };
+          }
+          return existing;
+        }
         const sortOrder = data.labels.filter((item) => item.project_id === projectId && item.column_type === columnType).length;
-        const label = { id: id(), project_id: projectId, column_type: columnType, value, color, is_default: false, scope: 'project', sort_order: sortOrder, is_divider: options.isDivider ?? false };
+        const label = { id: id(), project_id: projectId, column_type: columnType, value, color, is_default: false, scope: 'project', sort_order: sortOrder, is_divider: options.isDivider ?? false, planning_type: options.planningType ?? 'both' };
         mutate((draft) => {
           if (!draft.labels.some((item) => item.project_id === projectId && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed))) {
             draft.labels.push({ ...label, value: trimmed });
@@ -1304,7 +1318,7 @@ export function PlannerProvider({ children }) {
         const existing = data.labels.find((item) => !item.project_id && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed));
         if (existing) return existing;
         const sortOrder = data.labels.filter((item) => !item.project_id && item.column_type === columnType).length;
-        const label = { id: id(), project_id: null, column_type: columnType, value: trimmed, color, is_default: true, scope: 'global', sort_order: sortOrder, is_divider: options.isDivider ?? false };
+        const label = { id: id(), project_id: null, column_type: columnType, value: trimmed, color, is_default: true, scope: 'global', sort_order: sortOrder, is_divider: options.isDivider ?? false, planning_type: options.planningType ?? 'both' };
         mutate((draft) => {
           if (!draft.labels.some((item) => !item.project_id && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed))) {
             draft.labels.push(label);

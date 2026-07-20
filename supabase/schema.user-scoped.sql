@@ -163,12 +163,14 @@ create table if not exists public.labels (
   sort_order int not null default 0,
   is_divider boolean not null default false,
   scope text not null default 'global' check (scope in ('global', 'project')),
+  planning_type text not null default 'both' check (planning_type in ('post', 'production', 'both')),
   unique(project_id, column_type, value)
 );
 
 alter table public.labels add column if not exists scope text not null default 'global' check (scope in ('global', 'project'));
 alter table public.labels add column if not exists sort_order int not null default 0;
 alter table public.labels add column if not exists is_divider boolean not null default false;
+alter table public.labels add column if not exists planning_type text not null default 'both' check (planning_type in ('post', 'production', 'both'));
 
 with ranked_labels as (
   select

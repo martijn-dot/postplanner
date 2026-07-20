@@ -236,7 +236,7 @@ function SortableLine({
   onUpdateLineItem,
   endMarkerAnimating,
 }) {
-  const { deleteLineItem, addLabel } = usePlanner();
+  const { deleteLineItem, addLabel, deleteLabel } = usePlanner();
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
   const [openBlockMenu, setOpenBlockMenu] = useState(null);
   const block = hasBlock(item);
@@ -369,7 +369,7 @@ function SortableLine({
           <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
           <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
-          {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color)} /></div>}
+          {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color, { planningType: planningDefinition.key })} onDeleteLabel={deleteLabel} /></div>}
           {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder={assetColumnLabel} />{fillHandle('asset')}</div>}
           {optionsVisible && (
             <div className="timeline-option-cluster">
@@ -420,7 +420,8 @@ function SortableLine({
                       open={openBlockMenu === 'what'}
                       onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'what' : null)}
                       onChange={(what) => { onInteract(item.id); onUpdateLineItem(item.id, { what }); }}
-                      onAddLabel={(value, color) => addLabel(projectId, 'what', value, color)}
+                      onAddLabel={(value, color) => addLabel(projectId, 'what', value, color, { planningType: planningDefinition.key })}
+                      onDeleteLabel={deleteLabel}
                     />
                   </span>
                 )}
@@ -432,7 +433,8 @@ function SortableLine({
                     open={openBlockMenu === 'todo'}
                     onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'todo' : null)}
                     onChange={(todo) => { onInteract(item.id); onUpdateLineItem(item.id, { todo }); }}
-                    onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color)}
+                    onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color, { planningType: planningDefinition.key })}
+                    onDeleteLabel={deleteLabel}
                   />
                 </span>
                 {showMetaLabels && (
@@ -721,7 +723,11 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
 
   const allRows = useMemo(() => lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [activePlanningType, lineItems, planningVersion, project.id]);
   const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [activePlanningType, categories, planningVersion, project.id]);
-  const projectLabels = useMemo(() => labels.filter((label) => !label.project_id || label.project_id === project.id), [labels, project.id]);
+  const projectLabels = useMemo(() => labels.filter((label) => {
+    const belongsToProject = !label.project_id || label.project_id === project.id;
+    const availableInPlanning = !label.planning_type || label.planning_type === 'both' || label.planning_type === activePlanningType;
+    return belongsToProject && availableInPlanning;
+  }), [activePlanningType, labels, project.id]);
   const labelsById = useMemo(() => Object.fromEntries(projectLabels.map((label) => [label.id, label])), [projectLabels]);
   const sortLabels = (items) => items.sort((a, b) => {
     const order = (a.sort_order ?? 9999) - (b.sort_order ?? 9999);

@@ -1,3 +1,8 @@
+const PRODUCTION_LABEL_NAMES = new Set([
+  'Prep', 'Pre-light', 'Shoot', 'Strike', 'Travel',
+  'Schedule', 'Book crew', 'Confirm talent', 'Location check', 'Call sheet',
+]);
+
 export const DEFAULT_LABELS = [
   { column_type: 'who', value: 'Wenneker', color: '#28b8ff', is_default: true },
   { column_type: 'who', value: 'Client', color: '#ffcf5c', is_default: true },
@@ -49,7 +54,12 @@ export const DEFAULT_LABELS = [
   { column_type: 'todo', value: 'Confirm talent', color: '#b793ff', is_default: true },
   { column_type: 'todo', value: 'Location check', color: '#f59e0b', is_default: true },
   { column_type: 'todo', value: 'Call sheet', color: '#ff8f4f', is_default: true },
-];
+].map((label) => ({
+  ...label,
+  planning_type: label.column_type === 'who'
+    ? 'both'
+    : (PRODUCTION_LABEL_NAMES.has(label.value) ? 'production' : 'post'),
+}));
 
 export const DEFAULT_PROJECT = {
   name: 'Timeline Planning',

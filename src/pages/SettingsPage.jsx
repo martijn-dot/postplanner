@@ -30,6 +30,16 @@ function SortableLabelRow({ label, onUpdate, onDelete }) {
       </button>
       {label.is_divider ? <span className="rounded bg-white/10 px-2 py-1 text-xs font-semibold uppercase text-ink-500">Divider</span> : <Pill label={label} />}
       <input value={label.value} onChange={(event) => onUpdate(label.id, { value: event.target.value })} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+      <select
+        value={label.planning_type ?? 'both'}
+        onChange={(event) => onUpdate(label.id, { planning_type: event.target.value })}
+        className="rounded-md border border-black/10 bg-transparent px-2 py-1 text-xs outline-none dark:border-white/10"
+        aria-label={`Planning availability for ${label.value}`}
+      >
+        <option value="post">Post</option>
+        <option value="production">Production</option>
+        <option value="both">Both</option>
+      </select>
       {!label.is_divider && <input type="color" value={label.color} onChange={(event) => onUpdate(label.id, { color: event.target.value })} className="h-8 w-9 rounded border border-white/10 bg-transparent" />}
       <button type="button" onClick={() => window.confirm("Delete this global label? This won't affect project-level labels.") && onDelete(label.id)} className="icon-button" aria-label="Delete label">
         <Trash2 size={15} />
@@ -119,6 +129,7 @@ export default function SettingsPage() {
   const profile = profiles.find((item) => item.id === user.id);
   const [tab, setTab] = useState('labels');
   const [drafts, setDrafts] = useState({});
+  const [labelPlanningType, setLabelPlanningType] = useState('post');
   const [inviteEmail, setInviteEmail] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientAbbreviation, setClientAbbreviation] = useState('');
@@ -167,7 +178,7 @@ export default function SettingsPage() {
       window.setTimeout(() => setSettingsNotice(''), 2500);
       return;
     }
-    addGlobalLabel(columnType, value, draft.color || '#6d5dfc', { isDivider: draft.isDivider ?? false });
+    addGlobalLabel(columnType, value, draft.color || '#6d5dfc', { isDivider: draft.isDivider ?? false, planningType: labelPlanningType });
     setDrafts((current) => ({ ...current, [columnType]: { value: '', color: '#6d5dfc' } }));
   };
 
@@ -320,7 +331,13 @@ export default function SettingsPage() {
         </div>
 
         {tab === 'labels' && (
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div>
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-black/10 bg-white p-2 dark:border-white/10 dark:bg-ink-900">
+              <span className="px-2 text-sm font-semibold text-ink-500">Edit labels for</span>
+              <button type="button" onClick={() => setLabelPlanningType('post')} className={`tab ${labelPlanningType === 'post' ? 'tab-active' : ''}`}>Post Production</button>
+              <button type="button" onClick={() => setLabelPlanningType('production')} className={`tab ${labelPlanningType === 'production' ? 'tab-active' : ''}`}>Production Planning</button>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3">
             {LABEL_TYPES.map((type) => (
               <section key={type} className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
                 <h2 className="mb-4 text-lg font-semibold capitalize">{type}</h2>
@@ -352,9 +369,9 @@ export default function SettingsPage() {
                   )}
                 </form>
                 <DndContext sensors={labelSensors} onDragEnd={({ active, over }) => over && reorderLabels(type, active.id, over.id)}>
-                  <SortableContext items={globalLabels.filter((label) => label.column_type === type).map((label) => label.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={globalLabels.filter((label) => label.column_type === type && (label.planning_type === labelPlanningType || label.planning_type === 'both' || !label.planning_type)).map((label) => label.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-2">
-                      {globalLabels.filter((label) => label.column_type === type).map((label) => (
+                      {globalLabels.filter((label) => label.column_type === type && (label.planning_type === labelPlanningType || label.planning_type === 'both' || !label.planning_type)).map((label) => (
                         <SortableLabelRow key={label.id} label={label} onUpdate={updateLabel} onDelete={deleteLabel} />
                       ))}
                     </div>
@@ -362,6 +379,7 @@ export default function SettingsPage() {
                 </DndContext>
               </section>
             ))}
+            </div>
           </div>
         )}
 
