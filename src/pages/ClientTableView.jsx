@@ -463,8 +463,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
 
   return (
     <>
-      <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-ink-900">
-        <div className="client-table-scroll max-h-[calc(100vh-17rem)] overflow-auto">
+      <div className="client-table-shell overflow-hidden rounded-xl border shadow-2xl">
+        <div className="client-table-scroll max-h-[calc(100vh-15rem)] overflow-auto">
           <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: (showWeekColumn ? 58 : 0) + 116 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
             <colgroup>
               {showWeekColumn && <col className="w-[58px]" />}
@@ -786,10 +786,10 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const { lineItems, labels, categories, createShareLink, updateLineItem, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
-  const [showEmptyDates, setShowEmptyDates] = useState(true);
+  const [showEmptyDates, setShowEmptyDates] = useState(false);
   const [dateWindow, setDateWindow] = useState('future');
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
-  const [showClientBookings, setShowClientBookings] = useState(true);
+  const [showClientBookings, setShowClientBookings] = useState(false);
   const [categoryMode, setCategoryMode] = useState('column');
   const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState([]);
@@ -889,26 +889,26 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   };
 
   return (
-    <main className="mx-auto max-w-[1600px] px-5 py-6">
-      <div className="mb-5 flex flex-col justify-between gap-3 rounded-lg border border-black/10 bg-white p-[50px] dark:border-white/10 dark:bg-ink-900 xl:flex-row xl:items-end">
+    <main className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 p-4">
+      <div className="client-planning-header flex flex-col justify-between gap-3 rounded-xl border p-4 shadow-lg xl:flex-row xl:items-center">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold">Client Planning</h1>
-            <span className="rounded-md border border-accent-400/35 bg-accent-500/12 px-2 py-1 text-xs font-bold uppercase text-accent-100">{planningDefinition.label}</span>
-            <span className="rounded-md border border-amber-300/35 bg-amber-300/12 px-2 py-1 text-xs font-bold uppercase text-amber-200">{planningVersion}</span>
+            <h1 className="text-lg font-semibold tracking-tight text-white">Client Planning</h1>
+            <span className="planning-type-badge">{planningDefinition.label}</span>
+            <span className="planning-version-badge">{planningVersion}</span>
           </div>
-          <p className="mt-1 text-sm text-ink-500">Milestones are generated from the final day of each timeline item.</p>
+          <p className="mt-1 text-[11px] text-slate-500">Milestones are generated from the final day of each timeline item.</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="segmented">
+          <div className="client-view-toggle segmented">
             <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
-            <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gant Chart</button>
+            <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gantt Chart</button>
           </div>
-          <button type="button" onClick={publish} className="secondary-button" disabled={publishing}>
+          <button type="button" onClick={publish} className="client-header-action" disabled={publishing}>
             <Globe2 size={17} /> {publishing ? 'Publishing...' : 'Publish'}
           </button>
           <div className="relative" onMouseEnter={keepColumnMenuOpen} onMouseLeave={scheduleColumnMenuClose}>
-            <button type="button" onClick={() => setColumnMenuOpen((next) => !next)} className="secondary-button"><Eye size={17} /> Columns</button>
+            <button type="button" onClick={() => setColumnMenuOpen((next) => !next)} className="client-header-action"><Eye size={17} /> Columns</button>
             {columnMenuOpen && (
               <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-white/10 bg-ink-900 p-2 shadow-glow" onMouseEnter={keepColumnMenuOpen}>
                 {CLIENT_COLUMNS.map((column) => (
@@ -925,15 +925,15 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               </div>
             )}
           </div>
-          <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="primary-button" disabled={!exportRows.length}>
+          <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="client-download-action" disabled={!exportRows.length}>
             <Download size={17} /> Download Excel
           </button>
         </div>
       </div>
 
       {(viewMode === 'table' || viewMode === 'gantt') && (
-        <div className="client-filter-row mb-3 flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-[50px] text-sm dark:border-white/10 dark:bg-ink-900">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="client-filter-row flex flex-wrap items-center gap-6 rounded-xl border p-3 text-sm">
+          <div className="client-filter-group flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
             <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
               {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
@@ -947,7 +947,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               </button>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="client-filter-group flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Planning</span>
             <button type="button" onClick={() => setDateWindow('future')} className={`client-filter-pill ${dateWindow === 'future' ? 'is-active' : ''}`}>
               From current
@@ -960,8 +960,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             </button>
           </div>
           {versionCategories.length > 1 && (
-            <div className="basis-full pt-2">
-              <div className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Categories</div>
+            <div className="client-filter-categories flex flex-wrap items-center gap-2">
+              <div className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Categories</div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => setCategoryMode((next) => (next === 'column' ? 'sections' : 'column'))} className={`client-filter-pill ${categoryMode === 'sections' ? 'is-active' : ''}`}>
                   {categoryMode === 'sections' ? <Eye size={14} /> : <EyeOff size={14} />} Category sections
@@ -1018,6 +1018,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     columnPrefs={columnPrefs}
                     onColumnPrefsChange={updateColumnPrefs}
                     forceHideCategoryColumn
+                    showWeekColumn={false}
                   />
                 )}
               </section>
@@ -1036,6 +1037,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             uncategorizedName={uncategorizedName}
             columnPrefs={columnPrefs}
             onColumnPrefsChange={updateColumnPrefs}
+            showWeekColumn={false}
           />
         )
       ) : (

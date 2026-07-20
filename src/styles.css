@@ -999,6 +999,12 @@ nav .tab-active {
   width: 11px;
 }
 
+.timeline-category-table-panel:has(.category-action-button:hover),
+.timeline-category-table-panel:has(.category-action-button:focus),
+.timeline-category-table-panel:focus-within {
+  z-index: 70;
+}
+
 .category-action-button:hover::after {
   background: #11182a;
   border: 1px solid #2c3755;
@@ -3121,6 +3127,166 @@ body.public-share-body {
   white-space: nowrap;
 }
 
+/* Authenticated client planning — matched to the supplied dark dashboard reference. */
+.client-planning-admin {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.client-planning-admin .client-planning-header,
+.client-planning-admin .client-filter-row,
+.client-planning-admin .client-table-shell {
+  background: #161922;
+  border-color: #252a37;
+}
+
+.client-planning-admin .planning-type-badge {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.client-planning-admin .planning-version-badge {
+  background: rgba(120, 53, 15, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 4px;
+  color: #f59e0b;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+}
+
+.client-planning-admin .client-view-toggle {
+  background: #0f172a;
+  border-color: #252a37;
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.client-planning-admin .client-view-toggle button {
+  border-radius: 4px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+}
+
+.client-planning-admin .client-view-toggle .selected {
+  background: #1e293b;
+  box-shadow: none;
+  color: #fff;
+}
+
+.client-header-action,
+.client-download-action {
+  align-items: center;
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 12px;
+  transition: background 150ms ease;
+}
+
+.client-header-action {
+  border: 1px solid #252a37;
+  color: #cbd5e1;
+}
+
+.client-header-action:hover { background: #1e293b; }
+
+.client-download-action {
+  background: #7c4dff;
+  border: 1px solid #7c4dff;
+  color: #fff;
+  padding-inline: 16px;
+}
+
+.client-download-action:hover { background: #8c63ff; }
+.client-download-action:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.client-planning-admin .client-filter-row {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.client-planning-admin .client-filter-group {
+  border-right: 1px solid #252a37;
+  padding-right: 24px;
+}
+
+.client-planning-admin .client-filter-categories { min-width: 0; }
+
+.client-planning-admin .client-filter-row > div > span,
+.client-planning-admin .client-filter-categories > div:first-child {
+  color: #64748b;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.client-planning-admin .client-filter-pill {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: #334155;
+  border-radius: 999px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  min-height: 26px;
+  padding-inline: 10px;
+}
+
+.client-planning-admin .client-filter-pill.is-active,
+.client-planning-admin .client-filter-pill:hover {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+}
+
+.client-planning-admin .client-table-shell { flex: 1; }
+.client-planning-admin .client-table-scroll { scrollbar-width: thin; scrollbar-color: #252a37 #0f111a; }
+.client-planning-admin .client-table-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+.client-planning-admin .client-table-scroll::-webkit-scrollbar-track { background: #0f111a; }
+.client-planning-admin .client-table-scroll::-webkit-scrollbar-thumb { background: #252a37; border-radius: 3px; }
+
+.client-planning-admin .client-planning-table { background: #161922; color: #cbd5e1; font-size: 12px; }
+.client-planning-admin .client-planning-table thead th,
+.dark .client-planning-admin .client-planning-table thead th {
+  background: #0f172a;
+  border-bottom: 1px solid #252a37;
+  box-shadow: none;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding-bottom: 8px !important;
+  padding-top: 8px !important;
+}
+
+.client-planning-admin .client-planning-table tbody tr { border-color: #252a37; }
+.client-planning-admin .client-planning-table tbody tr:hover > td { background: rgba(30, 41, 59, 0.2); }
+.client-planning-admin .client-planning-table td { padding-bottom: 10px !important; padding-top: 10px !important; }
+.client-planning-admin .client-planning-table .date-group-cell { border-right: 0; }
+.client-planning-admin .client-planning-table .combined-date-chip { min-height: 42px; padding: 4px 12px; }
+.client-planning-admin .client-planning-table .combined-date-chip .date-day-name { color: #fff; font-size: 12px; font-weight: 600; text-transform: none; }
+.client-planning-admin .client-planning-table .combined-date-chip strong { color: #94a3b8; font-size: 11px; font-weight: 400; }
+.client-planning-admin .client-planning-table .date-today-tag { color: #ef4444; font-size: 9px; margin: 0; }
+.client-planning-admin .client-planning-table .date-today-cell { background: transparent !important; box-shadow: inset 4px 0 0 #ef4444; }
+.client-planning-admin .client-planning-table .date-today-cell .combined-date-chip { color: inherit; }
+.client-planning-admin .client-edit-button { background: #1e293b; border-color: #334155; border-radius: 4px; color: #fff; font-size: 10px; padding: 4px 8px; }
+.client-planning-admin .client-category-pill { background: rgba(14,165,233,.1) !important; border-color: #0ea5e9 !important; border-radius: 999px; color: #0ea5e9 !important; font-size: 10px; padding: 4px 8px; }
+.client-planning-admin .client-row-color-select { gap: 6px; }
+
+@media (max-width: 900px) {
+  .client-planning-admin .client-filter-group { border-right: 0; padding-right: 0; }
+}
+
 .public-client-page {
   background: #ffffff;
   backdrop-filter: blur(18px) saturate(1.08);
@@ -5210,6 +5376,19 @@ body.public-share-body {
   line-height: 1;
   padding-left: 6px;
   padding-right: 6px;
+}
+
+.timeline-line .copy-cell-selected,
+.timeline-line .copy-cell-selected:focus,
+.timeline-line .copy-cell-selected:focus-within {
+  background: transparent;
+  box-shadow: none;
+}
+
+.timeline-line .copy-cell-selected .table-input,
+.timeline-line .copy-cell-selected > .relative > button {
+  border-color: #6d5dfc !important;
+  box-shadow: 0 0 0 1px #6d5dfc !important;
 }
 
 .timeline-line .timeline-bar,

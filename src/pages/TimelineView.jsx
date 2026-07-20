@@ -582,7 +582,7 @@ function CategoryBlock({
     >
       <div className="timeline-category" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
         {tableVisible && (
-          <div className="timeline-table-panel timeline-category-table-panel sticky left-0 z-30 grid grid-cols-[44px_28px_1fr_34px_34px_34px_34px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
+          <div className="timeline-table-panel timeline-category-table-panel sticky left-0 z-30 grid grid-cols-[44px_28px_1fr_24px_24px_24px_24px] items-center border-r border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-ink-850">
             <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button mx-auto" disabled={isUncategorized}>
               {category.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             </button>
