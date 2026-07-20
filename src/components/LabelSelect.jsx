@@ -18,6 +18,8 @@ const COLORS = [
   '#85dfb7',
 ];
 
+const MENU_SCALE = 0.7;
+
 export default function LabelSelect({
   labels,
   value,
@@ -137,12 +139,20 @@ export default function LabelSelect({
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
     const width = 256;
-    const menuHeight = Math.min(menuRef.current?.offsetHeight ?? 340, window.innerHeight - 24);
-    const left = Math.min(Math.max(12, rect.left), window.innerWidth - width - 12);
+    const scaledWidth = width * MENU_SCALE;
+    const menuHeight = Math.min((menuRef.current?.offsetHeight ?? 340) * MENU_SCALE, window.innerHeight - 24);
+    const left = Math.min(Math.max(12, rect.left), window.innerWidth - scaledWidth - 12);
     const fitsBelow = rect.bottom + 8 + menuHeight <= window.innerHeight - 12;
     const topCandidate = fitsBelow ? rect.bottom + 8 : rect.top - menuHeight - 8;
     const top = Math.min(Math.max(12, topCandidate), window.innerHeight - menuHeight - 12);
-    setMenuStyle({ left, top, width, maxHeight: window.innerHeight - 24 });
+    setMenuStyle({
+      left,
+      top,
+      width,
+      maxHeight: (window.innerHeight - 24) / MENU_SCALE,
+      transform: `scale(${MENU_SCALE})`,
+      transformOrigin: 'top left',
+    });
   }, []);
 
   useLayoutEffect(() => {

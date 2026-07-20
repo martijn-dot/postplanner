@@ -1552,7 +1552,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
       </div>
       {detailsItem && (
         <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/60 px-4" onMouseDown={() => setDetailsItemId(null)}>
-          <div className="w-full max-w-lg rounded-lg border border-white/10 bg-ink-900 p-5 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-lg scale-[0.7] rounded-lg border border-white/10 bg-ink-900 p-5 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-ink-100">{detailsItem.asset || 'Booking details'}</h2>
