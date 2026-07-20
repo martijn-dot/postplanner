@@ -467,16 +467,6 @@ nav .tab-active {
   text-transform: uppercase;
 }
 
-.asset-list-tool.is-primary {
-  background: #8083ff;
-  border-color: #8083ff;
-  color: #0d0096;
-}
-
-.asset-list-tool.is-primary:hover {
-  background: #9295ff;
-}
-
 .asset-list-tool-divider {
   background: #3c465e;
   height: 23px;
@@ -496,8 +486,56 @@ nav .tab-active {
   position: relative;
 }
 
-.asset-ratio-action .asset-list-tool.is-open {
-  background: #9295ff;
+.asset-unique-ratio-control {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  padding: 0 4px;
+  width: 100%;
+}
+
+.asset-unique-choice,
+.asset-ratios-button,
+.asset-ratio-child-label {
+  align-items: center;
+  border-radius: 7px;
+  display: inline-flex;
+  font-size: 0.7rem;
+  font-weight: 850;
+  height: 28px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.asset-unique-choice {
+  background: rgba(255, 207, 92, 0.12);
+  border: 1px solid rgba(255, 207, 92, 0.32);
+  color: #ffcf5c;
+  padding: 0 8px;
+}
+
+.asset-unique-choice.is-selected {
+  background: #ffcf5c;
+  color: #100e1d;
+}
+
+.asset-ratios-button {
+  background: #22b3ef;
+  color: #07111f;
+  gap: 5px;
+  padding: 0 8px;
+}
+
+.asset-ratios-button:hover,
+.asset-ratios-button.is-open {
+  background: #55c8f8;
+}
+
+.asset-ratio-child-label {
+  background: rgba(34, 179, 239, 0.16);
+  border: 1px solid rgba(34, 179, 239, 0.42);
+  color: #55c8f8;
+  padding: 0 9px;
 }
 
 .asset-ratio-callout {
@@ -657,6 +695,19 @@ nav .tab-active {
 
 .asset-list-page .asset-list-row:not(.sticky):hover {
   background: rgba(34, 42, 61, 0.62) !important;
+}
+
+.asset-list-page .asset-list-row.is-ratio-group-parent {
+  border-bottom-color: rgba(34, 179, 239, 0.35) !important;
+}
+
+.asset-list-page .asset-list-row.is-ratio-group-child {
+  background: rgba(34, 179, 239, 0.055) !important;
+  box-shadow: inset 3px 0 0 rgba(34, 179, 239, 0.6);
+}
+
+.asset-list-page .asset-list-row.is-ratio-group-child + .asset-list-row.is-ratio-group-child {
+  border-top-color: rgba(34, 179, 239, 0.08);
 }
 
 .asset-list-page .asset-category-bar {

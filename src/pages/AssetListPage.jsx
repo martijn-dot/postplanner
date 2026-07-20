@@ -340,7 +340,7 @@ export default function AssetListPage({ project }) {
   const [selectedCells, setSelectedCells] = useState([]);
   const [selectionAnchor, setSelectionAnchor] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState('');
-  const [ratioMenuOpen, setRatioMenuOpen] = useState(false);
+  const [ratioMenuRowId, setRatioMenuRowId] = useState('');
   const [selectedRatios, setSelectedRatios] = useState([]);
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
@@ -534,34 +534,41 @@ export default function AssetListPage({ project }) {
     saveList({ rows: [...rows, nextRow] });
   };
 
-  const addRatioGroup = () => {
+  const addRatioGroup = (sourceRowId) => {
     if (!selectedRatios.length) return;
     const uniqueRatioColumn = columns.find((column) => column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? ''));
     const ratioColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
-    if (!ratioColumn) return;
+    const sourceIndex = rows.findIndex((row) => row.id === sourceRowId);
+    const sourceRow = rows[sourceIndex];
+    if (!ratioColumn || !sourceRow) return;
 
-    const groupId = uid();
-    const nextCategories = [
-      ...categories,
-      { id: groupId, name: `Ratio group · ${selectedRatios.join(', ')}`, collapsed: false, sort_order: categories.length },
-    ];
-    const numericNumbers = rows.map((row) => Number.parseInt(row.number, 10)).filter(Number.isFinite);
-    const firstNumber = (numericNumbers.length ? Math.max(...numericNumbers) : 0) + 1;
+    const sourceNumber = Number.parseInt(sourceRow.number, 10);
     const numberWidth = Math.max(2, ...rows.map((row) => String(row.number ?? '').length));
-    const nextRows = selectedRatios.map((ratio, index) => ({
-      id: uid(),
-      number: String(firstNumber + index).padStart(numberWidth, '0'),
-      group_id: groupId,
-      values: Object.fromEntries(columns.map((column) => [
-        column.id,
-        column.id === ratioColumn.id ? ratio : column.id === uniqueRatioColumn?.id ? 'Ratio' : '',
-      ])),
-      sort_order: rows.length + index,
-      notes: '',
+    const shiftedRows = rows.map((row, index) => ({
+      ...row,
+      number: Number.isFinite(sourceNumber) && index > sourceIndex && Number.parseInt(row.number, 10) > sourceNumber
+        ? String(Number.parseInt(row.number, 10) + selectedRatios.length).padStart(numberWidth, '0')
+        : row.number,
+      sort_order: index > sourceIndex ? index + selectedRatios.length : index,
     }));
-    saveList({ categories: nextCategories, rows: [...rows, ...nextRows] });
+    const ratioRows = selectedRatios.map((ratio, index) => ({
+      id: uid(),
+      number: Number.isFinite(sourceNumber) ? String(sourceNumber + index + 1).padStart(numberWidth, '0') : `${sourceRow.number}.${index + 1}`,
+      group_id: sourceRow.group_id ?? fallbackCategory.id,
+      values: {
+        ...(sourceRow.values ?? {}),
+        ...(uniqueRatioColumn ? { [uniqueRatioColumn.id]: '' } : {}),
+        [ratioColumn.id]: ratio,
+      },
+      sort_order: sourceIndex + index + 1,
+      notes: sourceRow.notes ?? '',
+      ratio_parent_id: sourceRow.id,
+      ratio_value: ratio,
+    }));
+    shiftedRows[sourceIndex] = { ...shiftedRows[sourceIndex], ratio_group: true };
+    saveList({ rows: [...shiftedRows, ...ratioRows].sort((a, b) => a.sort_order - b.sort_order) });
     setSelectedRatios([]);
-    setRatioMenuOpen(false);
+    setRatioMenuRowId('');
   };
 
   const updateCell = (rowId, columnId, value) => {
@@ -923,51 +930,6 @@ export default function AssetListPage({ project }) {
             <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="asset-tab-new" aria-label="Create new assetlist tab" data-tooltip="New tab"><Plus size={16} /></button>
         </div>
         <div className="asset-list-tools">
-          <div className="asset-ratio-action">
-            <button
-              type="button"
-              onClick={() => setRatioMenuOpen((open) => !open)}
-              className={`asset-list-tool is-primary ${ratioMenuOpen ? 'is-open' : ''}`}
-              aria-expanded={ratioMenuOpen}
-              aria-haspopup="dialog"
-            >
-              <Plus size={15} /> Label <ChevronDown size={13} />
-            </button>
-            {ratioMenuOpen && (
-              <div className="asset-ratio-callout" role="dialog" aria-label="Add ratio labels">
-                <div className="asset-ratio-callout-heading">
-                  <div>
-                    <strong>Add ratio labels</strong>
-                    <span>Select one or more ratios</span>
-                  </div>
-                  <span className="asset-ratio-count">{selectedRatios.length} selected</span>
-                </div>
-                <div className="asset-ratio-options">
-                  {QUICK_RATIO_OPTIONS.map((ratio) => {
-                    const selected = selectedRatios.includes(ratio);
-                    return (
-                      <button
-                        key={ratio}
-                        type="button"
-                        className={`asset-ratio-option ${selected ? 'is-selected' : ''}`}
-                        onClick={() => setSelectedRatios((current) => selected ? current.filter((item) => item !== ratio) : [...current, ratio])}
-                        aria-pressed={selected}
-                      >
-                        <span className="asset-ratio-checkbox">{selected && <Check size={13} />}</span>
-                        {ratio}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="asset-ratio-callout-actions">
-                  <button type="button" className="asset-ratio-cancel" onClick={() => { setSelectedRatios([]); setRatioMenuOpen(false); }}>Cancel</button>
-                  <button type="button" className="asset-ratio-add" disabled={!selectedRatios.length} onClick={addRatioGroup}>
-                    Add {selectedRatios.length || ''} {selectedRatios.length === 1 ? 'row' : 'rows'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
           <button type="button" onClick={addRow} className="asset-list-tool"><Plus size={15} /> Row</button>
           <button type="button" onClick={addCategory} className="asset-list-tool"><Plus size={15} /> Category</button>
           <span className="asset-list-tool-divider" />
@@ -1075,7 +1037,7 @@ export default function AssetListPage({ project }) {
                 {!category.collapsed && groupRows.map((row) => {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
                   return (
-                    <div key={row.id} className="asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950" style={{ gridTemplateColumns: fullGridTemplate }}>
+                    <div key={row.id} className={`asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950 ${row.ratio_group ? 'is-ratio-group-parent' : ''} ${row.ratio_parent_id ? 'is-ratio-group-child' : ''}`} style={{ gridTemplateColumns: fullGridTemplate }}>
                       <div className="asset-row-actions">
                         <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
@@ -1138,6 +1100,57 @@ export default function AssetListPage({ project }) {
                                   <a className="asset-open-link" href={linkHref(value)} target="_blank" rel="noreferrer" aria-label="Open Frame.io link" onClick={(event) => event.stopPropagation()}>
                                     <ExternalLink size={13} />
                                   </a>
+                                )}
+                              </div>
+                            ) : (column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? '')) ? (
+                              <div className="asset-unique-ratio-control">
+                                {row.ratio_parent_id ? (
+                                  <span className="asset-ratio-child-label">{row.ratio_value || 'Ratio'}</span>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className={`asset-unique-choice ${value === 'Unique' ? 'is-selected' : ''}`}
+                                      onClick={() => updateCell(row.id, column.id, value === 'Unique' ? '' : 'Unique')}
+                                    >
+                                      Unique
+                                    </button>
+                                    <div className="asset-ratio-action">
+                                      <button
+                                        type="button"
+                                        className={`asset-ratios-button ${ratioMenuRowId === row.id ? 'is-open' : ''}`}
+                                        onClick={() => {
+                                          setSelectedRatios([]);
+                                          setRatioMenuRowId((current) => current === row.id ? '' : row.id);
+                                        }}
+                                        aria-expanded={ratioMenuRowId === row.id}
+                                      >
+                                        Ratios <ChevronDown size={13} />
+                                      </button>
+                                      {ratioMenuRowId === row.id && (
+                                        <div className="asset-ratio-callout" role="dialog" aria-label="Select ratios">
+                                          <div className="asset-ratio-callout-heading">
+                                            <div><strong>Ratios</strong><span>Select one or more formats</span></div>
+                                            <span className="asset-ratio-count">{selectedRatios.length} selected</span>
+                                          </div>
+                                          <div className="asset-ratio-options">
+                                            {QUICK_RATIO_OPTIONS.map((ratio) => {
+                                              const ratioSelected = selectedRatios.includes(ratio);
+                                              return (
+                                                <button key={ratio} type="button" className={`asset-ratio-option ${ratioSelected ? 'is-selected' : ''}`} onClick={() => setSelectedRatios((current) => ratioSelected ? current.filter((item) => item !== ratio) : [...current, ratio])} aria-pressed={ratioSelected}>
+                                                  <span className="asset-ratio-checkbox">{ratioSelected && <Check size={13} />}</span>{ratio}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                          <div className="asset-ratio-callout-actions">
+                                            <button type="button" className="asset-ratio-cancel" onClick={() => { setSelectedRatios([]); setRatioMenuRowId(''); }}>Cancel</button>
+                                            <button type="button" className="asset-ratio-add" disabled={!selectedRatios.length} onClick={() => addRatioGroup(row.id)}>Add rows</button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </>
                                 )}
                               </div>
                             ) : (
