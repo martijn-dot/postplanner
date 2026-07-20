@@ -857,8 +857,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const categoryGroups = useMemo(() => categoryGroupsFor(filteredLineItems), [categoryGroupsFor, filteredLineItems]);
   const categoryFilterGroups = useMemo(() => categoryGroupsFor(bookingFilteredLineItems), [bookingFilteredLineItems, categoryGroupsFor]);
 
-  const validateRowsForPublishing = () => versionLineItems
-    .map((item) => {
+  const validateRowsForPublishing = () => {
+    const rowIssues = versionLineItems.map((item) => {
       const missing = [];
       if (!Array.isArray(item.who) || !item.who.length) missing.push('Who');
       if (!String(item.asset ?? '').trim()) missing.push('Asset');
@@ -874,9 +874,23 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
         category: categoryNameForItem(item, categoriesById, uncategorizedName),
         missing,
       };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    }).filter(Boolean);
+    const defaultCategoryName = planningDefinition.defaultCategoryName.trim().toLowerCase();
+    const categoryIssues = versionCategories
+      .filter((category) => {
+        const name = String(category.name ?? '').trim();
+        return name.toLowerCase() === defaultCategoryName || /^category\s+\d+$/i.test(name);
+      })
+      .map((category) => ({
+        id: `category-${category.id}`,
+        sortKey: `0000-${String(category.sort_order ?? 0).padStart(5, '0')}`,
+        date: 'Category',
+        asset: category.name,
+        category: 'Default name has not been changed',
+        missing: ['Category name'],
+      }));
+    return [...categoryIssues, ...rowIssues].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  };
 
   const publish = async () => {
     const issues = validateRowsForPublishing();
