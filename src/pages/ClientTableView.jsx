@@ -661,7 +661,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   );
 }
 
-export function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized', categoryMode = 'column', collapsedCategoryKeys = [], onToggleCategory, dateWindow = 'future' }) {
+export function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized', categoryMode = 'column', collapsedCategoryKeys = [], onToggleCategory, dateWindow = 'future', compact = false }) {
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const bookings = useMemo(() => {
     const today = new Date();
@@ -687,8 +687,13 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
       return aOrder - bOrder || a.name.localeCompare(b.name);
     });
   }, [bookings, categoriesById, categoryMode, uncategorizedName]);
-  const dayWidth = 58;
-  const leftWidth = 320;
+  const dayWidth = compact ? 41 : 58;
+  const leftWidth = compact ? 224 : 320;
+  const whoWidth = compact ? 77 : 110;
+  const bookingInset = compact ? 3 : 4;
+  const dateBadgeInset = compact ? 5 : 7;
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const todayIndex = days.findIndex((day) => format(day, 'yyyy-MM-dd') === todayKey);
   const weeks = useMemo(() => {
     const segments = [];
     days.forEach((day) => {
@@ -710,9 +715,10 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
   return (
     <div className="client-gantt overflow-hidden rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
       <div className="client-gantt-scroll overflow-auto">
-        <div style={{ minWidth: leftWidth + days.length * dayWidth }}>
+        <div className="relative" style={{ minWidth: leftWidth + days.length * dayWidth }}>
+          {todayIndex >= 0 && <span className="client-gantt-today-line" style={{ left: leftWidth + todayIndex * dayWidth + dayWidth / 2 }} aria-hidden="true" />}
           <div className="sticky top-0 z-20 grid bg-zinc-100 dark:bg-ink-850" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
-            <div className="sticky left-0 z-30 grid grid-cols-[110px_1fr] border-b border-r border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-850">
+            <div className="sticky left-0 z-30 grid border-b border-r border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-850" style={{ gridTemplateColumns: `${whoWidth}px 1fr` }}>
               <span className="px-4 py-5">Who</span>
               <span className="px-4 py-5">Asset</span>
             </div>
@@ -722,7 +728,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
               </div>
               <div className="flex h-9 border-b border-black/10 text-center font-mono text-xs text-ink-500 dark:border-white/10">
                 {days.map((day) => (
-                  <div key={day.toISOString()} className={`grid place-items-center border-r border-black/5 dark:border-white/5 ${isWeekend(day) ? 'bg-black/[0.04] dark:bg-white/[0.055]' : ''}`} style={{ width: dayWidth }}>
+                  <div key={day.toISOString()} className={`grid place-items-center border-r border-black/5 dark:border-white/5 ${isWeekend(day) ? 'bg-black/[0.04] dark:bg-white/[0.055]' : ''} ${format(day, 'yyyy-MM-dd') === todayKey ? 'client-gantt-today-cell' : ''}`} style={{ width: dayWidth }}>
                     {format(day, 'd')}
                   </div>
                 ))}
@@ -753,7 +759,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
                 const blockColor = labelsById[item.who?.[0]]?.color ?? what?.color ?? '#6d5dfc';
                 return (
                   <div key={item.id} className="client-gantt-row grid" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
-                    <div className="sticky left-0 z-10 grid grid-cols-[110px_1fr] border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
+                    <div className="sticky left-0 z-10 grid border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: `${whoWidth}px 1fr` }}>
                       <div className="flex flex-wrap content-center gap-1 px-3 py-3">{item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>
                       <div className="min-w-0 px-3 py-3">
                         <div className="truncate text-sm font-semibold">{item.asset || '-'}</div>
@@ -761,9 +767,9 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
                       </div>
                     </div>
                     <div className="relative min-h-14">
-                      {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''}`} style={{ width: dayWidth }} />)}
-                      <div className="client-gantt-booking" style={{ left: offset * dayWidth + 4, width: duration * dayWidth - 8, '--client-gantt-color': blockColor }}>
-                        <span className="client-gantt-booking-day is-last" style={{ left: (duration - 1) * dayWidth + 4 }}>
+                      {days.map((day) => <div key={day.toISOString()} className={`client-gantt-day ${isWeekend(day) ? 'is-weekend' : ''} ${format(day, 'yyyy-MM-dd') === todayKey ? 'is-today' : ''}`} style={{ width: dayWidth }} />)}
+                      <div className="client-gantt-booking" style={{ left: offset * dayWidth + bookingInset, width: duration * dayWidth - bookingInset * 2, '--client-gantt-color': blockColor }}>
+                        <span className="client-gantt-booking-day is-last" style={{ left: (duration - 1) * dayWidth + dateBadgeInset }}>
                           <strong>{format(visibleEnd, 'd')}</strong>
                           <em>{format(visibleEnd, 'MMM')}</em>
                         </span>
@@ -953,8 +959,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   };
 
   const scrollToToday = () => {
-    const todayRow = planningViewRef.current?.querySelector('.today-row');
-    todayRow?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    const todayTarget = planningViewRef.current?.querySelector(viewMode === 'gantt' ? '.client-gantt-today-cell' : '.today-row');
+    todayTarget?.scrollIntoView({ behavior: 'smooth', block: viewMode === 'gantt' ? 'nearest' : 'start', inline: viewMode === 'gantt' ? 'center' : 'nearest' });
   };
 
   return (
@@ -1030,6 +1036,11 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             <button type="button" onClick={() => setDateWindow('full')} className={`client-filter-pill ${dateWindow === 'full' ? 'is-active' : ''}`}>
               Full planning
             </button>
+            {viewMode === 'gantt' && (
+              <button type="button" onClick={scrollToToday} className="client-filter-pill client-today-button">
+                <CalendarDays size={14} /> Today
+              </button>
+            )}
           </div>
           {versionCategories.length > 1 && (
             <div className="client-filter-categories flex flex-wrap items-center gap-2">
@@ -1075,7 +1086,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             ))}
           </div>
       ) : (
-        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode="sections" collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} />
+        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode="sections" collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} compact />
       )}
 
       {publishValidationIssues.length > 0 && (

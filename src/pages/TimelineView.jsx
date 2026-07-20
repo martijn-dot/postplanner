@@ -16,6 +16,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  StickyNote,
   Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -439,9 +440,16 @@ function SortableLine({
                   />
                 </span>
                 {showMetaLabels && (
-                  <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
-                    {item.time || 'Time'}
-                  </button>
+                  <>
+                    <button type="button" className="timeline-meta-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}>
+                      {item.time || 'Time'}
+                    </button>
+                    {item.notes?.trim() && (
+                      <button type="button" className="timeline-note-chip" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }} aria-label="View note" title="View note">
+                        <StickyNote size={12} />
+                      </button>
+                    )}
+                  </>
                 )}
             </div>
             <div

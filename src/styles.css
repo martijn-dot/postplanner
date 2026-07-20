@@ -843,7 +843,7 @@ nav .tab-active {
 .fill-handle-zone {
   bottom: -11px;
   display: grid;
-  height: 28px;
+  height: 24px;
   place-items: center;
   pointer-events: auto;
   position: absolute;
@@ -1235,6 +1235,17 @@ nav .tab-active {
   font-weight: 700;
   line-height: 1;
   padding: 4px 6px;
+}
+
+.timeline-note-chip {
+  align-items: center;
+  background: rgba(128, 128, 140, 0.18);
+  border: 0;
+  border-radius: 5px;
+  color: #c9c5d6;
+  display: inline-flex;
+  justify-content: center;
+  padding: 3px;
 }
 
 .timeline-empty-hint {
@@ -2656,6 +2667,28 @@ body.public-share-body {
   background: rgba(0, 0, 0, 0.04);
 }
 
+.client-gantt-today-cell {
+  background: rgba(239, 68, 68, 0.24) !important;
+  color: #ff6b7b !important;
+  font-weight: 900;
+}
+
+.client-gantt-today-line {
+  background: #ef4444;
+  bottom: 0;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
+  pointer-events: none;
+  position: absolute;
+  top: 54px;
+  transform: translateX(-1px);
+  width: 2px;
+  z-index: 8;
+}
+
+.client-gantt-day.is-today {
+  background: rgba(239, 68, 68, 0.07);
+}
+
 .dark .client-gantt-day.is-weekend {
   background: rgba(255, 255, 255, 0.055);
 }
@@ -2725,17 +2758,17 @@ body.public-share-body {
   border-radius: 7px;
   height: 28px;
   margin: 0;
-  min-width: 42px;
+  min-width: 36px;
   color: #100e1d;
   opacity: 1;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 42px;
+  width: 36px;
 }
 
-.client-gantt-booking-day.is-last strong { font-size: 0.6rem; }
-.client-gantt-booking-day.is-last em { font-size: 0.43rem; margin-top: 0.12rem; }
+.client-gantt-booking-day.is-last strong { font-size: 0.51rem; }
+.client-gantt-booking-day.is-last em { font-size: 0.37rem; margin-top: 0.1rem; }
 
 .client-gantt-booking .client-gantt-labels {
   left: calc(100% + 10px);
@@ -3394,6 +3427,39 @@ body.public-share-body {
 .client-planning-admin .client-today-button {
   color: #cbd5e1;
 }
+
+/* Compact authenticated Gantt: 70% of the standard client-chart scale. */
+.client-planning-admin .client-gantt .h-5 { height: 14px; }
+.client-planning-admin .client-gantt .h-9 { height: 25px; }
+.client-planning-admin .client-gantt .text-xs { font-size: 0.525rem; }
+.client-planning-admin .client-gantt .text-sm { font-size: 0.6125rem; }
+.client-planning-admin .client-gantt header,
+.client-planning-admin .client-gantt .sticky > span { padding: 7px 8px; }
+.client-planning-admin .client-gantt-row .sticky > div { padding: 6px 8px; }
+.client-planning-admin .client-gantt-row { min-height: 39px; }
+.client-planning-admin .client-gantt-row > .relative { min-height: 39px; }
+.client-planning-admin .client-gantt-day { min-height: 39px; }
+.client-planning-admin .client-gantt-booking { border-radius: 8px; min-height: 28px; }
+.client-planning-admin .client-gantt-booking-day.is-last {
+  border-radius: 5px;
+  height: 20px;
+  min-width: 25px;
+  padding: 2px !important;
+  width: 25px;
+}
+.client-planning-admin .client-gantt-booking-day.is-last strong { font-size: 0.36rem; }
+.client-planning-admin .client-gantt-booking-day.is-last em { font-size: 0.26rem; margin-top: 0.06rem; }
+.client-planning-admin .client-gantt-booking .client-gantt-labels { left: calc(100% + 7px); }
+.client-planning-admin .client-gantt-labels { gap: 3px; max-width: 294px; }
+.client-planning-admin .client-gantt-labels > span,
+.client-planning-admin .client-gantt-row .sticky span.inline-flex {
+  border-radius: 4px;
+  font-size: 0.525rem;
+  padding: 1px 5px;
+}
+.client-planning-admin .client-gantt-category-row { min-height: 27px; }
+.client-planning-admin .client-gantt-category-row .sticky { font-size: 0.575rem; padding: 5px 8px; }
+.client-planning-admin .client-gantt-today-line { top: 39px; }
 
 .client-planning-admin .today-row {
   scroll-margin-top: 52px;
@@ -5552,14 +5618,21 @@ body.public-share-body {
 
 .timeline-line .timeline-block-select span.inline-flex,
 .timeline-line .timeline-block-select > .relative > button span.text-ink-500,
-.timeline-line .timeline-meta-chip {
+.timeline-line .timeline-meta-chip,
+.timeline-line .timeline-note-chip {
   font-size: 0.41rem;
 }
 
 .timeline-line .timeline-block-select > .relative > button span.text-ink-500,
-.timeline-line .timeline-meta-chip {
+.timeline-line .timeline-meta-chip,
+.timeline-line .timeline-note-chip {
   border-radius: 4px;
   padding: 2px 4px;
+}
+
+.timeline-line .timeline-note-chip svg {
+  height: 8px;
+  width: 8px;
 }
 
 .timeline-line .timeline-labels {
