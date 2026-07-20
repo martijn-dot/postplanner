@@ -29,7 +29,7 @@ import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPre
 import { buildProjectSummary } from '../lib/projectSummary.js';
 
 const DAY_WIDTH = { day: 128, week: 72, month: 52 };
-const ROW_HEIGHT = 52;
+const ROW_HEIGHT = 36;
 const COLUMN_STORAGE_KEY = 'post-production-planner:timeline-columns';
 const DEFAULT_COLUMNS = {
   select: 34,
@@ -243,6 +243,7 @@ function SortableLine({
   const startOffset = block ? Math.max(0, differenceInCalendarDays(parseISO(item.start_date), timelineStart)) : 0;
   const duration = block ? Math.max(1, daysBetween(item.start_date, item.end_date) + 1) : 1;
   const whoLabels = item.who?.map((id) => labelsById[id]).filter(Boolean) ?? [];
+  const timelineColor = whoLabels[0]?.color ?? '#8b8f9a';
   const dragOffset = dragPreview?.ids.includes(item.id) ? dragPreview.offsetPx : 0;
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -449,7 +450,7 @@ function SortableLine({
                 left: startOffset * dayWidth + 4,
                 width: Math.max(34, duration * dayWidth - 8),
                 transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
-                borderColor: transparentColor(whoLabels[0]?.color ?? labelsById[item.what]?.color, '80'),
+                borderColor: transparentColor(timelineColor, '80'),
                 '--marker-left': `${Math.max(14, (duration - 0.5) * dayWidth - 4)}px`,
               }}
               onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
@@ -458,7 +459,7 @@ function SortableLine({
               <button className="resize-grip left-0" onPointerDown={(event) => onResizeStart(event, item, 'start')} aria-label="Resize start" />
               <span
                 className={`timeline-end-marker ${endMarkerAnimating ? 'is-animating' : ''}`}
-                style={{ '--end-marker-color': labelsById[item.what]?.color ?? whoLabels[0]?.color ?? '#6d5dfc' }}
+                style={{ '--end-marker-color': timelineColor }}
                 aria-hidden="true"
               />
               {showAssetLabels && item.asset && <div className="timeline-asset-label">{item.asset}</div>}
@@ -703,7 +704,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   const [duplicatedIds, setDuplicatedIds] = useState([]);
   const [visibleMonth, setVisibleMonth] = useState('');
   const [optionsVisible, setOptionsVisible] = useState(true);
-  const [infoVisible, setInfoVisible] = useState(true);
+  const [infoVisible, setInfoVisible] = useState(false);
   const [showMetaLabels, setShowMetaLabels] = useState(true);
   const [showAssetLabels, setShowAssetLabels] = useState(false);
   const [dragPreview, setDragPreview] = useState(null);

@@ -885,11 +885,12 @@ nav .tab-active {
 .timeline-option-cluster {
   align-items: center;
   align-self: stretch;
-  display: flex;
-  gap: 4px;
+  display: grid;
+  gap: 0;
   grid-column: span 2;
-  justify-content: flex-end;
-  padding-right: 8px;
+  grid-template-columns: 34px 44px;
+  justify-content: end;
+  padding-right: 0;
 }
 
 .timeline-option-cluster-header {
@@ -898,7 +899,12 @@ nav .tab-active {
 }
 
 .timeline-option-cluster .focus-button {
+  justify-self: center;
   margin: 0 !important;
+}
+
+.timeline-option-cluster .row-link-button {
+  grid-column: 2;
 }
 
 .fill-handle {
@@ -5142,6 +5148,105 @@ body.public-share-body {
   color: #dced55;
   font-family: var(--font-data);
   font-weight: 800;
+}
+
+/* Compact timeline density: approximately 30% smaller than the base controls. */
+.timeline-category {
+  height: 32px;
+}
+
+.timeline-category-name {
+  font-size: 0.64rem;
+}
+
+.timeline-category-table-panel .icon-button,
+.timeline-row-table-panel .icon-button {
+  height: 25px;
+  width: 25px;
+}
+
+.timeline-category-table-panel .category-action-button {
+  height: 22px !important;
+  width: 22px !important;
+}
+
+.timeline-category-table-panel svg,
+.timeline-row-table-panel .icon-button svg,
+.timeline-row-table-panel .drag-handle svg {
+  height: 11px;
+  width: 11px;
+}
+
+.timeline-category-table-panel .category-drag-handle {
+  height: 20px;
+  width: 17px;
+}
+
+.timeline-row-table-panel .drag-handle {
+  width: 24px;
+}
+
+.timeline-row-table-panel .focus-button {
+  border-radius: 4px;
+  font-size: 0.48rem;
+  height: 16px;
+  width: 16px;
+}
+
+.timeline-row-table-panel .row-link-button svg {
+  height: 9px;
+  width: 9px;
+}
+
+.timeline-row-table-panel > .relative > button {
+  min-height: 25px;
+  padding-bottom: 2px;
+  padding-top: 2px;
+}
+
+.timeline-row-table-panel > .relative > button span.inline-flex {
+  border-radius: 4px;
+  font-size: 0.53rem;
+  padding: 1px 6px;
+}
+
+.timeline-row-table-panel .table-input {
+  font-size: 0.7rem;
+}
+
+.timeline-bar,
+.dark .timeline-bar {
+  border-radius: 8px;
+  height: 24px;
+  padding-left: 6px;
+  padding-right: 21px;
+  top: 6px;
+}
+
+.timeline-block-select span.inline-flex,
+.timeline-block-select > .relative > button span.text-ink-500,
+.timeline-meta-chip {
+  font-size: 0.41rem;
+}
+
+.timeline-block-select > .relative > button span.text-ink-500,
+.timeline-meta-chip {
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.timeline-labels {
+  gap: 4px;
+}
+
+.timeline-end-marker {
+  height: 7px;
+  width: 7px;
+}
+
+.timeline-labels-underlay,
+.timeline-asset-label {
+  font-size: 0.46rem;
 }
 
 /* Final public header overrides live last so the published layout stays reference-accurate. */

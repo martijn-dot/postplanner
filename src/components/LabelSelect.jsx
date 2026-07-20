@@ -130,6 +130,7 @@ export default function LabelSelect({
     setNewValue('');
     setAdding(false);
     toggle(label.id);
+    setOpen(false);
   };
 
   const placeMenu = useCallback(() => {
@@ -267,16 +268,21 @@ export default function LabelSelect({
         )}
         {adding ? (
           <div className="space-y-2">
-            <input
-              autoFocus
-              value={newValue}
-              onChange={(event) => setNewValue(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && create()}
-              className="w-full rounded-md border border-white/10 bg-ink-950 px-2 py-2 text-sm outline-none focus:border-accent-400"
-              placeholder="Label name"
-            />
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex gap-1">
+            <div className="flex items-stretch gap-2">
+              <input
+                autoFocus
+                value={newValue}
+                onChange={(event) => setNewValue(event.target.value)}
+                onKeyDown={(event) => event.key === 'Enter' && create()}
+                className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-950 px-2 py-2 text-sm outline-none focus:border-accent-400"
+                placeholder="Label name"
+              />
+              <button type="button" onClick={create} disabled={!newValue.trim()} className="flex w-9 shrink-0 items-center justify-center rounded-md bg-accent-500 text-white disabled:cursor-not-allowed disabled:opacity-40" aria-label="Create label" title="Create label">
+                <Plus size={17} />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-1">
                 {COLORS.map((swatch) => (
                   <button
                     key={swatch}
@@ -292,12 +298,9 @@ export default function LabelSelect({
                 type="color"
                 value={color}
                 onChange={(event) => setColor(event.target.value)}
-                className="h-7 w-8 rounded border border-white/10 bg-transparent"
+                className="h-7 w-8 shrink-0 rounded border border-white/10 bg-transparent"
                 aria-label="Custom label color"
               />
-              <button type="button" onClick={create} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-500 text-white" aria-label="Create label" title="Create label">
-                <Plus size={16} />
-              </button>
             </div>
           </div>
         ) : (
