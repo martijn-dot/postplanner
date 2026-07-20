@@ -591,7 +591,7 @@ function CategoryBlock({
             </button>
             {categoryNameInput()}
             {!isUncategorized && (
-              <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button category-action-button mx-auto" aria-label="Add row" data-tooltip="Add row"><Plus size={16} /></button>
+              <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button category-action-button mx-auto" aria-label="Add row" data-tooltip="add row"><Plus size={16} /></button>
             )}
             {!isUncategorized && categoryCount > 1 && (
               <button
@@ -603,21 +603,21 @@ function CategoryBlock({
                   }
                 }}
                 className="icon-button category-action-button mx-auto"
-                aria-label="Delete row"
-                data-tooltip="Delete row"
+                aria-label="Delete category"
+                data-tooltip="delete catgorie"
               >
                 <Trash2 size={15} />
               </button>
             )}
             {!isUncategorized && (
-              <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" buttonClassName="icon-button category-action-button mx-auto" tooltip="Add auto client reviews">
+              <ToolbarMenu id={`reviews-${category.id}`} openMenu={openCategoryMenu} setOpenMenu={setOpenCategoryMenu} label="R+" buttonClassName="icon-button category-action-button mx-auto" tooltip="add client reviews">
                 <button type="button" onClick={() => { onAddClientReviewRows(category.id, 1); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 24h</button>
                 <button type="button" onClick={() => { onAddClientReviewRows(category.id, 2); setOpenCategoryMenu(null); }} disabled={!canAddReviews} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-ink-100 hover:bg-white/5 disabled:opacity-50">Add client reviews - 48h</button>
                 <button type="button" onClick={() => { onRemoveClientReviewRows(category.id); setOpenCategoryMenu(null); }} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-red-500/10">Remove client rows</button>
               </ToolbarMenu>
             )}
             {!isUncategorized && (
-              <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button category-action-button mx-auto" aria-label="Add default planning" data-tooltip="Add default planning"><ListPlus size={16} /></button>
+              <button type="button" onClick={() => onAddDefaultPlanning(category.id)} className="icon-button category-action-button mx-auto" aria-label="Add default planning" data-tooltip="add default planning"><ListPlus size={16} /></button>
             )}
           </div>
         )}

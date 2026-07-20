@@ -988,9 +988,15 @@ nav .tab-active {
 }
 
 .category-action-button {
-  height: 32px !important;
+  font-size: 0.7rem;
+  height: 22px !important;
   position: relative;
-  width: 32px !important;
+  width: 22px !important;
+}
+
+.category-action-button > svg {
+  height: 11px;
+  width: 11px;
 }
 
 .category-action-button:hover::after {
@@ -5018,7 +5024,7 @@ body.public-share-body {
 
 .timeline-category-name {
   color: #e1e1ef;
-  font-size: 0.92rem;
+  font-size: 1.25rem;
   font-weight: 850;
 }
 
@@ -5173,6 +5179,10 @@ body.public-share-body {
   width: 16px;
 }
 
+.timeline-line .timeline-option-cluster > .focus-button:not(.row-link-button) {
+  transform: translateX(18px);
+}
+
 .timeline-line .row-link-button svg {
   height: 9px;
   width: 9px;
@@ -5185,14 +5195,21 @@ body.public-share-body {
 }
 
 .timeline-line .timeline-row-table-panel .relative > button span.inline-flex {
+  align-items: center;
   border-radius: 4px;
   font-size: 0.53rem;
+  height: 19px;
   line-height: 1;
-  padding: 1px 6px;
+  padding: 0 6px;
 }
 
 .timeline-line .table-input {
-  font-size: 0.7rem;
+  border-radius: 6px;
+  font-size: 0.53rem;
+  height: 25px;
+  line-height: 1;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .timeline-line .timeline-bar,
