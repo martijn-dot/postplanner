@@ -3162,6 +3162,23 @@ body.public-share-body {
   padding: 2px 6px;
 }
 
+.client-share-link {
+  background: rgba(124, 77, 255, 0.14);
+  border: 1px solid rgba(124, 77, 255, 0.45);
+  border-radius: 4px;
+  color: #c7c0ff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.client-share-link:hover {
+  background: #7c4dff;
+  color: #fff;
+}
+
 .client-planning-admin .client-view-toggle {
   background: #0f172a;
   border-color: #252a37;
@@ -3223,6 +3240,57 @@ body.public-share-body {
   padding: 5px 10px;
 }
 
+.publish-validation-modal {
+  background: #161922;
+  border-color: #303747;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+}
+
+.publish-validation-modal header,
+.publish-validation-modal footer,
+.publish-validation-row {
+  border-color: #252a37;
+}
+
+.publish-validation-icon {
+  align-items: center;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 7px;
+  color: #f59e0b;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.publish-validation-head {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.publish-validation-row {
+  border-top: 1px solid #252a37;
+  font-size: 12px;
+}
+
+.publish-validation-row b {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 999px;
+  color: #fbbf24;
+  font-size: 10px;
+  padding: 3px 7px;
+}
+
+@media (max-width: 640px) {
+  .publish-validation-head { display: none; }
+  .publish-validation-row { grid-template-columns: 1fr; }
+}
+
 .client-download-action {
   background: #7c4dff;
   border: 1px solid #7c4dff;
@@ -3232,6 +3300,23 @@ body.public-share-body {
 
 .client-download-action:hover { background: #8c63ff; }
 .client-download-action:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.client-unpublish-action {
+  align-items: center;
+  background: #dc3545;
+  border: 1px solid #ef5b68;
+  border-radius: 6px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 13px;
+}
+
+.client-unpublish-action:hover { background: #ef4455; }
+.client-unpublish-action:disabled { cursor: wait; opacity: 0.6; }
 
 .client-planning-admin .client-filter-row {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
@@ -3267,6 +3352,14 @@ body.public-share-body {
   background: rgba(14, 165, 233, 0.1);
   border-color: #0ea5e9;
   color: #0ea5e9;
+}
+
+.client-planning-admin .client-today-button {
+  color: #cbd5e1;
+}
+
+.client-planning-admin .today-row {
+  scroll-margin-top: 52px;
 }
 
 .client-planning-admin .client-table-shell { flex: 1; }

@@ -1554,6 +1554,38 @@ export function PlannerProvider({ children }) {
         });
         return token;
       },
+      revokeShareLink: async (projectId, type = DEFAULT_PLANNING_TYPE, version = DEFAULT_PLANNING_VERSION) => {
+        const safeType = planningType(type);
+        const safeVersion = version || DEFAULT_PLANNING_VERSION;
+        if (useSupabase) {
+          await saveSupabase(
+            'client planning unpublish',
+            supabase
+              .from('public_share_links')
+              .update({ revoked_at: new Date().toISOString() })
+              .eq('project_id', projectId)
+              .eq('page_type', 'client_planning')
+              .eq('planning_type', safeType)
+              .eq('planning_version', safeVersion)
+              .is('revoked_at', null),
+            { throwOnError: true },
+          );
+        } else {
+          const shares = readShares();
+          Object.entries(shares).forEach(([token, share]) => {
+            if (share.projectId === projectId && planningType(share.planningType) === safeType && (share.planningVersion ?? DEFAULT_PLANNING_VERSION) === safeVersion) delete shares[token];
+          });
+          writeShares(shares);
+        }
+        mutate((draft) => {
+          draft.shareLinks = draft.shareLinks.filter((share) => !(
+            share.project_id === projectId
+            && planningType(share.planning_type) === safeType
+            && (share.planning_version ?? DEFAULT_PLANNING_VERSION) === safeVersion
+            && share.page_type === 'client_planning'
+          ));
+        });
+      },
     }),
     [data, invokeAdminUserAction, loading, markDirty, mutate, saveCategoryInsert, saveCategoryUpsert, saveError, saveLineItemUpdate, saveLineItemUpsert, saveSupabase, useSupabase, user.id],
   );

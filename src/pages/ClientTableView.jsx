@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { CalendarDays, CalendarPlus, Check, ChevronDown, ChevronRight, Clock, Copy, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CalendarPlus, Check, ChevronDown, ChevronRight, Clock, Copy, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
@@ -18,7 +18,6 @@ const DEFAULT_CLIENT_FILTER_PREFS = {
   dateWindow: 'full',
   showWennekerBookings: true,
   showClientBookings: true,
-  categoryMode: 'sections',
   hiddenCategoryKeys: [],
   collapsedCategoryKeys: [],
 };
@@ -92,6 +91,7 @@ function readClientFilterPrefs(projectId, planningType, planningVersion) {
     return {
       ...DEFAULT_CLIENT_FILTER_PREFS,
       ...stored,
+      dateWindow: ['future', 'full'].includes(stored.dateWindow) ? stored.dateWindow : DEFAULT_CLIENT_FILTER_PREFS.dateWindow,
       hiddenCategoryKeys: Array.isArray(stored.hiddenCategoryKeys) ? stored.hiddenCategoryKeys : [],
       collapsedCategoryKeys: Array.isArray(stored.collapsedCategoryKeys) ? stored.collapsedCategoryKeys : [],
     };
@@ -779,25 +779,30 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
 }
 
 export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, createShareLink, updateLineItem, addLabel } = usePlanner();
+  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
+  const activeShare = shareLinks.find((share) => share.project_id === project.id && share.page_type === 'client_planning' && safePlanningType(share.planning_type) === activePlanningType && (share.planning_version ?? 'V1') === planningVersion && !share.revoked_at);
   const initialFilterPrefs = useRef(readClientFilterPrefs(project.id, activePlanningType, planningVersion));
   const [showEmptyDates, setShowEmptyDates] = useState(initialFilterPrefs.current.showEmptyDates);
   const [dateWindow, setDateWindow] = useState(initialFilterPrefs.current.dateWindow);
   const [showWennekerBookings, setShowWennekerBookings] = useState(initialFilterPrefs.current.showWennekerBookings);
   const [showClientBookings, setShowClientBookings] = useState(initialFilterPrefs.current.showClientBookings);
-  const [categoryMode, setCategoryMode] = useState(initialFilterPrefs.current.categoryMode);
   const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState(initialFilterPrefs.current.hiddenCategoryKeys);
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState(initialFilterPrefs.current.collapsedCategoryKeys);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
   const [viewMode, setViewMode] = useState(() => readClientViewMode(project.id));
   const uncategorizedNames = useMemo(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}), []);
-  const [publishedUrl, setPublishedUrl] = useState(() => readClientPublishedUrl(project.id, activePlanningType, planningVersion));
+  const [publishedUrl, setPublishedUrl] = useState(() => activeShare?.token
+    ? `${window.location.origin}/share/${slugifyProjectName(project.name)}-${activeShare.token}`
+    : readClientPublishedUrl(project.id, activePlanningType, planningVersion));
   const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [publishValidationIssues, setPublishValidationIssues] = useState([]);
+  const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
   const columnMenuCloseTimer = useRef(null);
+  const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
   const whoFilterIds = useMemo(() => ({
     wenneker: labels.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
@@ -835,7 +840,33 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const categoryGroups = useMemo(() => categoryGroupsFor(filteredLineItems), [categoryGroupsFor, filteredLineItems]);
   const categoryFilterGroups = useMemo(() => categoryGroupsFor(bookingFilteredLineItems), [bookingFilteredLineItems, categoryGroupsFor]);
 
+  const validateRowsForPublishing = () => versionLineItems
+    .map((item) => {
+      const missing = [];
+      if (!Array.isArray(item.who) || !item.who.length) missing.push('Who');
+      if (!String(item.asset ?? '').trim()) missing.push('Asset');
+      if (!item.what) missing.push('What');
+      if (!item.todo) missing.push('Todo');
+      if (!String(item.time ?? '').trim()) missing.push('Time');
+      if (!missing.length) return null;
+      return {
+        id: item.id,
+        sortKey: item.end_date ?? '9999-12-31',
+        date: item.end_date ? format(parseISO(item.end_date), 'EEEE, d MMM yyyy') : 'No end date',
+        asset: String(item.asset ?? '').trim() || 'Untitled row',
+        category: categoryNameForItem(item, categoriesById, uncategorizedName),
+        missing,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
   const publish = async () => {
+    const issues = validateRowsForPublishing();
+    if (issues.length) {
+      setPublishValidationIssues(issues);
+      return;
+    }
     setPublishing(true);
     try {
       const token = await createShareLink(project.id, activePlanningType, planningVersion);
@@ -854,6 +885,19 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
     await navigator.clipboard?.writeText(publishedUrl);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
+  };
+
+  const unpublish = async () => {
+    setPublishing(true);
+    try {
+      await revokeShareLink(project.id, activePlanningType, planningVersion);
+      localStorage.removeItem(clientPublishedUrlStorageKey(project.id, activePlanningType, planningVersion));
+      setPublishedUrl('');
+      setShowUnpublishConfirm(false);
+      setCopied(false);
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const updateColumnPrefs = (nextPrefs) => {
@@ -875,11 +919,10 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       dateWindow,
       showWennekerBookings,
       showClientBookings,
-      categoryMode,
       hiddenCategoryKeys,
       collapsedCategoryKeys,
     }));
-  }, [activePlanningType, categoryMode, collapsedCategoryKeys, dateWindow, hiddenCategoryKeys, planningVersion, project.id, showClientBookings, showEmptyDates, showWennekerBookings]);
+  }, [activePlanningType, collapsedCategoryKeys, dateWindow, hiddenCategoryKeys, planningVersion, project.id, showClientBookings, showEmptyDates, showWennekerBookings]);
 
   const scheduleColumnMenuClose = () => {
     window.clearTimeout(columnMenuCloseTimer.current);
@@ -898,14 +941,20 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
     setHiddenCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
 
+  const scrollToToday = () => {
+    const todayRow = planningViewRef.current?.querySelector('.today-row');
+    todayRow?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+  };
+
   return (
-    <main className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 p-4">
+    <main ref={planningViewRef} className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 p-4">
       <div className="client-planning-header flex flex-col justify-between gap-3 rounded-xl border p-4 shadow-lg xl:flex-row xl:items-center">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-semibold tracking-tight text-white">Client Planning</h1>
             <span className="planning-type-badge">{planningDefinition.label}</span>
             <span className="planning-version-badge">{planningVersion}</span>
+            {publishedUrl && <a href={publishedUrl} target="_blank" rel="noreferrer" className="client-share-link">Share link</a>}
           </div>
           <p className="mt-1 text-[11px] text-slate-500">Milestones are generated from the final day of each timeline item.</p>
         </div>
@@ -914,7 +963,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
             <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gantt Chart</button>
           </div>
-          <button type="button" onClick={publish} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing || Boolean(publishedUrl)}>
+          <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>
             <Globe2 size={17} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
           </button>
           <div className="relative" onMouseEnter={keepColumnMenuOpen} onMouseLeave={scheduleColumnMenuClose}>
@@ -967,18 +1016,20 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
             </button>
             {viewMode === 'table' && (
-              <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
-                {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
-              </button>
+              <>
+                <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
+                  {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
+                </button>
+                <button type="button" onClick={scrollToToday} className="client-filter-pill client-today-button">
+                  <CalendarDays size={14} /> Today
+                </button>
+              </>
             )}
           </div>
           <div className="client-filter-group flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Planning</span>
             <button type="button" onClick={() => setDateWindow('future')} className={`client-filter-pill ${dateWindow === 'future' ? 'is-active' : ''}`}>
               From current
-            </button>
-            <button type="button" onClick={() => setDateWindow('pastWeek')} className={`client-filter-pill ${dateWindow === 'pastWeek' ? 'is-active' : ''}`}>
-              Past week
             </button>
             <button type="button" onClick={() => setDateWindow('full')} className={`client-filter-pill ${dateWindow === 'full' ? 'is-active' : ''}`}>
               Full planning
@@ -988,9 +1039,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             <div className="client-filter-categories flex flex-wrap items-center gap-2">
               <div className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Categories</div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setCategoryMode((next) => (next === 'column' ? 'sections' : 'column'))} className={`client-filter-pill ${categoryMode === 'sections' ? 'is-active' : ''}`}>
-                  {categoryMode === 'sections' ? <Eye size={14} /> : <EyeOff size={14} />} Category sections
-                </button>
                 {categoryFilterGroups.map((group) => (
                   <button key={group.key} type="button" onClick={() => toggleHiddenCategory(group.key)} className={`client-filter-pill ${!hiddenCategoryKeys.includes(group.key) ? 'is-active' : ''}`}>
                     {!hiddenCategoryKeys.includes(group.key) ? <Eye size={14} /> : <EyeOff size={14} />} {group.name}
@@ -1003,7 +1051,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       )}
 
       {viewMode === 'table' ? (
-        categoryMode === 'sections' ? (
           <div className="space-y-4">
             {categoryGroups.map((group) => (
               <section key={group.key} className="client-category-section">
@@ -1031,24 +1078,62 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               </section>
             ))}
           </div>
-        ) : (
-          <ClientPlanningTable
-            project={project}
-            lineItems={filteredLineItems}
-            labels={labels}
-            categories={versionCategories}
-            showEmptyDates={showEmptyDates}
-            dateWindow={dateWindow}
-            onUpdateLineItem={updateLineItem}
-            onAddLabel={addLabel}
-            uncategorizedName={uncategorizedName}
-            columnPrefs={columnPrefs}
-            onColumnPrefsChange={updateColumnPrefs}
-            showWeekColumn
-          />
-        )
       ) : (
-        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode={categoryMode} collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} />
+        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode="sections" collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} />
+      )}
+
+      {publishValidationIssues.length > 0 && (
+        <div className="fixed inset-0 z-[750] grid place-items-center bg-black/70 p-5" onMouseDown={() => setPublishValidationIssues([])}>
+          <section className="publish-validation-modal w-full max-w-2xl overflow-hidden rounded-xl border" onMouseDown={(event) => event.stopPropagation()}>
+            <header className="flex items-start justify-between gap-4 border-b px-5 py-4">
+              <div className="flex items-start gap-3">
+                <span className="publish-validation-icon"><AlertTriangle size={18} /></span>
+                <div>
+                  <h2 className="text-base font-semibold text-white">Complete missing planning fields</h2>
+                  <p className="mt-1 text-xs text-slate-400">Publishing is paused. Complete the fields below, then click Publish again.</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setPublishValidationIssues([])} className="icon-button shrink-0" aria-label="Close validation overview"><X size={17} /></button>
+            </header>
+            <div className="max-h-[55vh] overflow-auto p-3">
+              <div className="publish-validation-head grid grid-cols-[150px_minmax(150px,1fr)_minmax(180px,1.2fr)] gap-3 px-3 py-2">
+                <span>Date</span><span>Row</span><span>Missing</span>
+              </div>
+              {publishValidationIssues.map((issue) => (
+                <div key={issue.id} className="publish-validation-row grid grid-cols-[150px_minmax(150px,1fr)_minmax(180px,1.2fr)] gap-3 px-3 py-3">
+                  <span className="font-semibold text-slate-200">{issue.date}</span>
+                  <span className="min-w-0"><strong className="block truncate text-slate-200">{issue.asset}</strong><small className="block truncate text-slate-500">{issue.category}</small></span>
+                  <span className="flex flex-wrap gap-1.5">{issue.missing.map((field) => <b key={field}>{field}</b>)}</span>
+                </div>
+              ))}
+            </div>
+            <footer className="flex items-center justify-between gap-3 border-t px-5 py-3">
+              <span className="text-xs text-slate-500">{publishValidationIssues.length} {publishValidationIssues.length === 1 ? 'row needs' : 'rows need'} attention</span>
+              <button type="button" onClick={() => setPublishValidationIssues([])} className="client-download-action">Close overview</button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      {showUnpublishConfirm && (
+        <div className="fixed inset-0 z-[760] grid place-items-center bg-black/70 p-5" onMouseDown={() => !publishing && setShowUnpublishConfirm(false)}>
+          <section className="publish-validation-modal w-full max-w-md overflow-hidden rounded-xl border" onMouseDown={(event) => event.stopPropagation()}>
+            <header className="flex items-start justify-between gap-4 border-b px-5 py-4">
+              <div className="flex items-start gap-3">
+                <span className="publish-validation-icon"><AlertTriangle size={18} /></span>
+                <div>
+                  <h2 className="text-base font-semibold text-white">Unpublish this planning?</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-400">The current share link will stop working and the client will no longer be able to view this planning.</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowUnpublishConfirm(false)} className="icon-button shrink-0" aria-label="Close unpublish confirmation" disabled={publishing}><X size={17} /></button>
+            </header>
+            <footer className="flex justify-end gap-2 border-t px-5 py-4">
+              <button type="button" onClick={() => setShowUnpublishConfirm(false)} className="client-header-action" disabled={publishing}>Cancel</button>
+              <button type="button" onClick={unpublish} className="client-unpublish-action" disabled={publishing}>{publishing ? 'Unpublishing...' : 'Yes, unpublish'}</button>
+            </footer>
+          </section>
+        </div>
       )}
     </main>
   );
