@@ -4333,7 +4333,7 @@ body.public-share-body {
   gap: 24px;
   justify-content: space-between;
   margin-bottom: 32px;
-  padding-bottom: 32px;
+  padding: 0 20px 32px;
 }
 
 .dashboard-projects-title {
@@ -4495,13 +4495,15 @@ body.public-share-body {
   display: flex;
   gap: 7px;
   justify-content: flex-end;
+  min-width: 94px;
 }
 
 .project-assetlist-stack {
-  align-items: center;
+  align-items: flex-end;
   display: inline-flex;
   flex-direction: column;
   gap: 5px;
+  margin-left: auto;
 }
 
 .project-label-button {
@@ -4525,7 +4527,7 @@ body.public-share-body {
   font-size: 0.52rem;
   font-weight: 500;
   line-height: 1.15;
-  max-width: 118px;
+  max-width: 210px;
   text-align: right;
   white-space: nowrap;
 }
