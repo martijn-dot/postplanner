@@ -905,6 +905,18 @@ nav .tab-active {
 
 .timeline-option-cluster .row-link-button {
   grid-column: 2;
+  justify-self: end;
+  margin-right: 5px !important;
+}
+
+.timeline-option-cluster-header .row-link-button {
+  height: 16px;
+  width: 16px;
+}
+
+.timeline-option-cluster-header .row-link-button svg {
+  height: 9px;
+  width: 9px;
 }
 
 .fill-handle {
@@ -3214,6 +3226,14 @@ body.public-share-body {
   border-color: #252a37;
 }
 
+.client-planning-admin .client-planning-header,
+.client-planning-admin .client-filter-row,
+.client-planning-admin .client-table-shell,
+.client-planning-admin .client-gantt,
+.client-planning-admin .client-category-section-title {
+  border-radius: 0 !important;
+}
+
 .client-planning-admin .planning-type-badge {
   background: #1e293b;
   border: 1px solid #334155;
@@ -3428,38 +3448,38 @@ body.public-share-body {
   color: #cbd5e1;
 }
 
-/* Compact authenticated Gantt: 70% of the standard client-chart scale. */
-.client-planning-admin .client-gantt .h-5 { height: 14px; }
-.client-planning-admin .client-gantt .h-9 { height: 25px; }
-.client-planning-admin .client-gantt .text-xs { font-size: 0.525rem; }
-.client-planning-admin .client-gantt .text-sm { font-size: 0.6125rem; }
+/* Compact authenticated Gantt: 80.5% of the standard client-chart scale. */
+.client-planning-admin .client-gantt .h-5 { height: 16px; }
+.client-planning-admin .client-gantt .h-9 { height: 29px; }
+.client-planning-admin .client-gantt .text-xs { font-size: 0.604rem; }
+.client-planning-admin .client-gantt .text-sm { font-size: 0.704rem; }
 .client-planning-admin .client-gantt header,
-.client-planning-admin .client-gantt .sticky > span { padding: 7px 8px; }
-.client-planning-admin .client-gantt-row .sticky > div { padding: 6px 8px; }
-.client-planning-admin .client-gantt-row { min-height: 39px; }
-.client-planning-admin .client-gantt-row > .relative { min-height: 39px; }
-.client-planning-admin .client-gantt-day { min-height: 39px; }
-.client-planning-admin .client-gantt-booking { border-radius: 8px; min-height: 28px; }
+.client-planning-admin .client-gantt .sticky > span { padding: 8px 9px; }
+.client-planning-admin .client-gantt-row .sticky > div { padding: 7px 9px; }
+.client-planning-admin .client-gantt-row { min-height: 45px; }
+.client-planning-admin .client-gantt-row > .relative { min-height: 45px; }
+.client-planning-admin .client-gantt-day { min-height: 45px; }
+.client-planning-admin .client-gantt-booking { border-radius: 9px; min-height: 32px; }
 .client-planning-admin .client-gantt-booking-day.is-last {
-  border-radius: 5px;
-  height: 20px;
-  min-width: 25px;
+  border-radius: 6px;
+  height: 23px;
+  min-width: 29px;
   padding: 2px !important;
-  width: 25px;
+  width: 29px;
 }
-.client-planning-admin .client-gantt-booking-day.is-last strong { font-size: 0.36rem; }
-.client-planning-admin .client-gantt-booking-day.is-last em { font-size: 0.26rem; margin-top: 0.06rem; }
-.client-planning-admin .client-gantt-booking .client-gantt-labels { left: calc(100% + 7px); }
-.client-planning-admin .client-gantt-labels { gap: 3px; max-width: 294px; }
+.client-planning-admin .client-gantt-booking-day.is-last strong { font-size: 0.414rem; }
+.client-planning-admin .client-gantt-booking-day.is-last em { font-size: 0.3rem; margin-top: 0.07rem; }
+.client-planning-admin .client-gantt-booking .client-gantt-labels { left: calc(100% + 8px); }
+.client-planning-admin .client-gantt-labels { gap: 3px; max-width: 338px; }
 .client-planning-admin .client-gantt-labels > span,
 .client-planning-admin .client-gantt-row .sticky span.inline-flex {
   border-radius: 4px;
-  font-size: 0.525rem;
-  padding: 1px 5px;
+  font-size: 0.604rem;
+  padding: 1px 6px;
 }
-.client-planning-admin .client-gantt-category-row { min-height: 27px; }
-.client-planning-admin .client-gantt-category-row .sticky { font-size: 0.575rem; padding: 5px 8px; }
-.client-planning-admin .client-gantt-today-line { top: 39px; }
+.client-planning-admin .client-gantt-category-row { min-height: 31px; }
+.client-planning-admin .client-gantt-category-row .sticky { font-size: 0.66rem; padding: 6px 9px; }
+.client-planning-admin .client-gantt-today-line { top: 45px; }
 
 .client-planning-admin .today-row {
   scroll-margin-top: 52px;
@@ -5562,7 +5582,7 @@ body.public-share-body {
 }
 
 .timeline-line .timeline-option-cluster > .focus-button:not(.row-link-button) {
-  transform: translateX(18px);
+  transform: translateX(27px);
 }
 
 .timeline-line .row-link-button svg {
@@ -5592,6 +5612,7 @@ body.public-share-body {
   line-height: 1;
   padding-left: 6px;
   padding-right: 6px;
+  width: 70%;
 }
 
 .timeline-line .copy-cell-selected,
@@ -5648,6 +5669,11 @@ body.public-share-body {
 .timeline-line .timeline-asset-label,
 .timeline-line .timeline-empty-hint {
   font-size: 0.46rem;
+}
+
+.timeline-line .timeline-asset-label {
+  bottom: -4px;
+  top: auto;
 }
 
 /* Final public header overrides live last so the published layout stays reference-accurate. */

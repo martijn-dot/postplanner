@@ -687,10 +687,10 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
       return aOrder - bOrder || a.name.localeCompare(b.name);
     });
   }, [bookings, categoriesById, categoryMode, uncategorizedName]);
-  const dayWidth = compact ? 41 : 58;
-  const leftWidth = compact ? 224 : 320;
-  const whoWidth = compact ? 77 : 110;
-  const bookingInset = compact ? 3 : 4;
+  const dayWidth = compact ? 47 : 58;
+  const leftWidth = compact ? 258 : 320;
+  const whoWidth = compact ? 89 : 110;
+  const bookingInset = 4;
   const dateBadgeInset = compact ? 5 : 7;
   const todayKey = format(new Date(), 'yyyy-MM-dd');
   const todayIndex = days.findIndex((day) => format(day, 'yyyy-MM-dd') === todayKey);

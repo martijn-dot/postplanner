@@ -847,14 +847,11 @@ export default function AssetListPage({ project }) {
   const fullGridTemplate = `74px 86px ${beforeFilenameColumns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} ${filenameColumnWidth()}px 74px ${afterCopyColumns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 220px`;
 
   return (
-    <main className="flex h-[calc(100vh-6rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
+    <main className="flex h-[calc(100vh-10.5rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <div className="border-b border-black/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-ink-900">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <span className="inline-flex rounded-md border border-amber-300/40 bg-amber-300 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-ink-950">
-              {[project.project_number, project.name].filter(Boolean).join(' - ')}
-            </span>
-            <h1 className="mt-3 text-2xl font-semibold">Asset list</h1>
+            <h1 className="text-2xl font-semibold">Asset list</h1>
             <p className="mt-1 text-sm text-ink-500">{project.client}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

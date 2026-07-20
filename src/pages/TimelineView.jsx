@@ -598,6 +598,7 @@ function CategoryBlock({
               <GripVertical size={15} />
             </button>
             {categoryNameInput()}
+            {!isUncategorized && categoryCount <= 1 && <span aria-hidden="true" />}
             {!isUncategorized && (
               <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button category-action-button mx-auto" aria-label="Add row" data-tooltip="add row"><Plus size={16} /></button>
             )}
@@ -698,7 +699,7 @@ function CategoryBlock({
   );
 }
 
-export default function TimelineView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1', planningVersions = ['V1'] }) {
+export default function TimelineView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
   const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
@@ -1297,27 +1298,12 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   };
 
   return (
-    <main className="timeline-planner h-[calc(100vh-7rem)] overflow-hidden">
+    <main className="timeline-planner h-[calc(100vh-10.5rem)] overflow-hidden">
       <div className="flex h-full flex-col">
         <div className="timeline-project-header flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold">{project.name}</h1>
               <span className="rounded-md border border-accent-400/40 bg-accent-500/15 px-2 py-1 text-xs font-semibold uppercase text-accent-100">{planningDefinition.label}</span>
-              {planningVersions.length > 1 && (
-                <span className="flex items-center gap-1">
-                  <span className="rounded-md border border-amber-300/40 bg-amber-300/15 px-2 py-1 text-xs font-semibold uppercase text-amber-200">Working in {planningVersion}</span>
-                  {planningVersions.map((version) => (
-                    <Link
-                      key={version}
-                      to={`/projects/${project.id}?type=${activePlanningType}&version=${version}`}
-                      className={`rounded-md border px-2 py-1 text-xs font-semibold transition ${version === planningVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 text-ink-500 hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100'}`}
-                    >
-                      {version}
-                    </Link>
-                  ))}
-                </span>
-              )}
             </div>
             <p className="text-sm text-ink-500">{project.client || 'Internal project'}</p>
           </div>
@@ -1568,18 +1554,23 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
               </div>
               <button type="button" onClick={() => setDetailsItemId(null)} className="icon-button" aria-label="Close details">×</button>
             </div>
-            <label className="block text-sm font-semibold text-ink-300">
-              Time
-              <input
-                value={detailsItem.time ?? ''}
-                onChange={(event) => updateLineItemWithUndo(detailsItem.id, { time: normalizeTimeInput(event.target.value) })}
-                className="mt-2 w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
-                inputMode="numeric"
-                pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-                maxLength={5}
-                placeholder="HH:MM"
-              />
-            </label>
+            <div className="text-sm font-semibold text-ink-300">
+              <label htmlFor={`booking-time-${detailsItem.id}`}>Time</label>
+              <div className="mt-2 flex items-stretch gap-2">
+                <input
+                  id={`booking-time-${detailsItem.id}`}
+                  value={detailsItem.time ?? ''}
+                  onChange={(event) => updateLineItemWithUndo(detailsItem.id, { time: normalizeTimeInput(event.target.value) })}
+                  className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
+                  inputMode="numeric"
+                  pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                  maxLength={5}
+                  placeholder="HH:MM"
+                />
+                <button type="button" onClick={() => updateLineItemWithUndo(detailsItem.id, { time: 'EOD' })} className="secondary-button !px-3 !py-2" aria-label="Set time to EOD">EOD</button>
+                <button type="button" onClick={() => updateLineItemWithUndo(detailsItem.id, { time: '' })} disabled={!detailsItem.time} className="icon-button h-auto shrink-0 border border-white/10" aria-label="Clear time" title="Clear time">×</button>
+              </div>
+            </div>
             <label className="mt-4 block text-sm font-semibold text-ink-300">
               Notes
               <textarea
