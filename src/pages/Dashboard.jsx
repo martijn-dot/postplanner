@@ -100,16 +100,6 @@ function slugifyProjectName(name) {
   return (name || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'project';
 }
 
-function assetListHasValues(list) {
-  return (list?.rows ?? []).some((row) => Object.values(row.values ?? {}).some((value) => String(value ?? '').trim()));
-}
-
-function assetStatusLabel(list) {
-  const status = list?.filename_options?.status ?? 'none';
-  if (list?.filename_options?.asset_published_at && !assetListHasValues(list)) return 'current';
-  return status;
-}
-
 const DASHBOARD_PLANNING_ORDER = [PLANNING_TYPES.production, PLANNING_TYPES.post];
 
 export default function Dashboard() {
@@ -302,8 +292,10 @@ export default function Dashboard() {
               const activeNames = activeNamesForProject(project.id);
               const locked = activeNames.length > 0;
               const projectAssetLists = assetLists.filter((list) => list.project_id === project.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-              const primaryAssetList = projectAssetLists[0];
-              const assetStatus = assetStatusLabel(primaryAssetList);
+              const latestAssetListUpdate = projectAssetLists
+                .map((list) => list.updated_at)
+                .filter(Boolean)
+                .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
               const openProjectPlanning = (definition, version, exists, event) => {
                 event?.preventDefault();
                 event?.stopPropagation();
@@ -362,7 +354,9 @@ export default function Dashboard() {
                         >
                           <FileSpreadsheet size={14} /> ASSETLIST
                         </button>
-                        <span className={`project-asset-status is-${assetStatus.replace(/\s+/g, '-')}`}>{assetStatus}</span>
+                        <span className="project-asset-updated">
+                          {latestAssetListUpdate ? `Updated ${formatDistanceToNow(new Date(latestAssetListUpdate), { addSuffix: true })}` : 'No updates yet'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -436,11 +430,11 @@ export default function Dashboard() {
                               type="button"
                               onClick={(event) => openVersionMenuAction(definition, event)}
                               disabled={!exists}
-                              className="project-action-button font-bold"
-                              aria-label={`${definition.label} versions`}
-                              title={`${definition.label} versions`}
+                              className="project-action-button"
+                              aria-label={`${definition.label} versions and duplication`}
+                              title={`${definition.label} versions and duplication`}
                             >
-                              V
+                              <Copy size={16} />
                             </button>
                             <button
                               type="button"

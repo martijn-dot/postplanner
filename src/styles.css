@@ -4520,14 +4520,14 @@ body.public-share-body {
   transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
 }
 
-.project-asset-status {
-  border: 1px solid rgba(141, 121, 255, 0.42);
-  border-radius: 999px;
-  color: rgba(205, 189, 255, 0.86);
-  font-size: 0.5rem;
-  line-height: 1;
-  padding: 2px 6px;
-  text-transform: uppercase;
+.project-asset-updated {
+  color: rgba(148, 163, 184, 0.72);
+  font-size: 0.52rem;
+  font-weight: 500;
+  line-height: 1.15;
+  max-width: 118px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .project-archive-button {
