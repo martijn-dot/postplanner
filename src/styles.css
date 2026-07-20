@@ -3230,16 +3230,6 @@ body.public-share-body {
   opacity: 1;
 }
 
-.client-published-panel {
-  font-size: 11px;
-  padding: 9px 12px;
-}
-
-.client-published-panel .secondary-button {
-  min-height: 30px;
-  padding: 5px 10px;
-}
-
 .publish-validation-modal {
   background: #161922;
   border-color: #303747;

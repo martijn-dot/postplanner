@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarDays, CalendarPlus, Check, ChevronDown, ChevronRight, Clock, Copy, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
@@ -797,7 +797,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [publishedUrl, setPublishedUrl] = useState(() => activeShare?.token
     ? `${window.location.origin}/share/${slugifyProjectName(project.name)}-${activeShare.token}`
     : readClientPublishedUrl(project.id, activePlanningType, planningVersion));
-  const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishValidationIssues, setPublishValidationIssues] = useState([]);
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
@@ -874,17 +873,9 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       setPublishedUrl(url);
       localStorage.setItem(clientPublishedUrlStorageKey(project.id, activePlanningType, planningVersion), url);
       await navigator.clipboard?.writeText(url);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
     } finally {
       setPublishing(false);
     }
-  };
-
-  const copyPublicUrl = async () => {
-    await navigator.clipboard?.writeText(publishedUrl);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
   };
 
   const unpublish = async () => {
@@ -894,7 +885,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       localStorage.removeItem(clientPublishedUrlStorageKey(project.id, activePlanningType, planningVersion));
       setPublishedUrl('');
       setShowUnpublishConfirm(false);
-      setCopied(false);
     } finally {
       setPublishing(false);
     }
@@ -989,21 +979,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
           </button>
         </div>
       </div>
-
-      {publishedUrl && (
-        <div className="client-published-panel rounded-lg border border-accent-400/30 bg-accent-500/10 text-ink-700 dark:text-ink-100">
-          <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
-            <div>
-              <p className="font-semibold">Client page published</p>
-              <p className="text-ink-500">Anyone with this link can view the read-only client planning page without signing in.</p>
-            </div>
-            <button type="button" onClick={copyPublicUrl} className="secondary-button shrink-0">
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {(viewMode === 'table' || viewMode === 'gantt') && (
         <div className="client-filter-row flex flex-wrap items-center gap-6 rounded-xl border p-3 text-sm">
