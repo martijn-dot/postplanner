@@ -5,6 +5,7 @@ import { downloadAssetListExcel } from '../lib/exportExcel.js';
 
 const DEFAULT_ASSET_TYPES = ['OLV', 'SOC', 'PRV', 'HWT', 'TECH', 'CGI', 'Bumper', 'TrueView', 'Story', '360', 'IMG', 'FeatIMG', 'Photography', 'KV', 'StaticBanner', 'DynaBanner'];
 const DEFAULT_RATIOS = ['16x9', '9x16', '4x5', '1x1', '3x4', '4x3', 'TBC'];
+const QUICK_RATIO_OPTIONS = ['16x9', '9x16', '4x5', '1x1', '2x3'];
 const DEFAULT_UNIQUE_RATIO = ['Unique', 'Ratio'];
 const DEFAULT_PLATFORMS = ['IG', 'FB', 'IG+TB', 'YT', 'TK', 'PIN', 'SPF'];
 const LABEL_TYPE_NAMES = {
@@ -339,6 +340,8 @@ export default function AssetListPage({ project }) {
   const [selectedCells, setSelectedCells] = useState([]);
   const [selectionAnchor, setSelectionAnchor] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState('');
+  const [ratioMenuOpen, setRatioMenuOpen] = useState(false);
+  const [selectedRatios, setSelectedRatios] = useState([]);
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => ({
@@ -450,20 +453,6 @@ export default function AssetListPage({ project }) {
     window.addEventListener('pointerup', onPointerUp, { once: true });
   };
 
-  const addColumn = () => {
-    const column = {
-      id: uid(),
-      name: `Column ${columns.length + 1}`,
-      type: 'custom-dropdown',
-      options: [],
-      separator: null,
-      width: 190,
-      sort_order: columns.length,
-    };
-    saveColumns([...columns, column], updateRowsForColumn(activeList.rows, column.id));
-    setSettingsColumnId(column.id);
-  };
-
   const standardColumns = () => STANDARD_COLUMNS.map((column, index) => ({
     id: uid(),
     separator: null,
@@ -543,6 +532,36 @@ export default function AssetListPage({ project }) {
       notes: '',
     };
     saveList({ rows: [...rows, nextRow] });
+  };
+
+  const addRatioGroup = () => {
+    if (!selectedRatios.length) return;
+    const uniqueRatioColumn = columns.find((column) => column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? ''));
+    const ratioColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+    if (!ratioColumn) return;
+
+    const groupId = uid();
+    const nextCategories = [
+      ...categories,
+      { id: groupId, name: `Ratio group · ${selectedRatios.join(', ')}`, collapsed: false, sort_order: categories.length },
+    ];
+    const numericNumbers = rows.map((row) => Number.parseInt(row.number, 10)).filter(Number.isFinite);
+    const firstNumber = (numericNumbers.length ? Math.max(...numericNumbers) : 0) + 1;
+    const numberWidth = Math.max(2, ...rows.map((row) => String(row.number ?? '').length));
+    const nextRows = selectedRatios.map((ratio, index) => ({
+      id: uid(),
+      number: String(firstNumber + index).padStart(numberWidth, '0'),
+      group_id: groupId,
+      values: Object.fromEntries(columns.map((column) => [
+        column.id,
+        column.id === ratioColumn.id ? ratio : column.id === uniqueRatioColumn?.id ? 'Ratio' : '',
+      ])),
+      sort_order: rows.length + index,
+      notes: '',
+    }));
+    saveList({ categories: nextCategories, rows: [...rows, ...nextRows] });
+    setSelectedRatios([]);
+    setRatioMenuOpen(false);
   };
 
   const updateCell = (rowId, columnId, value) => {
@@ -847,70 +866,114 @@ export default function AssetListPage({ project }) {
   const fullGridTemplate = `74px 86px ${beforeFilenameColumns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} ${filenameColumnWidth()}px 74px ${afterCopyColumns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 220px`;
 
   return (
-    <main className="flex h-[calc(100vh-10.5rem)] flex-col bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
-      <div className="border-b border-black/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-ink-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <main className="asset-list-page flex h-[calc(100vh-10.5rem)] flex-col text-ink-950 dark:text-ink-100">
+      <div className="asset-list-titlebar">
+        <div className="asset-list-titlebar-inner">
           <div>
-            <h1 className="text-2xl font-semibold">Asset list</h1>
-            <p className="mt-1 text-sm text-ink-500">{project.client}</p>
+            <h1>Asset list</h1>
+            <p>{project.client}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-ink-500">
-              Global separator
-              <span className="w-28">
+          <div className="asset-list-title-actions">
+            <label className="asset-list-setting">
+              <span className="asset-list-setting-label">Global separator</span>
+              <span className="asset-list-setting-control is-separator">
                 <SeparatorDropdown value={activeList.global_separator ?? '_'} onChange={(global_separator) => saveList({ global_separator })} openDropdownId={openDropdownId} setOpenDropdownId={setOpenDropdownId} />
               </span>
             </label>
-            <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all', clients)} className="secondary-button"><Download size={16} /> Download Excel</button>
-            <label className="flex items-center gap-2 text-sm font-semibold text-ink-500">
-              Status
-              <select className="field !w-36 !py-2" value={assetStatus} onChange={(event) => updateAssetStatus(event.target.value)}>
+            <label className="asset-list-setting">
+              <span className="asset-list-setting-label">Status</span>
+              <select className="asset-list-status" value={assetStatus} onChange={(event) => updateAssetStatus(event.target.value)}>
                 {ASSET_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </label>
-            <button type="button" onClick={publishAssetList} className={`secondary-button ${assetPublished ? 'border-accent-400/50 text-accent-100' : ''}`}>
+            <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all', clients)} className="asset-list-quiet-action"><Download size={15} /> Excel</button>
+            <button type="button" onClick={publishAssetList} className={`asset-list-quiet-action ${assetPublished ? 'is-active' : ''}`}>
               {assetPublished ? 'Published' : 'Publish assetlist'}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="asset-tab-strip border-b border-black/10 bg-white px-5 pt-3 dark:border-white/10 dark:bg-ink-900">
-        <div className="flex flex-wrap items-end gap-2">
-          {projectLists.map((list) => (
-            <span key={list.id} className={`asset-tab ${list.id === activeList.id ? 'tab-active' : ''}`} onClick={() => setActiveId(list.id)}>
-              <input
-                className="asset-tab-input"
-                defaultValue={list.name || 'Assetlist'}
-                style={{ width: `${Math.max(8, Math.min(18, (list.name || 'Assetlist').length + 1))}ch` }}
-                onFocus={() => setActiveId(list.id)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return;
-                  event.preventDefault();
-                  renameAssetListTab(list.id, event.currentTarget.value);
-                  event.currentTarget.blur();
-                }}
-                onBlur={(event) => {
-                  renameAssetListTab(list.id, event.currentTarget.value);
-                  if (!event.currentTarget.value.trim()) event.currentTarget.value = list.name || 'Assetlist';
-                }}
-                aria-label={`Rename ${list.name || 'Assetlist'}`}
-              />
-              {list.id === activeList.id && projectLists.length > 1 && (
-                <button type="button" onClick={(event) => { event.stopPropagation(); deleteAssetListTab(activeList.id); }} className="asset-tab-delete" aria-label="Delete assetlist tab" data-tooltip="Delete tab"><Trash2 size={13} /></button>
-              )}
-            </span>
-          ))}
-          <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="asset-tab-new" aria-label="Create new assetlist tab" data-tooltip="New tab"><Plus size={16} /></button>
+      <div className="asset-list-commandbar">
+        <div className="asset-list-tabs">
+            {projectLists.map((list) => (
+              <span key={list.id} className={`asset-tab ${list.id === activeList.id ? 'tab-active' : ''}`} onClick={() => setActiveId(list.id)}>
+                <input
+                  className="asset-tab-input"
+                  defaultValue={list.name || 'Assetlist'}
+                  style={{ width: `${Math.max(8, Math.min(18, (list.name || 'Assetlist').length + 1))}ch` }}
+                  onFocus={() => setActiveId(list.id)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return;
+                    event.preventDefault();
+                    renameAssetListTab(list.id, event.currentTarget.value);
+                    event.currentTarget.blur();
+                  }}
+                  onBlur={(event) => {
+                    renameAssetListTab(list.id, event.currentTarget.value);
+                    if (!event.currentTarget.value.trim()) event.currentTarget.value = list.name || 'Assetlist';
+                  }}
+                  aria-label={`Rename ${list.name || 'Assetlist'}`}
+                />
+                {list.id === activeList.id && projectLists.length > 1 && (
+                  <button type="button" onClick={(event) => { event.stopPropagation(); deleteAssetListTab(activeList.id); }} className="asset-tab-delete" aria-label="Delete assetlist tab" data-tooltip="Delete tab"><Trash2 size={13} /></button>
+                )}
+              </span>
+            ))}
+            <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="asset-tab-new" aria-label="Create new assetlist tab" data-tooltip="New tab"><Plus size={16} /></button>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-900">
-        <button type="button" onClick={addColumn} className="primary-button"><Plus size={16} /> Column</button>
-        <button type="button" onClick={addRow} className="secondary-button"><Plus size={16} /> Row</button>
-        <button type="button" onClick={addCategory} className="secondary-button"><Plus size={16} /> Category</button>
-        <button type="button" onClick={() => setOrderPopupOpen(true)} className="secondary-button"><Menu size={16} /> Columns</button>
-        <span className="ml-auto text-xs font-semibold uppercase text-ink-500">Autosaved</span>
+        <div className="asset-list-tools">
+          <div className="asset-ratio-action">
+            <button
+              type="button"
+              onClick={() => setRatioMenuOpen((open) => !open)}
+              className={`asset-list-tool is-primary ${ratioMenuOpen ? 'is-open' : ''}`}
+              aria-expanded={ratioMenuOpen}
+              aria-haspopup="dialog"
+            >
+              <Plus size={15} /> Label <ChevronDown size={13} />
+            </button>
+            {ratioMenuOpen && (
+              <div className="asset-ratio-callout" role="dialog" aria-label="Add ratio labels">
+                <div className="asset-ratio-callout-heading">
+                  <div>
+                    <strong>Add ratio labels</strong>
+                    <span>Select one or more ratios</span>
+                  </div>
+                  <span className="asset-ratio-count">{selectedRatios.length} selected</span>
+                </div>
+                <div className="asset-ratio-options">
+                  {QUICK_RATIO_OPTIONS.map((ratio) => {
+                    const selected = selectedRatios.includes(ratio);
+                    return (
+                      <button
+                        key={ratio}
+                        type="button"
+                        className={`asset-ratio-option ${selected ? 'is-selected' : ''}`}
+                        onClick={() => setSelectedRatios((current) => selected ? current.filter((item) => item !== ratio) : [...current, ratio])}
+                        aria-pressed={selected}
+                      >
+                        <span className="asset-ratio-checkbox">{selected && <Check size={13} />}</span>
+                        {ratio}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="asset-ratio-callout-actions">
+                  <button type="button" className="asset-ratio-cancel" onClick={() => { setSelectedRatios([]); setRatioMenuOpen(false); }}>Cancel</button>
+                  <button type="button" className="asset-ratio-add" disabled={!selectedRatios.length} onClick={addRatioGroup}>
+                    Add {selectedRatios.length || ''} {selectedRatios.length === 1 ? 'row' : 'rows'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <button type="button" onClick={addRow} className="asset-list-tool"><Plus size={15} /> Row</button>
+          <button type="button" onClick={addCategory} className="asset-list-tool"><Plus size={15} /> Category</button>
+          <span className="asset-list-tool-divider" />
+          <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={15} /> Columns</button>
+          <span className="asset-list-autosave"><Check size={12} /> Autosaved</span>
+        </div>
       </div>
 
       <div className="asset-list-scroll flex-1 overflow-auto">
