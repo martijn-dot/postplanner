@@ -5198,15 +5198,16 @@ body.public-share-body {
   width: 9px;
 }
 
-.timeline-row-table-panel > .relative > button {
+.timeline-row-table-panel .relative > button {
   min-height: 25px;
   padding-bottom: 2px;
   padding-top: 2px;
 }
 
-.timeline-row-table-panel > .relative > button span.inline-flex {
+.timeline-row-table-panel .relative > button span.inline-flex {
   border-radius: 4px;
   font-size: 0.53rem;
+  line-height: 1;
   padding: 1px 6px;
 }
 
