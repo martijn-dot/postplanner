@@ -326,12 +326,6 @@ export default function Dashboard() {
                 setVersionMenuType(definition.key);
                 setVersionMenuProjectId(project.id);
               };
-              const openArchiveAction = (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setArchiveProjectTarget(project);
-                setArchiveConfirmText('');
-              };
               const archivePlanningModuleAction = (definition, event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -347,12 +341,14 @@ export default function Dashboard() {
               const rowContent = (
                 <>
                   <div className="project-row-header">
-                    <div className="project-row-number">{project.project_number ? `#${project.project_number}` : '-'}</div>
-                    <div className="project-row-main min-w-0">
+                    <div className="project-row-heading-group">
+                      <div className="project-row-number">{project.project_number ? `#${project.project_number}` : '-'}</div>
+                      <div className="project-row-main min-w-0">
                       <div className="project-row-title">
                         <span>{project.name}</span>
                         {clientLabel && <span className={`project-client-badge ${missingClient ? 'is-missing' : ''}`}>{clientLabel}</span>}
                         {locked && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
+                      </div>
                       </div>
                     </div>
                     <div className="project-header-actions">
@@ -368,15 +364,6 @@ export default function Dashboard() {
                         </button>
                         <span className={`project-asset-status is-${assetStatus.replace(/\s+/g, '-')}`}>{assetStatus}</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={openArchiveAction}
-                        className="project-action-button project-archive-button"
-                        aria-label="Archive project"
-                        title="Archive whole project"
-                      >
-                        <Trash2 size={17} />
-                      </button>
                     </div>
                   </div>
                   <div className="project-planning-rows">
@@ -705,7 +692,22 @@ export default function Dashboard() {
               )}
               {formError && <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{formError}</p>}
             </div>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className={`mt-5 flex gap-2 ${editingProject ? 'justify-between' : 'justify-end'}`}>
+              {editingProject && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    setOpen(false);
+                    setArchiveProjectTarget(editingProject);
+                    setArchiveConfirmText('');
+                    event.stopPropagation();
+                  }}
+                  className="secondary-button text-red-300"
+                >
+                  <Trash2 size={16} /> Archive project
+                </button>
+              )}
+              <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -716,6 +718,7 @@ export default function Dashboard() {
                 Cancel
               </button>
               <button type="submit" className="primary-button">{editingProject ? 'Save' : 'Create'}</button>
+              </div>
             </div>
           </form>
         </div>

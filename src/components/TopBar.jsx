@@ -1,4 +1,4 @@
-import { Camera, ChevronDown, LogOut, Moon, Save, Settings, Sun } from 'lucide-react';
+import { Camera, ChevronDown, LogOut, Save, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -20,17 +20,11 @@ export function RovalLogo() {
 export default function TopBar() {
   const { user, signOut, demoMode } = useAuth();
   const { profiles, saveError, clearSaveError, updateProfile } = usePlanner();
-  const [dark, setDark] = useState(() => localStorage.theme !== 'light');
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profileAvatar, setProfileAvatar] = useState('');
   const profile = (profiles ?? []).find((item) => item.id === user.id) ?? { email: user.email, display_name: user.email?.split('@')[0] ?? 'User', role: 'user' };
   const initials = (profile.display_name ?? profile.email ?? 'U').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
-    localStorage.theme = dark ? 'dark' : 'light';
-  }, [dark]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -81,9 +75,6 @@ export default function TopBar() {
               <Settings size={18} />
             </Link>
           )}
-          <button type="button" onClick={() => setDark((next) => !next)} className="icon-button" aria-label="Toggle theme">
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
           <div className="relative">
             <button type="button" onClick={() => setMenuOpen((next) => !next)} className="flex items-center gap-2 rounded-md border border-black/10 bg-black/5 px-2 py-1.5 text-sm font-semibold dark:border-white/10 dark:bg-white/5">
               <span className="grid h-7 w-7 overflow-hidden place-items-center rounded-full bg-accent-500 text-xs text-white">{avatar}</span>

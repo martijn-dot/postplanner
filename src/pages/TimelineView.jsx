@@ -889,8 +889,17 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
     }, 1500);
   };
 
-  const addItemToday = (projectId, categoryId) => {
-    addLineItem(projectId, categoryId, iso(new Date()), {}, planningVersion, activePlanningType);
+  const addItemAtVisibleStart = (projectId, categoryId) => {
+    const firstVisibleDayIndex = Math.min(
+      timelineDays.length - 1,
+      Math.max(0, Math.floor((scrollRef.current?.scrollLeft ?? 0) / dayWidth)),
+    );
+    const firstVisibleDate = timelineDays[firstVisibleDayIndex] ?? new Date();
+    addLineItem(projectId, categoryId, iso(firstVisibleDate), {
+      what: '',
+      todo: '',
+      time: 'EOD',
+    }, planningVersion, activePlanningType);
   };
 
   const addDefaultPlanning = (categoryId = projectCategories[0]?.id ?? null) => {
@@ -1461,7 +1470,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                       columnVisibility={columnVisibility}
                       optionsVisible={optionsVisible}
                       onResizeStart={onResizeStart}
-                      onAddLineItem={addItemToday}
+                      onAddLineItem={addItemAtVisibleStart}
                       selectedIds={selectedIds}
                       onSelect={toggleSelect}
                       onSelectionDragStart={startSelectionDrag}
@@ -1507,7 +1516,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                   columnVisibility={columnVisibility}
                   optionsVisible={optionsVisible}
                   onResizeStart={onResizeStart}
-                  onAddLineItem={addItemToday}
+                  onAddLineItem={addItemAtVisibleStart}
                   selectedIds={selectedIds}
                   onSelect={toggleSelect}
                   onSelectionDragStart={startSelectionDrag}
