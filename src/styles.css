@@ -538,6 +538,11 @@ nav .tab-active {
   padding: 0 9px;
 }
 
+.asset-ratio-child-spacer {
+  display: block;
+  min-height: 28px;
+}
+
 .asset-ratio-callout {
   background: #171f33;
   border: 1px solid #464f67;
@@ -699,6 +704,8 @@ nav .tab-active {
 
 .asset-list-page .asset-list-row.is-ratio-group-parent {
   border-bottom-color: rgba(34, 179, 239, 0.35) !important;
+  position: relative;
+  z-index: 3;
 }
 
 .asset-list-page .asset-list-row.is-ratio-group-child {
@@ -708,6 +715,24 @@ nav .tab-active {
 
 .asset-list-page .asset-list-row.is-ratio-group-child + .asset-list-row.is-ratio-group-child {
   border-top-color: rgba(34, 179, 239, 0.08);
+}
+
+.asset-list-page .asset-cell.is-ratio-shared-parent {
+  align-items: center;
+  background: #0b1326;
+  border-bottom: 1px solid rgba(34, 179, 239, 0.35);
+  height: calc(var(--ratio-group-rows, 1) * 42px);
+  position: relative;
+  z-index: 5;
+}
+
+.asset-list-page .asset-cell.is-ratio-shared-child {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.asset-list-page .asset-list-row.is-ratio-group-parent:hover .asset-cell.is-ratio-shared-parent {
+  background: #151d31;
 }
 
 .asset-list-page .asset-category-bar {
@@ -1198,6 +1223,24 @@ nav .tab-active {
 .asset-label-select {
   position: relative;
   width: 100%;
+}
+
+.asset-type-label-select {
+  min-width: 0;
+  width: 100%;
+}
+
+.asset-type-label-select > div > button {
+  background: transparent;
+  border-color: transparent;
+  min-height: 34px;
+  padding-inline: 7px;
+}
+
+.asset-type-label-select > div > button:hover,
+.asset-type-label-select > div > button:focus-visible {
+  border-color: rgba(128, 131, 255, 0.58);
+  outline: none;
 }
 
 .asset-label-button {

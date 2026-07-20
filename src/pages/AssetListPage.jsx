@@ -1,5 +1,6 @@
 import { Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, GripVertical, Menu, Plus, Settings2, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import LabelSelect from '../components/LabelSelect.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadAssetListExcel } from '../lib/exportExcel.js';
 
@@ -327,6 +328,8 @@ export default function AssetListPage({ project }) {
     createAssetListTab,
     updateAssetList,
     deleteAssetListTab,
+    addLabel,
+    deleteLabel,
     markProjectEdited,
   } = usePlanner();
   const projectLists = useMemo(
@@ -350,6 +353,12 @@ export default function AssetListPage({ project }) {
     asset_unique_ratio: labels.filter((label) => !label.project_id && label.column_type === 'asset_unique_ratio' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
     asset_platform: labels.filter((label) => !label.project_id && label.column_type === 'asset_platform' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
   }), [labels]);
+  const assetTypeLabels = useMemo(() => labels
+    .filter((label) => (!label.project_id || label.project_id === project.id) && label.column_type === 'asset_type' && !label.is_divider)
+    .sort((a, b) => {
+      if (Boolean(a.project_id) !== Boolean(b.project_id)) return a.project_id ? 1 : -1;
+      return (a.sort_order ?? 9999) - (b.sort_order ?? 9999);
+    }), [labels, project.id]);
 
   useEffect(() => {
     if (!projectLists.length) {
@@ -625,7 +634,16 @@ export default function AssetListPage({ project }) {
   };
 
   const deleteRow = (rowId) => {
-    saveList({ rows: rows.filter((row) => row.id !== rowId).map((row, index) => ({ ...row, sort_order: index })) });
+    const target = rows.find((row) => row.id === rowId);
+    const removedIds = new Set([rowId]);
+    if (target?.ratio_group) rows.filter((row) => row.ratio_parent_id === rowId).forEach((row) => removedIds.add(row.id));
+    const remainingRows = rows.filter((row) => !removedIds.has(row.id));
+    const parentStillHasChildren = target?.ratio_parent_id && remainingRows.some((row) => row.ratio_parent_id === target.ratio_parent_id);
+    saveList({
+      rows: remainingRows.map((row, index) => row.id === target?.ratio_parent_id && !parentStillHasChildren
+        ? { ...row, ratio_group: false, sort_order: index }
+        : { ...row, sort_order: index }),
+    });
   };
 
   const duplicateRow = (rowId) => {
@@ -1036,8 +1054,13 @@ export default function AssetListPage({ project }) {
                 <div className="asset-category-body">
                 {!category.collapsed && groupRows.map((row) => {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
+                  const ratioChildCount = row.ratio_group ? rows.filter((item) => item.ratio_parent_id === row.id).length : 0;
                   return (
-                    <div key={row.id} className={`asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950 ${row.ratio_group ? 'is-ratio-group-parent' : ''} ${row.ratio_parent_id ? 'is-ratio-group-child' : ''}`} style={{ gridTemplateColumns: fullGridTemplate }}>
+                    <div
+                      key={row.id}
+                      className={`asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950 ${row.ratio_group ? 'is-ratio-group-parent' : ''} ${row.ratio_parent_id ? 'is-ratio-group-child' : ''}`}
+                      style={{ gridTemplateColumns: fullGridTemplate, '--ratio-group-rows': ratioChildCount + 1 }}
+                    >
                       <div className="asset-row-actions">
                         <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
@@ -1064,6 +1087,9 @@ export default function AssetListPage({ project }) {
                       </div>
                       {beforeFilenameColumns.map((column) => {
                         const columnIndex = columns.findIndex((item) => item.id === column.id);
+                        const isUniqueRatioColumn = column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? '');
+                        const isRatioColumn = column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? '');
+                        const isRatioSharedColumn = !isUniqueRatioColumn && !isRatioColumn;
                         const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
                         const value = row.values?.[column.id] ?? '';
                         return (
@@ -1071,7 +1097,7 @@ export default function AssetListPage({ project }) {
                             key={column.id}
                             data-asset-row={absoluteRowIndex}
                             data-asset-column={columnIndex}
-                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''}`}
+                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${isRatioSharedColumn && row.ratio_group ? 'is-ratio-shared-parent' : ''} ${isRatioSharedColumn && row.ratio_parent_id ? 'is-ratio-shared-child' : ''}`}
                             {...cellSelectionProps(absoluteRowIndex, columnIndex, row.id, column.id)}
                             onCopy={(event) => {
                               event.preventDefault();
@@ -1105,16 +1131,18 @@ export default function AssetListPage({ project }) {
                             ) : (column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? '')) ? (
                               <div className="asset-unique-ratio-control">
                                 {row.ratio_parent_id ? (
-                                  <span className="asset-ratio-child-label">{row.ratio_value || 'Ratio'}</span>
+                                  <span className="asset-ratio-child-spacer" aria-hidden="true" />
                                 ) : (
                                   <>
-                                    <button
-                                      type="button"
-                                      className={`asset-unique-choice ${value === 'Unique' ? 'is-selected' : ''}`}
-                                      onClick={() => updateCell(row.id, column.id, value === 'Unique' ? '' : 'Unique')}
-                                    >
-                                      Unique
-                                    </button>
+                                    {!row.ratio_group && (
+                                      <button
+                                        type="button"
+                                        className={`asset-unique-choice ${value === 'Unique' ? 'is-selected' : ''}`}
+                                        onClick={() => updateCell(row.id, column.id, value === 'Unique' ? '' : 'Unique')}
+                                      >
+                                        Unique
+                                      </button>
+                                    )}
                                     <div className="asset-ratio-action">
                                       <button
                                         type="button"
@@ -1152,6 +1180,19 @@ export default function AssetListPage({ project }) {
                                     </div>
                                   </>
                                 )}
+                              </div>
+                            ) : isRatioColumn && row.ratio_parent_id ? (
+                              <span className="asset-ratio-child-label">{row.ratio_value || value}</span>
+                            ) : column.label_type === 'asset_type' || /^asset\s*type$/i.test(column.name ?? '') ? (
+                              <div className="asset-type-label-select">
+                                <LabelSelect
+                                  labels={assetTypeLabels}
+                                  value={assetTypeLabels.find((label) => label.value === value)?.id ?? ''}
+                                  placeholder="Select asset type"
+                                  onChange={(labelId) => updateCell(row.id, column.id, assetTypeLabels.find((label) => label.id === labelId)?.value ?? '')}
+                                  onAddLabel={(labelValue, color) => addLabel(project.id, 'asset_type', labelValue, color)}
+                                  onDeleteLabel={deleteLabel}
+                                />
                               </div>
                             ) : (
                               <LabelDropdown
