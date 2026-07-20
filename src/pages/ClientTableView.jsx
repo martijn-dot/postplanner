@@ -1,6 +1,6 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
 import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -310,6 +310,32 @@ function measureTextWidth(text, min, max, charWidth = 8.2) {
   return Math.max(min, Math.min(max, Math.ceil(value.length * charWidth) + 42));
 }
 
+function OverflowNote({ note, onOpen }) {
+  const textRef = useRef(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useLayoutEffect(() => {
+    const text = textRef.current;
+    if (!text) return undefined;
+    const measure = () => setIsOverflowing(text.scrollWidth > text.clientWidth + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(text);
+    return () => observer.disconnect();
+  }, [note]);
+
+  return (
+    <span className="client-note-overflow">
+      <span ref={textRef}>{note}</span>
+      {isOverflowing && (
+        <button type="button" onClick={onOpen} aria-label="Open full note" title="Open full note">
+          <FileText size={14} />
+        </button>
+      )}
+    </span>
+  );
+}
+
 export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false }) {
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
@@ -355,7 +381,6 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   const autoWidths = useMemo(() => {
     const maxText = (key, fallback) => rows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
     const longestAsset = rows.reduce((longest, row) => (String(row.Asset ?? '').length > String(longest ?? '').length ? row.Asset : longest), 'Asset');
-    const longestNotes = rows.reduce((longest, row) => (String(row.Notes ?? '').length > String(longest ?? '').length ? row.Notes : longest), 'Notes');
     const labelExtra = 54;
     return {
       edit: 86,
@@ -366,13 +391,12 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
       assetResizable: String(longestAsset ?? '').length > 30,
       what: measureTextWidth(maxText('What', 'What'), 110, 280, 7.1) + labelExtra,
       todo: measureTextWidth(maxText('Todo', 'Todo'), 110, 300, 7.1) + labelExtra,
-      notes: measureTextWidth(longestNotes, 220, 520, 7.1),
     };
   }, [rows]);
   const widthForColumn = (column) => {
     if (column.key === 'asset' && autoWidths.assetResizable) return prefs.widths.asset ?? autoWidths.asset;
     if (['calendar', 'who', 'what', 'todo'].includes(column.key) && prefs.widths[column.key]) return prefs.widths[column.key];
-    if (column.key === 'notes') return prefs.widths.notes ?? autoWidths.notes;
+    if (column.key === 'notes') return prefs.widths.notes ?? CLIENT_COLUMNS.find((item) => item.key === 'notes').width;
     return autoWidths[column.key] ?? prefs.widths[column.key] ?? column.width;
   };
   const moveColumn = (targetKey, side) => {
@@ -565,14 +589,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : null}</td>;
                       if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
                       if (column.key === 'notes') return (
-                        <td key={column.key} className="overflow-visible px-4 py-3">
-                          {row._item?.notes ? (
-                            <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300">
-                              <FileText size={14} className="shrink-0 text-ink-500" />
-                              <span className="truncate">{row._item.notes}</span>
-                              <span className="note-tooltip">{row._item.notes}</span>
-                            </span>
-                          ) : null}
+                        <td key={column.key} className="min-w-0 overflow-hidden px-4 py-3">
+                          {row._item?.notes ? <OverflowNote note={row._item.notes} onOpen={() => setEditingItemId(row._item.id)} /> : null}
                         </td>
                       );
                       return null;

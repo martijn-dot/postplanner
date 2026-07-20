@@ -2510,6 +2510,40 @@ body.public-share-body {
   display: block;
 }
 
+.client-note-overflow {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.client-note-overflow > span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-note-overflow button {
+  align-items: center;
+  background: rgba(124, 77, 255, 0.14);
+  border: 1px solid rgba(124, 77, 255, 0.38);
+  border-radius: 5px;
+  color: #c7c0ff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.client-note-overflow button:hover {
+  background: #7c4dff;
+  color: #fff;
+}
+
 .client-column-header {
   cursor: grab;
   user-select: none;
