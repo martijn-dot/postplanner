@@ -29,7 +29,7 @@ import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPre
 import { buildProjectSummary } from '../lib/projectSummary.js';
 
 const DAY_WIDTH = { day: 128, week: 72, month: 52 };
-const ROW_HEIGHT = 52;
+const ROW_HEIGHT = 36;
 const COLUMN_STORAGE_KEY = 'post-production-planner:timeline-columns';
 const DEFAULT_COLUMNS = {
   select: 34,
