@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { CalendarDays, CalendarPlus, Check, ChevronDown, ChevronRight, Clock, Copy, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Palette, Pencil, Tag, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Check, ChevronDown, ChevronRight, Clock, Copy, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
@@ -11,6 +11,17 @@ import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 
 const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v4';
 const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
+const CLIENT_FILTER_STORAGE_KEY = 'roval:client-filters:v1';
+const CLIENT_PUBLISHED_URL_STORAGE_KEY = 'roval:client-published-url:v1';
+const DEFAULT_CLIENT_FILTER_PREFS = {
+  showEmptyDates: true,
+  dateWindow: 'full',
+  showWennekerBookings: true,
+  showClientBookings: true,
+  categoryMode: 'sections',
+  hiddenCategoryKeys: [],
+  collapsedCategoryKeys: [],
+};
 const CLIENT_COLUMNS = [
   { key: 'edit', label: 'Edit', width: 86 },
   { key: 'calendar', label: 'Calendar', width: 132 },
@@ -21,7 +32,6 @@ const CLIENT_COLUMNS = [
   { key: 'todo', label: 'Todo', width: 190 },
   { key: 'time', label: 'Time', width: 74 },
   { key: 'notes', label: 'Notes', width: 160 },
-  { key: 'rowColor', label: 'Color', width: 82 },
 ];
 
 const CLIENT_COLUMN_ICONS = {
@@ -34,16 +44,7 @@ const CLIENT_COLUMN_ICONS = {
   todo: ListChecks,
   time: Clock,
   notes: FileText,
-  rowColor: Palette,
 };
-
-const ROW_COLOR_OPTIONS = [
-  { value: '', label: 'None', color: 'transparent' },
-  { value: 'red', label: 'Red', color: '#ff5e84' },
-  { value: 'green', label: 'Green', color: '#46d39b' },
-  { value: 'purple', label: 'Purple', color: '#b793ff' },
-  { value: 'orange', label: 'Orange', color: '#ff8f4f' },
-];
 
 function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
@@ -71,6 +72,32 @@ function readClientColumnPrefs() {
 
 function readClientViewMode(projectId) {
   return localStorage.getItem(`${CLIENT_VIEW_MODE_STORAGE_KEY}:${projectId}`) ?? 'table';
+}
+
+function clientFilterStorageKey(projectId, planningType, planningVersion) {
+  return `${CLIENT_FILTER_STORAGE_KEY}:${projectId}:${planningType}:${planningVersion}`;
+}
+
+function clientPublishedUrlStorageKey(projectId, planningType, planningVersion) {
+  return `${CLIENT_PUBLISHED_URL_STORAGE_KEY}:${projectId}:${planningType}:${planningVersion}`;
+}
+
+function readClientPublishedUrl(projectId, planningType, planningVersion) {
+  return localStorage.getItem(clientPublishedUrlStorageKey(projectId, planningType, planningVersion)) ?? '';
+}
+
+function readClientFilterPrefs(projectId, planningType, planningVersion) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(clientFilterStorageKey(projectId, planningType, planningVersion)) ?? '{}');
+    return {
+      ...DEFAULT_CLIENT_FILTER_PREFS,
+      ...stored,
+      hiddenCategoryKeys: Array.isArray(stored.hiddenCategoryKeys) ? stored.hiddenCategoryKeys : [],
+      collapsedCategoryKeys: Array.isArray(stored.collapsedCategoryKeys) ? stored.collapsedCategoryKeys : [],
+    };
+  } catch {
+    return { ...DEFAULT_CLIENT_FILTER_PREFS };
+  }
 }
 
 function slugifyProjectName(value) {
@@ -283,35 +310,6 @@ function measureTextWidth(text, min, max, charWidth = 8.2) {
   return Math.max(min, Math.min(max, Math.ceil(value.length * charWidth) + 42));
 }
 
-function RowColorSelect({ value, onChange, readOnly = false }) {
-  const selected = ROW_COLOR_OPTIONS.find((option) => option.value === value) ?? ROW_COLOR_OPTIONS[0];
-
-  if (readOnly) {
-    return (
-      <span className="client-row-color-readonly" title={selected.label}>
-        {selected.value ? <span style={{ backgroundColor: selected.color }} /> : '-'}
-      </span>
-    );
-  }
-
-  return (
-    <div className="client-row-color-select" aria-label="Row color">
-      {ROW_COLOR_OPTIONS.map((option) => (
-        <button
-          key={option.value || 'none'}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={value === option.value ? 'is-active' : ''}
-          title={option.label}
-          aria-label={`Set row color ${option.label}`}
-        >
-          {option.value ? <span style={{ backgroundColor: option.color }} /> : <span className="client-row-color-empty" />}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false }) {
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
@@ -360,7 +358,6 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     const longestNotes = rows.reduce((longest, row) => (String(row.Notes ?? '').length > String(longest ?? '').length ? row.Notes : longest), 'Notes');
     const labelExtra = 54;
     return {
-      rowColor: 82,
       edit: 86,
       time: measureTextWidth(maxText('Time', 'Time'), 70, 96, 7.2),
       category: measureTextWidth(maxText('Category', 'Category'), 120, 260, 7.2),
@@ -557,7 +554,6 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                           ) : null}
                         </td>
                       );
-                      if (column.key === 'rowColor') return <td key={column.key} className="px-3 py-3">{row._item ? <RowColorSelect value={row._item.row_color ?? ''} onChange={(rowColor) => onUpdateLineItem?.(row._item.id, { row_color: rowColor })} readOnly={!onUpdateLineItem} /> : null}</td>;
                       if (column.key === 'category') return (
                         <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">
                           {row._item ? <span className="client-category-pill" style={categoryShade(categoryKeyForItem(row._item), categories)}>{row.Category}</span> : ''}
@@ -786,18 +782,19 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const { lineItems, labels, categories, createShareLink, updateLineItem, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
-  const [showEmptyDates, setShowEmptyDates] = useState(false);
-  const [dateWindow, setDateWindow] = useState('future');
-  const [showWennekerBookings, setShowWennekerBookings] = useState(true);
-  const [showClientBookings, setShowClientBookings] = useState(false);
-  const [categoryMode, setCategoryMode] = useState('column');
-  const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
-  const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState([]);
+  const initialFilterPrefs = useRef(readClientFilterPrefs(project.id, activePlanningType, planningVersion));
+  const [showEmptyDates, setShowEmptyDates] = useState(initialFilterPrefs.current.showEmptyDates);
+  const [dateWindow, setDateWindow] = useState(initialFilterPrefs.current.dateWindow);
+  const [showWennekerBookings, setShowWennekerBookings] = useState(initialFilterPrefs.current.showWennekerBookings);
+  const [showClientBookings, setShowClientBookings] = useState(initialFilterPrefs.current.showClientBookings);
+  const [categoryMode, setCategoryMode] = useState(initialFilterPrefs.current.categoryMode);
+  const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState(initialFilterPrefs.current.hiddenCategoryKeys);
+  const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState(initialFilterPrefs.current.collapsedCategoryKeys);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
   const [viewMode, setViewMode] = useState(() => readClientViewMode(project.id));
   const uncategorizedNames = useMemo(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}), []);
-  const [publishedUrl, setPublishedUrl] = useState('');
+  const [publishedUrl, setPublishedUrl] = useState(() => readClientPublishedUrl(project.id, activePlanningType, planningVersion));
   const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const columnMenuCloseTimer = useRef(null);
@@ -844,6 +841,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       const token = await createShareLink(project.id, activePlanningType, planningVersion);
       const url = `${window.location.origin}/share/${slugifyProjectName(project.name)}-${token}`;
       setPublishedUrl(url);
+      localStorage.setItem(clientPublishedUrlStorageKey(project.id, activePlanningType, planningVersion), url);
       await navigator.clipboard?.writeText(url);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
@@ -870,6 +868,18 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   useEffect(() => {
     setViewMode(readClientViewMode(project.id));
   }, [project.id]);
+
+  useEffect(() => {
+    localStorage.setItem(clientFilterStorageKey(project.id, activePlanningType, planningVersion), JSON.stringify({
+      showEmptyDates,
+      dateWindow,
+      showWennekerBookings,
+      showClientBookings,
+      categoryMode,
+      hiddenCategoryKeys,
+      collapsedCategoryKeys,
+    }));
+  }, [activePlanningType, categoryMode, collapsedCategoryKeys, dateWindow, hiddenCategoryKeys, planningVersion, project.id, showClientBookings, showEmptyDates, showWennekerBookings]);
 
   const scheduleColumnMenuClose = () => {
     window.clearTimeout(columnMenuCloseTimer.current);
@@ -904,8 +914,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
             <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gantt Chart</button>
           </div>
-          <button type="button" onClick={publish} className="client-header-action" disabled={publishing}>
-            <Globe2 size={17} /> {publishing ? 'Publishing...' : 'Publish'}
+          <button type="button" onClick={publish} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing || Boolean(publishedUrl)}>
+            <Globe2 size={17} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
           </button>
           <div className="relative" onMouseEnter={keepColumnMenuOpen} onMouseLeave={scheduleColumnMenuClose}>
             <button type="button" onClick={() => setColumnMenuOpen((next) => !next)} className="client-header-action"><Eye size={17} /> Columns</button>
@@ -930,6 +940,21 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
           </button>
         </div>
       </div>
+
+      {publishedUrl && (
+        <div className="client-published-panel rounded-lg border border-accent-400/30 bg-accent-500/10 text-ink-700 dark:text-ink-100">
+          <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
+            <div>
+              <p className="font-semibold">Client page published</p>
+              <p className="text-ink-500">Anyone with this link can view the read-only client planning page without signing in.</p>
+            </div>
+            <button type="button" onClick={copyPublicUrl} className="secondary-button shrink-0">
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {(viewMode === 'table' || viewMode === 'gantt') && (
         <div className="client-filter-row flex flex-wrap items-center gap-6 rounded-xl border p-3 text-sm">
@@ -977,24 +1002,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
         </div>
       )}
 
-      {publishedUrl && (
-        <div className="mb-5 rounded-lg border border-accent-400/30 bg-accent-500/10 p-4 text-sm text-ink-700 dark:text-ink-100">
-          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-            <div>
-              <p className="font-semibold">Client page published</p>
-              <p className="mt-1 text-ink-500">Anyone with this link can view the read-only client planning page without signing in.</p>
-            </div>
-            <div className="flex min-w-0 gap-2">
-              <code className="min-w-0 truncate rounded-md border border-black/10 bg-white px-3 py-2 font-mono text-xs dark:border-white/10 dark:bg-ink-950">{publishedUrl}</code>
-              <button type="button" onClick={copyPublicUrl} className="secondary-button shrink-0">
-                {copied ? <Check size={16} /> : <Copy size={16} />}
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {viewMode === 'table' ? (
         categoryMode === 'sections' ? (
           <div className="space-y-4">
@@ -1018,7 +1025,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     columnPrefs={columnPrefs}
                     onColumnPrefsChange={updateColumnPrefs}
                     forceHideCategoryColumn
-                    showWeekColumn={false}
+                    showWeekColumn
                   />
                 )}
               </section>
@@ -1037,7 +1044,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             uncategorizedName={uncategorizedName}
             columnPrefs={columnPrefs}
             onColumnPrefsChange={updateColumnPrefs}
-            showWeekColumn={false}
+            showWeekColumn
           />
         )
       ) : (

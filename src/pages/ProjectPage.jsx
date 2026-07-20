@@ -73,7 +73,7 @@ export default function ProjectPage() {
       </nav>
       <Routes>
         <Route index element={<TimelineView project={project} planningType={requestedType} planningVersion={activeVersion} planningVersions={versions.length ? versions : ['V1']} />} />
-        <Route path="client" element={<ClientTableView project={project} planningType={requestedType} planningVersion={activeVersion} />} />
+        <Route path="client" element={<ClientTableView key={`${project.id}:${requestedType}:${activeVersion}`} project={project} planningType={requestedType} planningVersion={activeVersion} />} />
         <Route path="assets" element={<AssetListPage project={project} />} />
       </Routes>
     </div>

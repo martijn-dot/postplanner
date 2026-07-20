@@ -3203,6 +3203,26 @@ body.public-share-body {
 
 .client-header-action:hover { background: #1e293b; }
 
+.client-header-action.is-published,
+.client-header-action.is-published:hover,
+.client-header-action.is-published:disabled {
+  background: #7c4dff;
+  border-color: #7c4dff;
+  color: #fff;
+  cursor: default;
+  opacity: 1;
+}
+
+.client-published-panel {
+  font-size: 11px;
+  padding: 9px 12px;
+}
+
+.client-published-panel .secondary-button {
+  min-height: 30px;
+  padding: 5px 10px;
+}
+
 .client-download-action {
   background: #7c4dff;
   border: 1px solid #7c4dff;
