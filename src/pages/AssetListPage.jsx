@@ -26,7 +26,12 @@ const STANDARD_COLUMNS = [
 ];
 
 const SEPARATORS = ['-', '_', ' '];
-const ASSET_STATUS_OPTIONS = ['none', 'in progress', 'shared', 'updating', 'approved'];
+const ASSET_STATUS_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'in progress', label: 'In Progress' },
+  { value: 'shared', label: 'Shared' },
+  { value: 'approved', label: 'Approved' },
+];
 const FILENAME_COLUMN_OFFSET = 0;
 const COPY_COLUMN_OFFSET = 1;
 const NOTES_COLUMN_OFFSET = 2;
@@ -51,6 +56,10 @@ function isCustomAssetColumn(column) {
   if (column?.is_custom || /^column\s+\d+$/i.test(column?.name ?? '')) return true;
   if (column?.label_type) return false;
   return !/^(name|frame\.?io|length)$/i.test(column?.name ?? '');
+}
+
+function isCompactFixedColumn(column) {
+  return column?.label_type === 'asset_ratio' || /^length$/i.test(column?.name ?? '');
 }
 
 function orderedRows(list) {
@@ -426,7 +435,8 @@ export default function AssetListPage({ project }) {
   const categories = orderedCategories(activeList);
   const fallbackCategory = categories[0] ?? { id: 'default', name: 'Category 1', collapsed: false, sort_order: 0 };
   const settingsColumn = columns.find((column) => column.id === settingsColumnId);
-  const assetStatus = activeList?.filename_options?.status ?? 'none';
+  const savedAssetStatus = activeList?.filename_options?.status ?? 'none';
+  const assetStatus = ASSET_STATUS_OPTIONS.some((status) => status.value === savedAssetStatus) ? savedAssetStatus : 'none';
   const assetPublished = Boolean(activeList?.filename_options?.asset_published_at);
 
   useEffect(() => {
@@ -1043,7 +1053,7 @@ export default function AssetListPage({ project }) {
       .flatMap((category) => [category, ...categories.filter((item) => item.parent_id === category.id)])
     : [fallbackCategory];
   const compactColumnWidth = (width) => Math.max(52, Math.round(width * 0.7));
-  const columnGridWidth = (column) => isUniqueRatioColumn(column) ? 52 : compactColumnWidth(autoFitColumnWidth(column));
+  const columnGridWidth = (column) => isUniqueRatioColumn(column) || isCompactFixedColumn(column) ? 52 : compactColumnWidth(autoFitColumnWidth(column));
   const fullGridTemplate = `52px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
 
   return (
@@ -1086,8 +1096,8 @@ export default function AssetListPage({ project }) {
           <span className="asset-list-tool-divider" />
           <label className="asset-list-toolbar-status">
             <span>Status</span>
-            <select className="asset-list-status" value={assetStatus} onChange={(event) => updateAssetStatus(event.target.value)}>
-              {ASSET_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
+            <select className={`asset-list-status status-${assetStatus.replace(/\s+/g, '-')}`} value={assetStatus} onChange={(event) => updateAssetStatus(event.target.value)}>
+              {ASSET_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
           </label>
           <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all', clients)} className="asset-list-quiet-action"><Download size={15} /> Excel</button>
@@ -1107,8 +1117,18 @@ export default function AssetListPage({ project }) {
                 key={column.id}
                 className="asset-list-header"
               >
-                {isUniqueRatioColumn(column) ? (
-                  <span className="asset-header-label">RATIO</span>
+                {!isCustomAssetColumn(column) ? (
+                  <>
+                    <span className="asset-header-label">{isUniqueRatioColumn(column) ? 'RATIO' : column.name}</span>
+                    {!isUniqueRatioColumn(column) && !isCompactFixedColumn(column) && (
+                      <button
+                        type="button"
+                        className="asset-column-resize-handle"
+                        onPointerDown={(event) => startColumnResize(event, column.id)}
+                        aria-label={`Resize ${column.name}`}
+                      />
+                    )}
+                  </>
                 ) : (
                   <>
                     <span className="asset-header-name-wrap">
@@ -1157,27 +1177,31 @@ export default function AssetListPage({ project }) {
                 key={column.id}
                 className="asset-list-header"
               >
-                <span className="asset-header-name-wrap">
-                  <input
-                    className="asset-header-name"
-                    defaultValue={column.name}
-                    style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
-                    onDoubleClick={() => setSettingsColumnId(column.id)}
-                    onKeyDown={(event) => {
-                      if (event.key !== 'Enter') return;
-                      event.preventDefault();
-                      updateColumnName(column.id, event.currentTarget.value);
-                      event.currentTarget.blur();
-                    }}
-                    onBlur={(event) => {
-                      if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
-                    }}
-                    draggable={false}
-                  />
-                  <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-settings" data-tooltip="Column settings" aria-label={`Column settings for ${column.name}`}>
-                    <Settings2 size={14} />
-                  </button>
-                </span>
+                {isCustomAssetColumn(column) ? (
+                  <span className="asset-header-name-wrap">
+                    <input
+                      className="asset-header-name"
+                      defaultValue={column.name}
+                      style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
+                      onDoubleClick={() => setSettingsColumnId(column.id)}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        updateColumnName(column.id, event.currentTarget.value);
+                        event.currentTarget.blur();
+                      }}
+                      onBlur={(event) => {
+                        if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
+                      }}
+                      draggable={false}
+                    />
+                    <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-settings" data-tooltip="Column settings" aria-label={`Column settings for ${column.name}`}>
+                      <Settings2 size={14} />
+                    </button>
+                  </span>
+                ) : (
+                  <span className="asset-header-label">{column.name}</span>
+                )}
                 <button
                   type="button"
                   className="asset-column-resize-handle"
@@ -1463,11 +1487,18 @@ export default function AssetListPage({ project }) {
                     </div>
                   );
                 })}
-                {!category.collapsed && !groupRows.length && <p className="px-4 py-3 text-sm text-ink-500">No rows in this category yet.</p>}
-                {!category.collapsed && (
-                  <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-add-row-button">
-                    <Plus size={14} /> Row
-                  </button>
+                {!category.collapsed && !category.container_only && !groupRows.length && <p className="px-4 py-3 text-sm text-ink-500">No rows in this category yet.</p>}
+                {!category.collapsed && !category.container_only && (
+                  <div className="asset-category-empty-actions">
+                    <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-add-row-button">
+                      <Plus size={14} /> Row
+                    </button>
+                    {!category.parent_id && !groupRows.length && (
+                      <button type="button" onClick={() => updateCategory(category.id, { container_only: true })} className="asset-add-row-button">
+                        <Plus size={14} /> Container
+                      </button>
+                    )}
+                  </div>
                 )}
                 </div>
               </div>

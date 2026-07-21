@@ -460,6 +460,26 @@ nav .tab-active {
 .asset-list-page .asset-list-tool svg,
 .asset-list-page .asset-list-quiet-action svg { height: 11px; width: 11px; }
 .asset-list-page .asset-list-status { font-size: 0.55rem; height: 25px; min-width: 88px; padding: 0 21px 0 8px; }
+.asset-list-page .asset-list-status.status-none {
+  background-color: #343b4d;
+  border-color: #555f74;
+  color: #d2d7e2;
+}
+.asset-list-page .asset-list-status.status-in-progress {
+  background-color: rgba(245, 158, 11, 0.2);
+  border-color: #f59e0b;
+  color: #ffc85c;
+}
+.asset-list-page .asset-list-status.status-shared {
+  background-color: rgba(109, 93, 252, 0.24);
+  border-color: #806fff;
+  color: #d4ceff;
+}
+.asset-list-page .asset-list-status.status-approved {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #6ee7b7;
+}
 .asset-list-page .asset-list-tool-divider { height: 16px; }
 .asset-list-page .asset-list-autosave,
 .asset-list-page .asset-list-toolbar-status > span { font-size: 0.45rem; }
@@ -1430,6 +1450,17 @@ nav .tab-active {
 .asset-add-row-button:hover {
   border-color: rgba(109, 93, 252, 0.65);
   color: #c7c0ff;
+}
+
+.asset-category-empty-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  margin-left: 46px;
+}
+
+.asset-category-empty-actions .asset-add-row-button {
+  margin-left: 0;
 }
 
 .asset-label-select {
