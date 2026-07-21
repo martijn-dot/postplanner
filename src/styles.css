@@ -1221,6 +1221,35 @@ nav .tab-active {
   position: relative;
 }
 
+.asset-category-container.is-subcategory {
+  border-left: 14px solid rgba(109, 93, 252, 0.14);
+}
+
+.asset-category-bar.is-subcategory {
+  background: rgba(109, 93, 252, 0.08);
+  padding-left: 12px;
+}
+
+.asset-add-subcategory {
+  align-items: center;
+  background: rgba(109, 93, 252, 0.12);
+  border: 1px solid rgba(109, 93, 252, 0.32);
+  border-radius: 6px;
+  color: #c7c0ff;
+  display: inline-flex;
+  font-size: 0.52rem;
+  font-weight: 800;
+  gap: 4px;
+  margin-left: auto;
+  min-height: 21px;
+  padding: 0 7px;
+}
+
+.asset-add-subcategory:hover {
+  background: rgba(109, 93, 252, 0.22);
+  border-color: rgba(109, 93, 252, 0.62);
+}
+
 .asset-header-icon {
   align-items: center;
   border-radius: 4px;

@@ -17,7 +17,7 @@ const LABEL_TYPE_NAMES = {
 };
 
 const STANDARD_COLUMNS = [
-  { name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_UNIQUE_RATIO, width: 150 },
+  { name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_UNIQUE_RATIO, width: 74 },
   { name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_TYPES, width: 180 },
   { name: 'Name', type: 'text', options: [], width: 240 },
   { name: 'Frame.io', type: 'url', options: [], width: 210, exclude_from_filename: true },
@@ -716,8 +716,21 @@ export default function AssetListPage({ project }) {
   };
 
   const addCategory = () => {
-    const category = { id: uid(), name: `Category ${categories.length + 1}`, collapsed: false, sort_order: categories.length };
+    const mainCategoryCount = categories.filter((category) => !category.parent_id).length;
+    const category = { id: uid(), name: `Category ${mainCategoryCount + 1}`, collapsed: false, sort_order: categories.length };
     saveCategories([...categories, category]);
+  };
+
+  const addSubcategory = (parentId) => {
+    const siblingCount = categories.filter((category) => category.parent_id === parentId).length;
+    const subcategory = {
+      id: uid(),
+      name: `Subcategory ${siblingCount + 1}`,
+      parent_id: parentId,
+      collapsed: false,
+      sort_order: categories.length,
+    };
+    saveCategories([...categories, subcategory]);
   };
 
   const updateCategory = (categoryId, patch) => {
@@ -726,12 +739,13 @@ export default function AssetListPage({ project }) {
 
   const deleteCategory = (categoryId) => {
     const category = categories.find((item) => item.id === categoryId);
-    const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === categoryId);
+    const categoryIds = [categoryId, ...categories.filter((item) => item.parent_id === categoryId).map((item) => item.id)];
+    const groupRows = rows.filter((row) => categoryIds.includes(row.group_id ?? fallbackCategory.id));
     const bookingText = groupRows.length === 1 ? '1 row' : `${groupRows.length} rows`;
     if (!category || !window.confirm(`Delete "${category.name}" and ${bookingText}? This cannot be undone.`)) return;
-    const nextCategories = categories.filter((item) => item.id !== categoryId);
+    const nextCategories = categories.filter((item) => !categoryIds.includes(item.id));
     const nextRows = rows
-      .filter((row) => (row.group_id ?? fallbackCategory.id) !== categoryId)
+      .filter((row) => !categoryIds.includes(row.group_id ?? fallbackCategory.id))
       .map((row, index) => ({ ...row, sort_order: index }));
     saveCategories(nextCategories, nextRows);
   };
@@ -1023,8 +1037,14 @@ export default function AssetListPage({ project }) {
   const ratioPanelColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
   const mainAssetRatio = ratioPanelSource?.values?.[ratioPanelColumn?.id] ?? '';
   const availableRatioOptions = [...new Set([...QUICK_RATIO_OPTIONS, ...(globalOptions.asset_ratio ?? [])])];
+  const displayedCategories = categories.length
+    ? categories
+      .filter((category) => !category.parent_id)
+      .flatMap((category) => [category, ...categories.filter((item) => item.parent_id === category.id)])
+    : [fallbackCategory];
   const compactColumnWidth = (width) => Math.max(52, Math.round(width * 0.7));
-  const fullGridTemplate = `52px 60px ${beforeFilenameColumns.map((column) => `${compactColumnWidth(autoFitColumnWidth(column))}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${compactColumnWidth(autoFitColumnWidth(column))}px`).join(' ')} 154px`;
+  const columnGridWidth = (column) => isUniqueRatioColumn(column) ? 52 : compactColumnWidth(autoFitColumnWidth(column));
+  const fullGridTemplate = `52px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
 
   return (
     <main className="asset-list-page flex h-[calc(100vh-7rem)] flex-col text-ink-950 dark:text-ink-100">
@@ -1087,33 +1107,39 @@ export default function AssetListPage({ project }) {
                 key={column.id}
                 className="asset-list-header"
               >
-                <span className="asset-header-name-wrap">
-                  <input
-                    className="asset-header-name"
-                    defaultValue={column.name}
-                    style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
-                    onDoubleClick={() => setSettingsColumnId(column.id)}
-                    onKeyDown={(event) => {
-                      if (event.key !== 'Enter') return;
-                      event.preventDefault();
-                      updateColumnName(column.id, event.currentTarget.value);
-                      event.currentTarget.blur();
-                    }}
-                    onBlur={(event) => {
-                      if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
-                    }}
-                    draggable={false}
-                  />
-                  <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-settings" data-tooltip="Column settings" aria-label={`Column settings for ${column.name}`}>
-                    <Settings2 size={14} />
-                  </button>
-                </span>
-                <button
-                  type="button"
-                  className="asset-column-resize-handle"
-                  onPointerDown={(event) => startColumnResize(event, column.id)}
-                  aria-label={`Resize ${column.name}`}
-                />
+                {isUniqueRatioColumn(column) ? (
+                  <span className="asset-header-label">RATIO</span>
+                ) : (
+                  <>
+                    <span className="asset-header-name-wrap">
+                      <input
+                        className="asset-header-name"
+                        defaultValue={column.name}
+                        style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
+                        onDoubleClick={() => setSettingsColumnId(column.id)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          updateColumnName(column.id, event.currentTarget.value);
+                          event.currentTarget.blur();
+                        }}
+                        onBlur={(event) => {
+                          if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
+                        }}
+                        draggable={false}
+                      />
+                      <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-settings" data-tooltip="Column settings" aria-label={`Column settings for ${column.name}`}>
+                        <Settings2 size={14} />
+                      </button>
+                    </span>
+                    <button
+                      type="button"
+                      className="asset-column-resize-handle"
+                      onPointerDown={(event) => startColumnResize(event, column.id)}
+                      aria-label={`Resize ${column.name}`}
+                    />
+                  </>
+                )}
               </div>
             ))}
             <div className="asset-list-header locked">
@@ -1163,11 +1189,13 @@ export default function AssetListPage({ project }) {
             <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
           </div>
 
-          {(categories.length ? categories : [fallbackCategory]).map((category) => {
+          {displayedCategories.map((category) => {
+            const parentCategory = category.parent_id ? categories.find((item) => item.id === category.parent_id) : null;
+            if (parentCategory?.collapsed) return null;
             const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === category.id);
             return (
-              <div key={category.id} className="asset-category-container">
-                <div className="asset-category-bar">
+              <div key={category.id} className={`asset-category-container ${category.parent_id ? 'is-subcategory' : ''}`}>
+                <div className={`asset-category-bar ${category.parent_id ? 'is-subcategory' : ''}`}>
                   {categories.length > 0 && (
                     <button type="button" onClick={() => deleteCategory(category.id)} className="asset-header-icon" data-tooltip="Delete category" aria-label="Delete category"><Trash2 size={12} /></button>
                   )}
@@ -1179,6 +1207,15 @@ export default function AssetListPage({ project }) {
                     value={category.name}
                     onChange={(event) => updateCategory(category.id, { name: event.target.value })}
                   />
+                  {!category.parent_id && (
+                    <button
+                      type="button"
+                      onClick={() => addSubcategory(category.id)}
+                      className="asset-add-subcategory"
+                    >
+                      <Plus size={12} /> Subcategory
+                    </button>
+                  )}
                 </div>
                 <div className="asset-category-body">
                 {!category.collapsed && groupRows.map((row) => {
