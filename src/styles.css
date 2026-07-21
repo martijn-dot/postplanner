@@ -6174,6 +6174,11 @@ body.public-share-body {
   font-size: 0.46rem;
 }
 
+.timeline-line .timeline-labels-underlay {
+  top: 32px;
+  transform: none;
+}
+
 .timeline-line .timeline-asset-label {
   bottom: -4px;
   top: auto;
