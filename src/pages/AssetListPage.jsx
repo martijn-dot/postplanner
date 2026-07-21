@@ -1379,7 +1379,7 @@ export default function AssetListPage({ project }) {
                         );
                       })}
                       <div
-                        className={`asset-cell bg-zinc-50 font-mono text-xs text-ink-600 dark:bg-white/[0.035] dark:text-ink-300 ${isVisuallySelected(absoluteRowIndex, filenameColumnIndex) ? 'copy-cell-selected' : ''}`}
+                        className={`asset-cell bg-zinc-50 text-ink-600 dark:bg-white/[0.035] dark:text-ink-300 ${isVisuallySelected(absoluteRowIndex, filenameColumnIndex) ? 'copy-cell-selected' : ''}`}
                         data-asset-row={absoluteRowIndex}
                         data-asset-column={filenameColumnIndex}
                         {...cellSelectionProps(absoluteRowIndex, filenameColumnIndex)}

@@ -492,6 +492,7 @@ nav .tab-active {
 .asset-list-page .asset-header-settings svg { height: 10px; width: 10px; }
 .asset-list-page .asset-cell { padding: 2px; }
 .asset-list-page .asset-cell .table-input { height: 25px; font-size: 0.62rem; padding-inline: 5px; }
+.asset-list-page .asset-filename-input { font-size: 0.62rem; padding-inline: 5px; }
 .asset-list-page .asset-category-bar { gap: 4px; min-height: 27px; padding: 3px 6px 3px 0; }
 .asset-list-page .asset-category-name { font-size: 0.52rem; min-width: 126px; padding: 3px 5px; }
 .asset-list-page .asset-category-bar .icon-button { height: 20px !important; width: 20px !important; }
