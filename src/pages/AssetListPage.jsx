@@ -32,6 +32,7 @@ const ASSET_STATUS_OPTIONS = [
   { value: 'shared', label: 'Shared' },
   { value: 'approved', label: 'Approved' },
 ];
+const ASSET_ROW_STATUS_OPTIONS = ['In progress', 'Approved', 'Delivered'];
 const FILENAME_COLUMN_OFFSET = 0;
 const COPY_COLUMN_OFFSET = 1;
 const NOTES_COLUMN_OFFSET = 2;
@@ -136,7 +137,11 @@ function updateRowsForColumn(rows, columnId, fallback = '') {
 }
 
 function labelColor(value = '') {
-  if (value.trim().toLowerCase() === 'unique') return '#ffcf5c';
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'unique') return '#ffcf5c';
+  if (normalized === 'in progress') return '#f59e0b';
+  if (normalized === 'approved') return '#10b981';
+  if (normalized === 'delivered') return '#6d5dfc';
   const colors = ['#6d5dfc', '#28b8ff', '#10b981', '#f59e0b', '#f466ae', '#ef4444'];
   const index = [...value].reduce((total, char) => total + char.charCodeAt(0), 0) % colors.length;
   return colors[index];
@@ -1152,7 +1157,7 @@ export default function AssetListPage({ project }) {
     if (column?.label_type === 'asset_ratio') return 67;
     return compactColumnWidth(autoFitColumnWidth(column));
   };
-  const fullGridTemplate = `52px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
+  const fullGridTemplate = `52px 78px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
 
   return (
     <main className="asset-list-page flex h-[calc(100vh-7rem)] flex-col text-ink-950 dark:text-ink-100">
@@ -1209,6 +1214,7 @@ export default function AssetListPage({ project }) {
         <div className="min-w-max">
           <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: fullGridTemplate }}>
             <div className="asset-list-header locked" aria-label="Actions" />
+            <div className="asset-list-header locked"><span className="asset-header-label">Status</span></div>
             <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
             {beforeFilenameColumns.map((column) => (
               <div
@@ -1355,6 +1361,16 @@ export default function AssetListPage({ project }) {
                         )}
                         {!row.ratio_parent_id && <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>}
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
+                      </div>
+                      <div className="asset-cell">
+                        <LabelDropdown
+                          id={`${row.id}:asset-status`}
+                          value={row.asset_status ?? ''}
+                          options={ASSET_ROW_STATUS_OPTIONS}
+                          onChange={(value) => updateRow(row.id, { asset_status: value })}
+                          openDropdownId={openDropdownId}
+                          setOpenDropdownId={setOpenDropdownId}
+                        />
                       </div>
                       <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
                         <input
