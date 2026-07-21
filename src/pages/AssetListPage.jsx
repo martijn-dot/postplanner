@@ -1053,7 +1053,11 @@ export default function AssetListPage({ project }) {
       .flatMap((category) => [category, ...categories.filter((item) => item.parent_id === category.id)])
     : [fallbackCategory];
   const compactColumnWidth = (width) => Math.max(52, Math.round(width * 0.7));
-  const columnGridWidth = (column) => isUniqueRatioColumn(column) || isCompactFixedColumn(column) ? 52 : compactColumnWidth(autoFitColumnWidth(column));
+  const columnGridWidth = (column) => {
+    if (isUniqueRatioColumn(column) || /^length$/i.test(column?.name ?? '')) return 52;
+    if (column?.label_type === 'asset_ratio') return 67;
+    return compactColumnWidth(autoFitColumnWidth(column));
+  };
   const fullGridTemplate = `52px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
 
   return (
