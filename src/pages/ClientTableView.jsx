@@ -148,7 +148,13 @@ function dateRangeFromBookings(items) {
 export function buildClientPlanningRows(project, items, categories, labelsById, showEmptyDates, uncategorizedName = 'Uncategorized', planningType = DEFAULT_PLANNING_TYPE) {
   const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const milestones = projectMilestones(project, items);
-  const days = dateRangeFromMilestones(milestones);
+  const productionBookings = isProduction
+    ? items
+      .filter((item) => item.project_id === project.id && item.start_date && item.end_date && item.end_date >= item.start_date)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.sort_order - b.sort_order)
+    : [];
+  const planningItems = isProduction ? productionBookings : milestones;
+  const days = isProduction ? dateRangeFromBookings(productionBookings) : dateRangeFromMilestones(milestones);
   if (!days.length) return [];
 
   const categoriesById = Object.fromEntries(
@@ -156,10 +162,15 @@ export function buildClientPlanningRows(project, items, categories, labelsById, 
       .filter((category) => category.project_id === project.id)
       .map((category) => [category.id, category]),
   );
-  const milestonesByDate = milestones.reduce((groups, item) => {
-    const group = groups.get(item.end_date) ?? [];
-    group.push(item);
-    groups.set(item.end_date, group);
+  const milestonesByDate = planningItems.reduce((groups, item) => {
+    const itemDays = isProduction
+      ? eachDayOfInterval({ start: parseISO(item.start_date), end: parseISO(item.end_date) }).map((day) => format(day, 'yyyy-MM-dd'))
+      : [item.end_date];
+    itemDays.forEach((dateKey) => {
+      const group = groups.get(dateKey) ?? [];
+      group.push(item);
+      groups.set(dateKey, group);
+    });
     return groups;
   }, new Map());
 
