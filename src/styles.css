@@ -488,6 +488,10 @@ nav .tab-active {
 .asset-list-page .asset-list-header { gap: 3px; padding: 4px 6px; }
 .asset-list-page .asset-header-label,
 .asset-list-page .asset-header-name { font-size: 0.5rem; height: 14px; }
+.asset-list-page .asset-list-header .asset-header-label,
+.asset-list-page .asset-header-settings-name {
+  text-transform: uppercase;
+}
 .asset-list-page .asset-header-settings-name {
   color: inherit;
   cursor: pointer;

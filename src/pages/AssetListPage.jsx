@@ -40,6 +40,16 @@ function uid() {
   return crypto.randomUUID();
 }
 
+function nextAssetNumber(rows = []) {
+  const highestMainNumber = rows
+    .filter((row) => !row.ratio_parent_id)
+    .reduce((highest, row) => {
+      const value = Number.parseInt(row.number, 10);
+      return Number.isFinite(value) ? Math.max(highest, value) : highest;
+    }, 0);
+  return String((Math.floor(highestMainNumber / 10) + 1) * 10).padStart(3, '0');
+}
+
 function orderedColumns(list) {
   return [...(list?.columns ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
@@ -567,7 +577,7 @@ export default function AssetListPage({ project }) {
       ? rows.map((row) => ({ ...row, group_id: row.group_id ?? groupId, values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])) }))
       : Array.from({ length: 8 }, (_, index) => ({
         id: uid(),
-        number: String(index + 1).padStart(2, '0'),
+        number: String((index + 1) * 10).padStart(3, '0'),
         group_id: groupId,
         values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])),
         sort_order: index,
@@ -623,7 +633,7 @@ export default function AssetListPage({ project }) {
   const addRow = () => {
     const nextRow = {
       id: uid(),
-      number: String(rows.length + 1).padStart(2, '0'),
+      number: nextAssetNumber(rows),
       group_id: fallbackCategory.id,
       values: Object.fromEntries(columns.map((column) => [column.id, ''])),
       sort_order: rows.length,
@@ -642,19 +652,11 @@ export default function AssetListPage({ project }) {
     const existingChildren = rows.filter((row) => row.ratio_parent_id === sourceRowId);
     const existingByRatio = new Map(existingChildren.map((row) => [row.ratio_value || row.values?.[ratioColumn.id], row]));
     const sourceNumber = Number.parseInt(sourceRow.number, 10);
-    const numberWidth = Math.max(2, ...rows.map((row) => String(row.number ?? '').length));
+    const numberWidth = Math.max(3, ...rows.map((row) => String(row.number ?? '').length));
     const childIdSet = new Set(existingChildren.map((row) => row.id));
-    const delta = nextRatios.length - existingChildren.length;
     const baseRows = rows.filter((row) => !childIdSet.has(row.id)).map((row) => {
       if (row.id === sourceRowId) return { ...row, ratio_group: nextRatios.length > 0 };
-      const rowNumber = Number.parseInt(row.number, 10);
-      const wasAfterGroup = row.sort_order > sourceRow.sort_order;
-      return {
-        ...row,
-        number: Number.isFinite(sourceNumber) && Number.isFinite(rowNumber) && wasAfterGroup && rowNumber > sourceNumber
-          ? String(rowNumber + delta).padStart(numberWidth, '0')
-          : row.number,
-      };
+      return row;
     });
     const sourceBaseIndex = baseRows.findIndex((row) => row.id === sourceRowId);
     const ratioRows = nextRatios.map((ratio, index) => {
@@ -773,7 +775,7 @@ export default function AssetListPage({ project }) {
   const addRowToCategory = (categoryId) => {
     const nextRow = {
       id: uid(),
-      number: String(rows.length + 1).padStart(2, '0'),
+      number: nextAssetNumber(rows),
       group_id: categoryId,
       values: Object.fromEntries(columns.map((column) => [column.id, ''])),
       sort_order: rows.length,
@@ -809,7 +811,7 @@ export default function AssetListPage({ project }) {
     const sourceIndex = rows.findIndex((row) => row.id === rowId);
     if (sourceIndex < 0) return;
     const nextRows = rows.map((row, index) => ({ ...row, sort_order: index > sourceIndex ? index + 1 : index }));
-    nextRows.push({ ...structuredClone(rows[sourceIndex]), id: uid(), sort_order: sourceIndex + 1 });
+    nextRows.push({ ...structuredClone(rows[sourceIndex]), id: uid(), number: nextAssetNumber(rows), sort_order: sourceIndex + 1 });
     saveList({ rows: nextRows.sort((a, b) => a.sort_order - b.sort_order) });
   };
 
@@ -877,7 +879,7 @@ export default function AssetListPage({ project }) {
     while (nextRows.length < rowIndex + matrix.length) {
       nextRows.push({
         id: uid(),
-        number: String(nextRows.length + 1).padStart(2, '0'),
+        number: nextAssetNumber(nextRows),
         group_id: sourceGroupId,
         values: Object.fromEntries(columns.map((column) => [column.id, ''])),
         sort_order: nextRows.length,
@@ -1267,34 +1269,37 @@ export default function AssetListPage({ project }) {
                       className={`asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950 ${row.ratio_group ? 'is-ratio-group-parent' : ''} ${row.ratio_parent_id ? 'is-ratio-group-child' : ''} ${dragTargetRowId === row.id ? 'is-row-drop-target' : ''}`}
                       style={{ gridTemplateColumns: fullGridTemplate }}
                       onDragOver={(event) => {
-                        if (!dragRowId) return;
+                        if (!dragRowId || row.ratio_parent_id) return;
                         event.preventDefault();
                         setDragTargetRowId(row.id);
                       }}
                       onDrop={(event) => {
+                        if (row.ratio_parent_id) return;
                         event.preventDefault();
                         dropRowGroup(row.id);
                       }}
                     >
                       <div className="asset-row-actions">
-                        <button
-                          type="button"
-                          draggable
-                          onDragStart={(event) => {
-                            event.dataTransfer.effectAllowed = 'move';
-                            event.dataTransfer.setData('text/plain', row.id);
-                            setDragRowId(row.id);
-                          }}
-                          onDragEnd={() => {
-                            setDragRowId('');
-                            setDragTargetRowId('');
-                          }}
-                          className="asset-header-icon asset-row-drag-handle"
-                          data-tooltip="Drag row"
-                          aria-label="Drag row"
-                        >
-                          <GripVertical size={11} />
-                        </button>
+                        {!row.ratio_parent_id && (
+                          <button
+                            type="button"
+                            draggable
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = 'move';
+                              event.dataTransfer.setData('text/plain', row.id);
+                              setDragRowId(row.id);
+                            }}
+                            onDragEnd={() => {
+                              setDragRowId('');
+                              setDragTargetRowId('');
+                            }}
+                            className="asset-header-icon asset-row-drag-handle"
+                            data-tooltip="Drag row"
+                            aria-label="Drag row"
+                          >
+                            <GripVertical size={11} />
+                          </button>
+                        )}
                         {!row.ratio_parent_id && <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>}
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
                       </div>
@@ -1387,7 +1392,7 @@ export default function AssetListPage({ project }) {
                                 <LabelSelect
                                   labels={assetTypeLabels}
                                   value={assetTypeLabels.find((label) => label.value === value)?.id ?? ''}
-                                  placeholder="Select asset type"
+                                  placeholder={<span className="asset-label-chip is-none">None</span>}
                                   onChange={(labelId) => updateCell(row.id, column.id, assetTypeLabels.find((label) => label.id === labelId)?.value ?? '')}
                                   onAddLabel={(labelValue, color) => addLabel(project.id, 'asset_type', labelValue, color)}
                                   onDeleteLabel={deleteLabel}
