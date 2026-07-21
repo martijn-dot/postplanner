@@ -294,12 +294,18 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
           </label>
             <label className="block space-y-1">
               <span className="text-xs font-semibold uppercase text-ink-500">Column type</span>
-              <select className="field" value={type} onChange={(event) => setType(event.target.value)}>
+              <select
+                className="field"
+                value={type === 'labels' ? 'text' : type}
+                onChange={(event) => {
+                  setType(event.target.value);
+                  setLabelType('');
+                }}
+              >
                 {customColumn ? (
                   <>
                     <option value="text">Text</option>
                     <option value="dropdown">Dropdown</option>
-                    <option value="labels">Labels</option>
                   </>
                 ) : (
                   <>
@@ -343,27 +349,40 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
               />
             </label>
           )}
-          {type === 'labels' && customColumn && (
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase text-ink-500">Default label group</span>
-              <select
-                className="field"
-                value={labelType}
-                onChange={(event) => {
-                  const nextLabelType = event.target.value;
-                  setLabelType(nextLabelType);
-                  setName(LABEL_TYPE_NAMES[nextLabelType] ?? nextLabelType.replace(/^asset_/, '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()));
-                  setNameError('');
-                }}
-              >
-                <option value="">Choose label group</option>
+          {customColumn && Object.keys(globalOptions).some((key) => !['asset_type', 'asset_ratio', 'asset_unique_ratio'].includes(key)) && (
+            <div className="space-y-2">
+              <span className="block text-xs font-semibold uppercase text-ink-500">Default label columns</span>
+              <div className="asset-default-label-columns">
                 {Object.keys(globalOptions)
                   .filter((key) => !['asset_type', 'asset_ratio', 'asset_unique_ratio'].includes(key))
-                  .map((key) => (
-                    <option key={key} value={key}>{LABEL_TYPE_NAMES[key] ?? key.replace(/^asset_/, '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>
-                  ))}
-              </select>
-            </label>
+                  .map((key) => {
+                    const labelName = LABEL_TYPE_NAMES[key] ?? key.replace(/^asset_/, '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+                    const selected = type === 'labels' && labelType === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`asset-default-label-column-button ${selected ? 'is-selected' : ''}`}
+                        onClick={() => {
+                          if (selected) {
+                            setType('text');
+                            setLabelType('');
+                          } else {
+                            setType('labels');
+                            setLabelType(key);
+                            setName(labelName);
+                          }
+                          setNameError('');
+                        }}
+                        aria-pressed={selected}
+                      >
+                        <span className="asset-label-chip" style={{ backgroundColor: labelColor(labelName) }}>{labelName}</span>
+                        {selected && <Check size={14} />}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
           )}
           {!customColumn && (
             <label className="block space-y-1">

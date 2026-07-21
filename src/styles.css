@@ -1449,6 +1449,30 @@ nav .tab-active {
   border-color: rgba(109, 93, 252, 0.68);
 }
 
+.asset-default-label-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.asset-default-label-column-button {
+  align-items: center;
+  background: #11182a;
+  border: 1px solid #2c3755;
+  border-radius: 8px;
+  color: #c7c0ff;
+  display: inline-flex;
+  gap: 7px;
+  min-height: 38px;
+  padding: 5px 8px;
+}
+
+.asset-default-label-column-button:hover,
+.asset-default-label-column-button.is-selected {
+  background: rgba(109, 93, 252, 0.16);
+  border-color: #806fff;
+}
+
 .asset-filename-input:focus {
   border-color: rgba(109, 93, 252, 0.58);
 }
@@ -1485,6 +1509,17 @@ nav .tab-active {
 .asset-label-select {
   position: relative;
   width: 100%;
+}
+
+.asset-list-page .asset-list-row:has(.asset-label-menu) {
+  position: relative;
+  z-index: 10000 !important;
+}
+
+.asset-list-page .asset-cell:has(.asset-label-menu),
+.asset-list-page .asset-label-select:has(.asset-label-menu) {
+  overflow: visible;
+  z-index: 10001;
 }
 
 .asset-type-label-select {
@@ -1555,7 +1590,7 @@ nav .tab-active {
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  z-index: 5000;
+  z-index: 10002;
 }
 
 .asset-label-option {
