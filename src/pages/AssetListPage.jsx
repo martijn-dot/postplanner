@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, GripVertical, Menu, Plus, Settings2, Trash2 } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, GripVertical, Menu, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -530,41 +530,70 @@ export default function AssetListPage({ project }) {
     saveList({ rows: [...rows, nextRow] });
   };
 
-  const addRatioGroup = (sourceRowId) => {
-    if (!selectedRatios.length) return;
+  const syncRatioGroup = (sourceRowId, nextRatios) => {
     const uniqueRatioColumn = columns.find((column) => column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? ''));
     const ratioColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
     const sourceIndex = rows.findIndex((row) => row.id === sourceRowId);
     const sourceRow = rows[sourceIndex];
     if (!ratioColumn || !sourceRow) return;
 
+    const existingChildren = rows.filter((row) => row.ratio_parent_id === sourceRowId);
+    const existingByRatio = new Map(existingChildren.map((row) => [row.ratio_value || row.values?.[ratioColumn.id], row]));
     const sourceNumber = Number.parseInt(sourceRow.number, 10);
     const numberWidth = Math.max(2, ...rows.map((row) => String(row.number ?? '').length));
-    const shiftedRows = rows.map((row, index) => ({
-      ...row,
-      number: Number.isFinite(sourceNumber) && index > sourceIndex && Number.parseInt(row.number, 10) > sourceNumber
-        ? String(Number.parseInt(row.number, 10) + selectedRatios.length).padStart(numberWidth, '0')
-        : row.number,
-      sort_order: index > sourceIndex ? index + selectedRatios.length : index,
-    }));
-    const ratioRows = selectedRatios.map((ratio, index) => ({
-      id: uid(),
-      number: Number.isFinite(sourceNumber) ? String(sourceNumber + index + 1).padStart(numberWidth, '0') : `${sourceRow.number}.${index + 1}`,
-      group_id: sourceRow.group_id ?? fallbackCategory.id,
-      values: {
-        ...(sourceRow.values ?? {}),
-        ...(uniqueRatioColumn ? { [uniqueRatioColumn.id]: '' } : {}),
-        [ratioColumn.id]: ratio,
-      },
-      sort_order: sourceIndex + index + 1,
-      notes: sourceRow.notes ?? '',
-      ratio_parent_id: sourceRow.id,
-      ratio_value: ratio,
-    }));
-    shiftedRows[sourceIndex] = { ...shiftedRows[sourceIndex], ratio_group: true };
-    saveList({ rows: [...shiftedRows, ...ratioRows].sort((a, b) => a.sort_order - b.sort_order) });
-    setSelectedRatios([]);
-    setRatioMenuRowId('');
+    const childIdSet = new Set(existingChildren.map((row) => row.id));
+    const delta = nextRatios.length - existingChildren.length;
+    const baseRows = rows.filter((row) => !childIdSet.has(row.id)).map((row) => {
+      if (row.id === sourceRowId) return { ...row, ratio_group: nextRatios.length > 0 };
+      const rowNumber = Number.parseInt(row.number, 10);
+      const wasAfterGroup = row.sort_order > sourceRow.sort_order;
+      return {
+        ...row,
+        number: Number.isFinite(sourceNumber) && Number.isFinite(rowNumber) && wasAfterGroup && rowNumber > sourceNumber
+          ? String(rowNumber + delta).padStart(numberWidth, '0')
+          : row.number,
+      };
+    });
+    const sourceBaseIndex = baseRows.findIndex((row) => row.id === sourceRowId);
+    const ratioRows = nextRatios.map((ratio, index) => {
+      const existing = existingByRatio.get(ratio);
+      return {
+        ...(existing ?? sourceRow),
+        id: existing?.id ?? uid(),
+        number: Number.isFinite(sourceNumber) ? String(sourceNumber + index + 1).padStart(numberWidth, '0') : `${sourceRow.number}.${index + 1}`,
+        group_id: sourceRow.group_id ?? fallbackCategory.id,
+        values: {
+          ...(existing?.values ?? sourceRow.values ?? {}),
+          ...(uniqueRatioColumn ? { [uniqueRatioColumn.id]: '' } : {}),
+          [ratioColumn.id]: ratio,
+        },
+        notes: existing?.notes ?? sourceRow.notes ?? '',
+        ratio_parent_id: sourceRow.id,
+        ratio_value: ratio,
+        ratio_group: false,
+      };
+    });
+    const nextRows = [...baseRows.slice(0, sourceBaseIndex + 1), ...ratioRows, ...baseRows.slice(sourceBaseIndex + 1)]
+      .map((row, index) => ({ ...row, sort_order: index }));
+    saveList({ rows: nextRows });
+    if (!ratioMenuRowId || ratioMenuRowId === sourceRowId) setSelectedRatios(nextRatios);
+  };
+
+  const openRatioPanel = (sourceRowId) => {
+    const ratioColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+    const createdRatios = rows
+      .filter((row) => row.ratio_parent_id === sourceRowId)
+      .map((row) => row.ratio_value || row.values?.[ratioColumn?.id])
+      .filter(Boolean);
+    setSelectedRatios(createdRatios);
+    setRatioMenuRowId(sourceRowId);
+  };
+
+  const toggleRatioForRow = (sourceRowId, ratio) => {
+    const nextRatios = selectedRatios.includes(ratio)
+      ? selectedRatios.filter((item) => item !== ratio)
+      : [...selectedRatios, ratio];
+    syncRatioGroup(sourceRowId, nextRatios);
   };
 
   const updateCell = (rowId, columnId, value) => {
@@ -636,6 +665,16 @@ export default function AssetListPage({ project }) {
 
   const deleteRow = (rowId) => {
     const target = rows.find((row) => row.id === rowId);
+    if (target?.ratio_parent_id) {
+      const ratioColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+      const remainingRatios = rows
+        .filter((row) => row.ratio_parent_id === target.ratio_parent_id && row.id !== rowId)
+        .map((row) => row.ratio_value || row.values?.[ratioColumn?.id])
+        .filter(Boolean);
+      syncRatioGroup(target.ratio_parent_id, remainingRatios);
+      if (ratioMenuRowId === target.ratio_parent_id) setSelectedRatios(remainingRatios);
+      return;
+    }
     const removedIds = new Set([rowId]);
     if (target?.ratio_group) rows.filter((row) => row.ratio_parent_id === rowId).forEach((row) => removedIds.add(row.id));
     const remainingRows = rows.filter((row) => !removedIds.has(row.id));
@@ -889,6 +928,10 @@ export default function AssetListPage({ project }) {
   const filenameColumnIndex = columns.length + FILENAME_COLUMN_OFFSET;
   const copyColumnIndex = columns.length + COPY_COLUMN_OFFSET;
   const notesColumnIndex = columns.length + NOTES_COLUMN_OFFSET;
+  const ratioPanelSource = rows.find((row) => row.id === ratioMenuRowId && !row.ratio_parent_id);
+  const ratioPanelColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+  const mainAssetRatio = ratioPanelSource?.values?.[ratioPanelColumn?.id] ?? '';
+  const availableRatioOptions = [...new Set([...QUICK_RATIO_OPTIONS, ...(globalOptions.asset_ratio ?? [])])];
   const compactColumnWidth = (width) => Math.max(52, Math.round(width * 0.7));
   const fullGridTemplate = `52px 60px ${beforeFilenameColumns.map((column) => `${compactColumnWidth(autoFitColumnWidth(column))}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${compactColumnWidth(autoFitColumnWidth(column))}px`).join(' ')} 154px`;
 
@@ -1048,7 +1091,7 @@ export default function AssetListPage({ project }) {
                       style={{ gridTemplateColumns: fullGridTemplate }}
                     >
                       <div className="asset-row-actions">
-                        <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>
+                        {!row.ratio_parent_id && <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>}
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
                       </div>
                       <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
@@ -1120,52 +1163,15 @@ export default function AssetListPage({ project }) {
                                 {row.ratio_parent_id ? (
                                   <span className="asset-ratio-child-spacer" aria-hidden="true" />
                                 ) : (
-                                  <>
-                                    {!row.ratio_group && (
-                                      <button
-                                        type="button"
-                                        className={`asset-unique-choice ${value === 'Unique' ? 'is-selected' : ''}`}
-                                        onClick={() => updateCell(row.id, column.id, value === 'Unique' ? '' : 'Unique')}
-                                      >
-                                        Unique
-                                      </button>
-                                    )}
-                                    <div className="asset-ratio-action">
-                                      <button
-                                        type="button"
-                                        className={`asset-ratios-button ${ratioMenuRowId === row.id ? 'is-open' : ''}`}
-                                        onClick={() => {
-                                          setSelectedRatios([]);
-                                          setRatioMenuRowId((current) => current === row.id ? '' : row.id);
-                                        }}
-                                        aria-expanded={ratioMenuRowId === row.id}
-                                      >
-                                        Ratios <ChevronDown size={13} />
-                                      </button>
-                                      {ratioMenuRowId === row.id && (
-                                        <div className="asset-ratio-callout" role="dialog" aria-label="Select ratios">
-                                          <div className="asset-ratio-callout-heading">
-                                            <div><strong>Ratios</strong><span>Select one or more formats</span></div>
-                                            <span className="asset-ratio-count">{selectedRatios.length} selected</span>
-                                          </div>
-                                          <div className="asset-ratio-options">
-                                            {QUICK_RATIO_OPTIONS.map((ratio) => {
-                                              const ratioSelected = selectedRatios.includes(ratio);
-                                              return (
-                                                <button key={ratio} type="button" className={`asset-ratio-option ${ratioSelected ? 'is-selected' : ''}`} onClick={() => setSelectedRatios((current) => ratioSelected ? current.filter((item) => item !== ratio) : [...current, ratio])} aria-pressed={ratioSelected}>
-                                                  <span className="asset-ratio-checkbox">{ratioSelected && <Check size={13} />}</span>{ratio}
-                                                </button>
-                                              );
-                                            })}
-                                          </div>
-                                          <div className="asset-ratio-callout-actions">
-                                            <button type="button" className="asset-ratio-cancel" onClick={() => { setSelectedRatios([]); setRatioMenuRowId(''); }}>Cancel</button>
-                                            <button type="button" className="asset-ratio-add" disabled={!selectedRatios.length} onClick={() => addRatioGroup(row.id)}>Add rows</button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </>
+                                  <button
+                                    type="button"
+                                    className={`asset-ratio-launcher ${ratioMenuRowId === row.id ? 'is-open' : ''}`}
+                                    onClick={() => ratioMenuRowId === row.id ? setRatioMenuRowId('') : openRatioPanel(row.id)}
+                                    aria-expanded={ratioMenuRowId === row.id}
+                                    aria-label="Manage additional ratios"
+                                  >
+                                    <strong>R</strong><ArrowRight size={13} />
+                                  </button>
                                 )}
                               </div>
                             ) : isRatioColumn && row.ratio_parent_id ? (
@@ -1333,6 +1339,45 @@ export default function AssetListPage({ project }) {
           })}
         </div>
       </div>
+
+      {ratioPanelSource && (
+        <aside className="asset-ratio-drawer" role="dialog" aria-label="Manage additional ratios">
+          <header>
+            <div>
+              <span>Additional ratios</span>
+              <strong>Asset {ratioPanelSource.number}</strong>
+            </div>
+            <button type="button" onClick={() => setRatioMenuRowId('')} aria-label="Close ratios panel"><X size={16} /></button>
+          </header>
+          <div className="asset-ratio-drawer-summary">
+            <span>Main asset ratio</span>
+            <strong>{mainAssetRatio || 'Not selected'}</strong>
+          </div>
+          <p>Selecting a ratio creates a numbered row directly below the main asset. Deselecting it removes that row.</p>
+          <div className="asset-ratio-drawer-options">
+            {availableRatioOptions.map((ratio) => {
+              const ratioSelected = selectedRatios.includes(ratio);
+              const isMainRatio = Boolean(mainAssetRatio) && ratio.toLowerCase() === String(mainAssetRatio).toLowerCase();
+              const disabled = isMainRatio && !ratioSelected;
+              return (
+                <button
+                  key={ratio}
+                  type="button"
+                  className={`${ratioSelected ? 'is-selected' : ''} ${disabled ? 'is-disabled' : ''}`}
+                  onClick={() => !disabled && toggleRatioForRow(ratioPanelSource.id, ratio)}
+                  aria-pressed={ratioSelected}
+                  disabled={disabled}
+                >
+                  <span className="asset-ratio-checkbox">{ratioSelected && <Check size={13} />}</span>
+                  <span>{ratio}</span>
+                  {isMainRatio && <small>Main asset</small>}
+                </button>
+              );
+            })}
+          </div>
+          <footer>{selectedRatios.length} additional {selectedRatios.length === 1 ? 'ratio' : 'ratios'} created</footer>
+        </aside>
+      )}
 
       {settingsColumn && (
         <SettingsPanel
