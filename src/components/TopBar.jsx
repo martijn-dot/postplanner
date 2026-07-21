@@ -26,6 +26,7 @@ export default function TopBar({ project = null, planningType = DEFAULT_PLANNING
   const [profileAvatar, setProfileAvatar] = useState('');
   const profile = (profiles ?? []).find((item) => item.id === user.id) ?? { email: user.email, display_name: user.email?.split('@')[0] ?? 'User', role: 'user' };
   const initials = (profile.display_name ?? profile.email ?? 'U').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+  const isAssetListView = /\/assets\/?$/.test(currentPath);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -74,29 +75,31 @@ export default function TopBar({ project = null, planningType = DEFAULT_PLANNING
             <div className="project-topbar-context flex min-w-0 items-center gap-2">
               <span className="project-topbar-title truncate">{[project.project_number, project.name].filter(Boolean).join(' - ')}</span>
               <span className="project-topbar-client truncate">{project.client || 'Internal project'}</span>
-              <span className="project-topbar-types">
-                {Object.values(PLANNING_TYPES).map((definition) => (
-                  <Link
-                    key={definition.key}
-                    to={`${currentPath}?type=${definition.key}&version=V1`}
-                    className={planningType === definition.key ? 'is-active' : ''}
-                  >
-                    {definition.shortLabel}
-                  </Link>
-                ))}
-              </span>
-              {planningVersions.length > 0 && (
-                <span className="project-topbar-versions">
-                  {planningVersions.map((version) => (
-                    <Link
-                      key={version}
-                      to={`${currentPath}?type=${planningType}&version=${version}`}
-                      className={version === planningVersion ? 'is-active' : ''}
-                    >
-                      {version}
-                    </Link>
-                  ))}
-                </span>
+              {!isAssetListView && (
+                <>
+                  <span className="project-topbar-types">
+                    {Object.values(PLANNING_TYPES).map((definition) => (
+                      <Link
+                        key={definition.key}
+                        to={`${currentPath}?type=${definition.key}&version=V1`}
+                        className={planningType === definition.key ? 'is-active' : ''}
+                      >
+                        {definition.shortLabel}
+                      </Link>
+                    ))}
+                  </span>
+                  {planningVersions.length > 0 && <span className="project-topbar-versions">
+                    {planningVersions.map((version) => (
+                      <Link
+                        key={version}
+                        to={`${currentPath}?type=${planningType}&version=${version}`}
+                        className={version === planningVersion ? 'is-active' : ''}
+                      >
+                        {version}
+                      </Link>
+                    ))}
+                  </span>}
+                </>
               )}
             </div>
           )}

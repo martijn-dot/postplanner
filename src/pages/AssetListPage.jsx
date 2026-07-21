@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -235,7 +235,7 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
               onClose();
             }}
           >
-            <Check size={16} /> Save order
+            <Check size={16} /> Save
           </button>
         </div>
       </div>
@@ -402,6 +402,8 @@ export default function AssetListPage({ project }) {
   const [openDropdownId, setOpenDropdownId] = useState('');
   const [ratioMenuRowId, setRatioMenuRowId] = useState('');
   const [selectedRatios, setSelectedRatios] = useState([]);
+  const [dragRowId, setDragRowId] = useState('');
+  const [dragTargetRowId, setDragTargetRowId] = useState('');
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => ({
@@ -697,8 +699,16 @@ export default function AssetListPage({ project }) {
   };
 
   const updateCell = (rowId, columnId, value) => {
+    const column = columns.find((item) => item.id === columnId);
+    const keepVariantValue = isUniqueRatioColumn(column) || column?.label_type === 'asset_ratio' || /^ratio$/i.test(column?.name ?? '');
     saveList({
-      rows: rows.map((row) => row.id === rowId ? { ...row, values: { ...(row.values ?? {}), [columnId]: value } } : row),
+      rows: rows.map((row) => {
+        if (row.id === rowId) return { ...row, values: { ...(row.values ?? {}), [columnId]: value } };
+        if (!keepVariantValue && row.ratio_parent_id === rowId) {
+          return { ...row, values: { ...(row.values ?? {}), [columnId]: value } };
+        }
+        return row;
+      }),
     });
   };
 
@@ -760,12 +770,6 @@ export default function AssetListPage({ project }) {
     saveCategories(nextCategories, nextRows);
   };
 
-  const updateColumnName = (columnId, name) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    saveColumns(columns.map((column) => column.id === columnId ? { ...column, name: trimmed } : column));
-  };
-
   const addRowToCategory = (categoryId) => {
     const nextRow = {
       id: uid(),
@@ -807,6 +811,41 @@ export default function AssetListPage({ project }) {
     const nextRows = rows.map((row, index) => ({ ...row, sort_order: index > sourceIndex ? index + 1 : index }));
     nextRows.push({ ...structuredClone(rows[sourceIndex]), id: uid(), sort_order: sourceIndex + 1 });
     saveList({ rows: nextRows.sort((a, b) => a.sort_order - b.sort_order) });
+  };
+
+  const dropRowGroup = (targetRowId) => {
+    const draggedRow = rows.find((row) => row.id === dragRowId);
+    const targetRow = rows.find((row) => row.id === targetRowId);
+    const sourceRootId = draggedRow?.ratio_parent_id || draggedRow?.id;
+    const targetRootId = targetRow?.ratio_parent_id || targetRow?.id;
+    const sourceRoot = rows.find((row) => row.id === sourceRootId);
+    const targetRoot = rows.find((row) => row.id === targetRootId);
+    const sourceCategoryId = sourceRoot?.group_id ?? fallbackCategory.id;
+    const targetCategoryId = targetRoot?.group_id ?? fallbackCategory.id;
+    if (!sourceRoot || !targetRoot || sourceRootId === targetRootId || sourceCategoryId !== targetCategoryId) {
+      setDragRowId('');
+      setDragTargetRowId('');
+      return;
+    }
+
+    const categoryRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === sourceCategoryId);
+    const rootRows = categoryRows.filter((row) => !row.ratio_parent_id);
+    const blocks = rootRows.map((root) => [root, ...categoryRows.filter((row) => row.ratio_parent_id === root.id)]);
+    const sourceIndex = blocks.findIndex((block) => block[0].id === sourceRootId);
+    const targetIndex = blocks.findIndex((block) => block[0].id === targetRootId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const [movedBlock] = blocks.splice(sourceIndex, 1);
+    blocks.splice(blocks.findIndex((block) => block[0].id === targetRootId), 0, movedBlock);
+    const reorderedCategoryRows = blocks.flat();
+    let categoryIndex = 0;
+    const nextRows = rows.map((row) => (row.group_id ?? fallbackCategory.id) === sourceCategoryId
+      ? reorderedCategoryRows[categoryIndex++]
+      : row).map((row, index) => ({ ...row, sort_order: index }));
+    undoStackRef.current.push(structuredClone(activeList));
+    updateAssetList(activeList.id, { rows: nextRows });
+    markProjectEdited(project.id);
+    setDragRowId('');
+    setDragTargetRowId('');
   };
 
   const renameAssetListTab = (listId, name) => {
@@ -1135,27 +1174,14 @@ export default function AssetListPage({ project }) {
                   </>
                 ) : (
                   <>
-                    <span className="asset-header-name-wrap">
-                      <input
-                        className="asset-header-name"
-                        defaultValue={column.name}
-                        style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
-                        onDoubleClick={() => setSettingsColumnId(column.id)}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter') return;
-                          event.preventDefault();
-                          updateColumnName(column.id, event.currentTarget.value);
-                          event.currentTarget.blur();
-                        }}
-                        onBlur={(event) => {
-                          if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
-                        }}
-                        draggable={false}
-                      />
-                      <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-settings" data-tooltip="Column settings" aria-label={`Column settings for ${column.name}`}>
-                        <Settings2 size={14} />
-                      </button>
-                    </span>
+                    <button
+                      type="button"
+                      className="asset-header-settings-name"
+                      onClick={() => setSettingsColumnId(column.id)}
+                      aria-label={`Open settings for ${column.name}`}
+                    >
+                      {column.name}
+                    </button>
                     <button
                       type="button"
                       className="asset-column-resize-handle"
@@ -1182,27 +1208,14 @@ export default function AssetListPage({ project }) {
                 className="asset-list-header"
               >
                 {isCustomAssetColumn(column) ? (
-                  <span className="asset-header-name-wrap">
-                    <input
-                      className="asset-header-name"
-                      defaultValue={column.name}
-                      style={{ width: `${Math.max(6, column.name.length + 1)}ch` }}
-                      onDoubleClick={() => setSettingsColumnId(column.id)}
-                      onKeyDown={(event) => {
-                        if (event.key !== 'Enter') return;
-                        event.preventDefault();
-                        updateColumnName(column.id, event.currentTarget.value);
-                        event.currentTarget.blur();
-                      }}
-                      onBlur={(event) => {
-                        if (event.currentTarget.value !== column.name) event.currentTarget.value = column.name;
-                      }}
-                      draggable={false}
-                    />
-                    <button type="button" onClick={() => setSettingsColumnId(column.id)} className="asset-header-settings" data-tooltip="Column settings" aria-label={`Column settings for ${column.name}`}>
-                      <Settings2 size={14} />
-                    </button>
-                  </span>
+                  <button
+                    type="button"
+                    className="asset-header-settings-name"
+                    onClick={() => setSettingsColumnId(column.id)}
+                    aria-label={`Open settings for ${column.name}`}
+                  >
+                    {column.name}
+                  </button>
                 ) : (
                   <span className="asset-header-label">{column.name}</span>
                 )}
@@ -1251,10 +1264,37 @@ export default function AssetListPage({ project }) {
                   return (
                     <div
                       key={row.id}
-                      className={`asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950 ${row.ratio_group ? 'is-ratio-group-parent' : ''} ${row.ratio_parent_id ? 'is-ratio-group-child' : ''}`}
+                      className={`asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950 ${row.ratio_group ? 'is-ratio-group-parent' : ''} ${row.ratio_parent_id ? 'is-ratio-group-child' : ''} ${dragTargetRowId === row.id ? 'is-row-drop-target' : ''}`}
                       style={{ gridTemplateColumns: fullGridTemplate }}
+                      onDragOver={(event) => {
+                        if (!dragRowId) return;
+                        event.preventDefault();
+                        setDragTargetRowId(row.id);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        dropRowGroup(row.id);
+                      }}
                     >
                       <div className="asset-row-actions">
+                        <button
+                          type="button"
+                          draggable
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = 'move';
+                            event.dataTransfer.setData('text/plain', row.id);
+                            setDragRowId(row.id);
+                          }}
+                          onDragEnd={() => {
+                            setDragRowId('');
+                            setDragTargetRowId('');
+                          }}
+                          className="asset-header-icon asset-row-drag-handle"
+                          data-tooltip="Drag row"
+                          aria-label="Drag row"
+                        >
+                          <GripVertical size={11} />
+                        </button>
                         {!row.ratio_parent_id && <button type="button" onClick={() => duplicateRow(row.id)} className="asset-header-icon" data-tooltip="Duplicate" aria-label="Duplicate row"><Copy size={11} /></button>}
                         <button type="button" onClick={() => deleteRow(row.id)} className="asset-header-icon" data-tooltip="Delete" aria-label="Delete row"><Trash2 size={11} /></button>
                       </div>
