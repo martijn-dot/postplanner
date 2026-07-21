@@ -1353,6 +1353,34 @@ nav .tab-active {
   opacity: 0.55;
 }
 
+.asset-column-order-row.is-hidden {
+  color: #918ca3;
+}
+
+.asset-column-order-row.is-hidden > span {
+  opacity: 0.72;
+}
+
+.asset-column-order-visibility {
+  align-items: center;
+  background: rgba(109, 93, 252, 0.1);
+  border: 1px solid rgba(109, 93, 252, 0.32);
+  border-radius: 7px;
+  color: #c7c0ff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.7rem;
+  font-weight: 800;
+  gap: 5px;
+  margin-left: auto;
+  padding: 5px 8px;
+}
+
+.asset-column-order-visibility:hover {
+  background: rgba(109, 93, 252, 0.2);
+  border-color: rgba(109, 93, 252, 0.68);
+}
+
 .asset-filename-input:focus {
   border-color: rgba(109, 93, 252, 0.58);
 }
@@ -3946,6 +3974,52 @@ body.public-share-body {
 .asset-ratio-drawer .asset-ratio-checkbox { align-items: center; border: 1px solid #5a6680; border-radius: 4px; display: inline-flex; height: 17px; justify-content: center; width: 17px; }
 .asset-ratio-drawer-options > button.is-selected .asset-ratio-checkbox { background: #20ade4; border-color: #20ade4; color: #071122; }
 .asset-ratio-drawer footer { border-top: 1px solid #303a50; color: #8e9ab4; font-size: 0.66rem; margin-top: auto; padding-top: 13px; }
+
+/* Asset-list labels at 70% scale so every chip fits the compact rows. */
+.asset-list-page .asset-ratio-launcher {
+  border-radius: 4px;
+  gap: 3px;
+  height: 18px;
+  min-width: 34px;
+  padding: 0 5px;
+}
+
+.asset-list-page .asset-ratio-launcher strong { font-size: 0.48rem; }
+.asset-list-page .asset-ratio-launcher svg { height: 9px; width: 9px; }
+.asset-list-page .asset-unique-ratio-control { gap: 4px; padding-inline: 3px; }
+.asset-list-page .asset-label-button { border-radius: 4px; gap: 4px; height: 24px; padding-inline: 5px; }
+.asset-list-page .asset-label-button > svg { height: 10px; width: 10px; }
+.asset-list-page .asset-label-chip {
+  border-radius: 4px;
+  font-size: 0.5rem;
+  padding: 3px 5px;
+}
+
+.asset-list-page .asset-label-menu { border-radius: 6px; max-height: 154px; padding: 3px; }
+.asset-list-page .asset-label-option { border-radius: 4px; min-height: 21px; padding: 3px 4px; }
+.asset-list-page .asset-type-label-select > div > button { min-height: 24px; padding-inline: 5px; }
+.asset-list-page .asset-type-label-select > div > button span.inline-flex {
+  border-radius: 4px;
+  font-size: 0.525rem;
+  padding: 1px 5px;
+}
+
+.asset-list-page .asset-ratio-child-label {
+  border-radius: 5px;
+  font-size: 0.49rem;
+  height: 20px;
+  padding-inline: 6px;
+}
+
+.asset-list-page .asset-ratio-child-spacer { min-height: 20px; }
+.asset-list-page .asset-copy-filename { font-size: 0.45rem; height: 16px; padding-inline: 5px; }
+.asset-list-page .asset-open-link { height: 17px; width: 17px; }
+.asset-list-page .asset-open-link svg { height: 9px; width: 9px; }
+
+.asset-ratio-drawer-options > button { font-size: 0.525rem; min-height: 27px; padding: 5px 7px; }
+.asset-ratio-drawer-options small { font-size: 0.4rem; }
+.asset-ratio-drawer .asset-ratio-checkbox { height: 12px; width: 12px; }
+.asset-ratio-drawer .asset-ratio-checkbox svg { height: 9px; width: 9px; }
 
 .client-planning-admin .planning-type-badge {
   background: #1e293b;

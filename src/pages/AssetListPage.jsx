@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, GripVertical, Menu, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -41,6 +41,10 @@ function orderedColumns(list) {
 
 function isFrameColumn(column) {
   return /^frame\.?io$/i.test(column?.name ?? '') || column?.type === 'url';
+}
+
+function isUniqueRatioColumn(column) {
+  return column?.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column?.name ?? '');
 }
 
 function orderedRows(list) {
@@ -151,11 +155,11 @@ function LabelDropdown({ id, value, options, onChange, onMoveDown, onArrowNaviga
 }
 
 function ColumnOrderPopup({ columns, onClose, onReorder }) {
-  const [draftColumns, setDraftColumns] = useState(columns);
+  const [draftColumns, setDraftColumns] = useState(() => columns.filter((column) => !isUniqueRatioColumn(column)));
   const [dragId, setDragId] = useState('');
 
   useEffect(() => {
-    setDraftColumns(columns);
+    setDraftColumns(columns.filter((column) => !isUniqueRatioColumn(column)));
   }, [columns]);
 
   const moveColumn = (targetId) => {
@@ -190,10 +194,19 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
               onDragEnter={() => moveColumn(column.id)}
               onDragOver={(event) => event.preventDefault()}
               onDragEnd={() => setDragId('')}
-              className={`asset-column-order-row ${dragId === column.id ? 'is-dragging' : ''}`}
+              className={`asset-column-order-row ${dragId === column.id ? 'is-dragging' : ''} ${column.hidden ? 'is-hidden' : ''}`}
             >
               <GripVertical size={15} />
               <span>{column.name}</span>
+              <button
+                type="button"
+                className="asset-column-order-visibility"
+                onClick={() => setDraftColumns((current) => current.map((item) => item.id === column.id ? { ...item, hidden: !item.hidden } : item))}
+                aria-label={`${column.hidden ? 'Show' : 'Hide'} ${column.name}`}
+              >
+                {column.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                {column.hidden ? 'Show' : 'Hide'}
+              </button>
             </div>
           ))}
         </div>
@@ -202,7 +215,8 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
             type="button"
             className="primary-button"
             onClick={() => {
-              onReorder(draftColumns);
+              const fixedColumns = columns.filter(isUniqueRatioColumn);
+              onReorder([...fixedColumns, ...draftColumns]);
               onClose();
             }}
           >
@@ -358,8 +372,9 @@ export default function AssetListPage({ project }) {
 
   const activeList = projectLists.find((item) => item.id === activeId) ?? projectLists[0];
   const columns = orderedColumns(activeList);
-  const beforeFilenameColumns = columns.filter((column) => !isFrameColumn(column));
-  const afterCopyColumns = columns.filter(isFrameColumn);
+  const visibleColumns = columns.filter((column) => isUniqueRatioColumn(column) || !column.hidden);
+  const beforeFilenameColumns = visibleColumns.filter((column) => !isFrameColumn(column));
+  const afterCopyColumns = visibleColumns.filter(isFrameColumn);
   const rows = orderedRows(activeList);
   const categories = orderedCategories(activeList);
   const fallbackCategory = categories[0] ?? { id: 'default', name: 'Category 1', collapsed: false, sort_order: 0 };
