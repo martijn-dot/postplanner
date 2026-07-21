@@ -467,6 +467,17 @@ nav .tab-active {
   text-transform: uppercase;
 }
 
+.asset-list-tool.is-primary {
+  background: #8083ff;
+  border-color: #8083ff;
+  color: #0d0096;
+}
+
+.asset-list-tool.is-primary:hover {
+  background: #9295ff;
+  border-color: #9295ff;
+}
+
 .asset-list-tool-divider {
   background: #3c465e;
   height: 23px;

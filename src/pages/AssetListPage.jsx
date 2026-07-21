@@ -594,6 +594,20 @@ export default function AssetListPage({ project }) {
     saveList({ rows: rows.map((row) => row.id === rowId ? { ...row, ...patch } : row) });
   };
 
+  const addColumn = () => {
+    const column = {
+      id: uid(),
+      name: `Column ${columns.length + 1}`,
+      type: 'text',
+      options: [],
+      separator: null,
+      sort_order: columns.length,
+      width: 180,
+    };
+    saveColumns([...columns, column], updateRowsForColumn(rows, column.id));
+    setSettingsColumnId(column.id);
+  };
+
   const addCategory = () => {
     const category = { id: uid(), name: `Category ${categories.length + 1}`, collapsed: false, sort_order: categories.length };
     saveCategories([...categories, category]);
@@ -948,6 +962,7 @@ export default function AssetListPage({ project }) {
             <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="asset-tab-new" aria-label="Create new assetlist tab" data-tooltip="New tab"><Plus size={16} /></button>
         </div>
         <div className="asset-list-tools">
+          <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={15} /> Column</button>
           <button type="button" onClick={addRow} className="asset-list-tool"><Plus size={15} /> Row</button>
           <button type="button" onClick={addCategory} className="asset-list-tool"><Plus size={15} /> Category</button>
           <span className="asset-list-tool-divider" />
