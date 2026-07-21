@@ -47,6 +47,12 @@ function isUniqueRatioColumn(column) {
   return column?.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column?.name ?? '');
 }
 
+function isCustomAssetColumn(column) {
+  if (column?.is_custom || /^column\s+\d+$/i.test(column?.name ?? '')) return true;
+  if (column?.label_type) return false;
+  return !/^(name|frame\.?io|length)$/i.test(column?.name ?? '');
+}
+
 function orderedRows(list) {
   return [...(list?.rows ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
@@ -228,12 +234,14 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
   );
 }
 
-function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
+function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onSave, onDelete }) {
   const [name, setName] = useState(column.name);
-  const [type, setType] = useState(column.type ?? 'text');
+  const customColumn = isCustomAssetColumn(column);
+  const [type, setType] = useState(customColumn && column.type === 'custom-dropdown' ? 'dropdown' : column.type ?? 'text');
   const [labelType, setLabelType] = useState(column.label_type ?? '');
   const [separator, setSeparator] = useState(column.separator ?? '');
   const [optionsText, setOptionsText] = useState((column.options ?? []).join('\n'));
+  const [nameError, setNameError] = useState('');
 
   const options = optionsText
     .split('\n')
@@ -253,19 +261,37 @@ function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
         <div className="mt-5 grid gap-4">
           <label className="block space-y-1">
             <span className="text-xs font-semibold uppercase text-ink-500">Column name</span>
-            <input className="field" value={name} onChange={(event) => setName(event.target.value)} />
+            <input
+              className="field"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setNameError('');
+              }}
+              autoFocus={customColumn}
+            />
+            {nameError && <span className="block text-xs font-semibold text-red-300">{nameError}</span>}
           </label>
             <label className="block space-y-1">
               <span className="text-xs font-semibold uppercase text-ink-500">Column type</span>
               <select className="field" value={type} onChange={(event) => setType(event.target.value)}>
-                <option value="text">Full text</option>
-                <option value="url">Link</option>
-                <option value="dropdown">Global dropdown</option>
-                <option value="custom-dropdown">Custom dropdown</option>
-                <option value="length">Length</option>
+                {customColumn ? (
+                  <>
+                    <option value="text">Text</option>
+                    <option value="dropdown">Dropdown</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="text">Full text</option>
+                    <option value="url">Link</option>
+                    <option value="dropdown">Global dropdown</option>
+                    <option value="custom-dropdown">Custom dropdown</option>
+                    <option value="length">Length</option>
+                  </>
+                )}
             </select>
           </label>
-          {type === 'dropdown' && (
+          {type === 'dropdown' && !customColumn && (
             <label className="block space-y-1">
               <span className="text-xs font-semibold uppercase text-ink-500">Global label group</span>
               <select
@@ -285,7 +311,7 @@ function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
               </select>
             </label>
           )}
-          {type === 'custom-dropdown' && (
+          {(type === 'custom-dropdown' || (type === 'dropdown' && customColumn)) && (
             <label className="block space-y-1">
               <span className="text-xs font-semibold uppercase text-ink-500">Dropdown labels</span>
               <textarea
@@ -296,20 +322,41 @@ function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
               />
             </label>
           )}
-          <label className="block space-y-1">
-            <span className="text-xs font-semibold uppercase text-ink-500">Separator after this column</span>
-            <select className="field" value={separator} onChange={(event) => setSeparator(event.target.value)}>
-              <option value="">Use global separator</option>
-              {SEPARATORS.map((item) => <option key={item} value={item}>{item === ' ' ? 'blank space' : item}</option>)}
-            </select>
-          </label>
+          {!customColumn && (
+            <label className="block space-y-1">
+              <span className="text-xs font-semibold uppercase text-ink-500">Separator after this column</span>
+              <select className="field" value={separator} onChange={(event) => setSeparator(event.target.value)}>
+                <option value="">Use global separator</option>
+                {SEPARATORS.map((item) => <option key={item} value={item}>{item === ' ' ? 'blank space' : item}</option>)}
+              </select>
+            </label>
+          )}
           {type === 'length' && <p className="text-sm text-ink-500">Only numbers are entered in the sheet. The filename shows the value with an s, like 15s.</p>}
         </div>
         <div className="mt-5 flex justify-between gap-2">
           <button type="button" onClick={onDelete} className="secondary-button text-red-300"><Trash2 size={16} /> Delete</button>
           <button
             type="button"
-            onClick={() => onSave({ ...column, name: name.trim() || column.name, type, label_type: type === 'dropdown' ? labelType : null, separator: separator || null, options: type === 'custom-dropdown' ? options : globalOptions[labelType] ?? options, exclude_from_filename: type === 'url' ? true : column.exclude_from_filename })}
+            onClick={() => {
+              const trimmedName = name.trim();
+              if (!trimmedName || (customColumn && /^column\s+\d+$/i.test(trimmedName))) {
+                setNameError('Enter a specific name for this column.');
+                return;
+              }
+              if (existingNames.some((item) => item.toLowerCase() === trimmedName.toLowerCase())) {
+                setNameError('A column with this name already exists.');
+                return;
+              }
+              onSave({
+                ...column,
+                name: trimmedName,
+                type,
+                label_type: customColumn ? null : type === 'dropdown' ? labelType : null,
+                separator: customColumn ? null : separator || null,
+                options: customColumn && type === 'dropdown' ? options : type === 'custom-dropdown' ? options : globalOptions[labelType] ?? options,
+                exclude_from_filename: type === 'url' ? true : column.exclude_from_filename,
+              });
+            }}
             className="primary-button"
           >
             <Check size={16} /> Save
@@ -438,6 +485,9 @@ export default function AssetListPage({ project }) {
   };
 
   const filenameColumnWidth = () => {
+    if (activeList?.filename_options?.filename_column_width) {
+      return Math.max(150, Number(activeList.filename_options.filename_column_width));
+    }
     const longest = rows.reduce((maxLength, row) => Math.max(maxLength, generatedFilename(project, activeList, row, clients).length), 'Filename'.length);
     return Math.max(260, Math.min(860, longest * 8 + 34));
   };
@@ -453,6 +503,31 @@ export default function AssetListPage({ project }) {
       const nextWidth = Math.max(120, Math.min(760, Math.round(startWidth + moveEvent.clientX - startX)));
       updateAssetList(activeList.id, {
         columns: columns.map((column) => column.id === columnId ? { ...column, width: nextWidth, manual_width: true } : column),
+      });
+    };
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      markProjectEdited(project.id);
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp, { once: true });
+  };
+
+  const startFilenameColumnResize = (event) => {
+    if (!activeList) return;
+    event.preventDefault();
+    event.stopPropagation();
+    undoStackRef.current.push(structuredClone(activeList));
+    const startX = event.clientX;
+    const startWidth = filenameColumnWidth();
+    const onPointerMove = (moveEvent) => {
+      const nextWidth = Math.max(150, Math.min(1200, Math.round(startWidth + (moveEvent.clientX - startX) / 0.7)));
+      updateAssetList(activeList.id, {
+        filename_options: {
+          ...(activeList.filename_options ?? {}),
+          filename_column_width: nextWidth,
+        },
       });
     };
     const onPointerUp = () => {
@@ -634,6 +709,7 @@ export default function AssetListPage({ project }) {
       separator: null,
       sort_order: columns.length,
       width: 180,
+      is_custom: true,
     };
     saveColumns([...columns, column], updateRowsForColumn(rows, column.id));
     setSettingsColumnId(column.id);
@@ -1040,7 +1116,15 @@ export default function AssetListPage({ project }) {
                 />
               </div>
             ))}
-            <div className="asset-list-header locked"><span className="asset-header-label">Filename</span></div>
+            <div className="asset-list-header locked">
+              <span className="asset-header-label">Filename</span>
+              <button
+                type="button"
+                className="asset-column-resize-handle"
+                onPointerDown={startFilenameColumnResize}
+                aria-label="Resize Filename column"
+              />
+            </div>
             <div className="asset-list-header locked"><span className="asset-header-label">Copy</span></div>
             {afterCopyColumns.map((column) => (
               <div
@@ -1398,6 +1482,7 @@ export default function AssetListPage({ project }) {
         <SettingsPanel
           column={settingsColumn}
           globalOptions={globalOptions}
+          existingNames={columns.filter((column) => column.id !== settingsColumn.id).map((column) => column.name)}
           onClose={() => setSettingsColumnId('')}
           onSave={(column) => {
             saveColumns(columns.map((item) => item.id === column.id ? column : item));
