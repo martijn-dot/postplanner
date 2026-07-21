@@ -6175,13 +6175,13 @@ body.public-share-body {
 }
 
 .timeline-line .timeline-labels-underlay {
-  top: 32px;
-  transform: none;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .timeline-line .timeline-asset-label {
-  bottom: -4px;
-  top: auto;
+  bottom: auto;
+  top: calc(100% + 2px);
 }
 
 /* Final public header overrides live last so the published layout stays reference-accurate. */

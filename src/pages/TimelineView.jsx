@@ -1356,7 +1356,11 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                       ))}
                     </ToolbarMenu>
                     <button type="button" onClick={() => setShowMetaLabels((next) => !next)} className="timeline-header-chip" aria-pressed={showMetaLabels}>{showMetaLabels ? 'Hide time' : 'Show time'}</button>
-                    <button type="button" onClick={() => setShowAssetLabels((next) => !next)} className="timeline-header-chip" aria-pressed={showAssetLabels}>{showAssetLabels ? 'Hide assets' : 'Show assets'}</button>
+                    <button type="button" onClick={() => setShowAssetLabels((next) => !next)} className="timeline-header-chip" aria-pressed={showAssetLabels}>
+                      {activePlanningType === PLANNING_TYPES.production.key
+                        ? (showAssetLabels ? 'Hide what' : 'Show what')
+                        : (showAssetLabels ? 'Hide assets' : 'Show assets')}
+                    </button>
                     <button type="button" onClick={() => setOptionsVisible((next) => !next)} className="timeline-header-chip" aria-pressed={optionsVisible}>{optionsVisible ? 'Hide options' : 'Show options'}</button>
                   </div>
                   <span />
