@@ -424,6 +424,63 @@ nav .tab-active {
   text-transform: uppercase;
 }
 
+.asset-list-toolbar-status {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.asset-list-toolbar-status > span {
+  color: #858da3;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+/* Slim asset-list workspace: toolbar and table at 70% of the former scale. */
+.asset-list-page .asset-list-commandbar {
+  gap: 10px;
+  min-height: 44px;
+  padding: 7px 14px;
+}
+
+.asset-list-page .asset-list-tabs,
+.asset-list-page .asset-list-tools { gap: 5px; }
+.asset-list-page .asset-list-commandbar .asset-tab { min-height: 25px; padding: 0 7px; }
+.asset-list-page .asset-tab-input { font-size: 0.6rem; padding: 2px 1px; }
+.asset-list-page .asset-list-commandbar .asset-tab-new { height: 24px; width: 24px; }
+.asset-list-page .asset-list-tool,
+.asset-list-page .asset-list-quiet-action {
+  font-size: 0.5rem;
+  gap: 4px;
+  height: 25px;
+  padding: 0 8px;
+}
+.asset-list-page .asset-list-tool svg,
+.asset-list-page .asset-list-quiet-action svg { height: 11px; width: 11px; }
+.asset-list-page .asset-list-status { font-size: 0.55rem; height: 25px; min-width: 88px; padding: 0 21px 0 8px; }
+.asset-list-page .asset-list-tool-divider { height: 16px; }
+.asset-list-page .asset-list-autosave,
+.asset-list-page .asset-list-toolbar-status > span { font-size: 0.45rem; }
+.asset-list-page .asset-list-row { min-height: 29px; }
+.asset-list-page .asset-list-row.sticky { min-height: 41px; }
+.asset-list-page .asset-list-header { gap: 3px; padding: 4px 6px; }
+.asset-list-page .asset-header-label,
+.asset-list-page .asset-header-name { font-size: 0.5rem; height: 14px; }
+.asset-list-page .asset-header-settings { height: 17px; width: 17px; }
+.asset-list-page .asset-header-settings svg { height: 10px; width: 10px; }
+.asset-list-page .asset-cell { padding: 2px; }
+.asset-list-page .asset-cell .table-input { height: 25px; font-size: 0.62rem; padding-inline: 5px; }
+.asset-list-page .asset-category-bar { gap: 4px; min-height: 27px; padding: 3px 6px 3px 0; }
+.asset-list-page .asset-category-name { font-size: 0.52rem; min-width: 126px; padding: 3px 5px; }
+.asset-list-page .asset-category-bar .icon-button { height: 20px !important; width: 20px !important; }
+.asset-list-page .asset-category-bar svg { height: 11px; width: 11px; }
+.asset-list-page .asset-header-icon { height: 16px; width: 16px; }
+.asset-list-page .asset-header-icon svg { height: 10px; width: 10px; }
+.asset-list-page .asset-copy-filename { font-size: 0.46rem; padding: 2px 5px; }
+.asset-list-page .asset-add-row-button { font-size: 0.52rem; min-height: 24px; }
+
 .asset-list-setting-control,
 .asset-list-status,
 .asset-list-quiet-action,

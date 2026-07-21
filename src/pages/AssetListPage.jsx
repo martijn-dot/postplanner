@@ -214,19 +214,6 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
   );
 }
 
-function SeparatorDropdown({ value, onChange, openDropdownId, setOpenDropdownId }) {
-  return (
-    <LabelDropdown
-      id="global-separator"
-      value={value === ' ' ? 'Blank' : value}
-      options={['-', '_', 'Blank']}
-      onChange={(nextValue) => onChange(nextValue === 'Blank' ? ' ' : nextValue || '_')}
-      openDropdownId={openDropdownId}
-      setOpenDropdownId={setOpenDropdownId}
-    />
-  );
-}
-
 function SettingsPanel({ column, globalOptions, onClose, onSave, onDelete }) {
   const [name, setName] = useState(column.name);
   const [type, setType] = useState(column.type ?? 'text');
@@ -902,37 +889,11 @@ export default function AssetListPage({ project }) {
   const filenameColumnIndex = columns.length + FILENAME_COLUMN_OFFSET;
   const copyColumnIndex = columns.length + COPY_COLUMN_OFFSET;
   const notesColumnIndex = columns.length + NOTES_COLUMN_OFFSET;
-  const fullGridTemplate = `74px 86px ${beforeFilenameColumns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} ${filenameColumnWidth()}px 74px ${afterCopyColumns.map((column) => `${autoFitColumnWidth(column)}px`).join(' ')} 220px`;
+  const compactColumnWidth = (width) => Math.max(52, Math.round(width * 0.7));
+  const fullGridTemplate = `52px 60px ${beforeFilenameColumns.map((column) => `${compactColumnWidth(autoFitColumnWidth(column))}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${compactColumnWidth(autoFitColumnWidth(column))}px`).join(' ')} 154px`;
 
   return (
-    <main className="asset-list-page flex h-[calc(100vh-10.5rem)] flex-col text-ink-950 dark:text-ink-100">
-      <div className="asset-list-titlebar">
-        <div className="asset-list-titlebar-inner">
-          <div>
-            <h1>Asset list</h1>
-            <p>{project.client}</p>
-          </div>
-          <div className="asset-list-title-actions">
-            <label className="asset-list-setting">
-              <span className="asset-list-setting-label">Global separator</span>
-              <span className="asset-list-setting-control is-separator">
-                <SeparatorDropdown value={activeList.global_separator ?? '_'} onChange={(global_separator) => saveList({ global_separator })} openDropdownId={openDropdownId} setOpenDropdownId={setOpenDropdownId} />
-              </span>
-            </label>
-            <label className="asset-list-setting">
-              <span className="asset-list-setting-label">Status</span>
-              <select className="asset-list-status" value={assetStatus} onChange={(event) => updateAssetStatus(event.target.value)}>
-                {ASSET_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
-              </select>
-            </label>
-            <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all', clients)} className="asset-list-quiet-action"><Download size={15} /> Excel</button>
-            <button type="button" onClick={publishAssetList} className={`asset-list-quiet-action ${assetPublished ? 'is-active' : ''}`}>
-              {assetPublished ? 'Published' : 'Publish assetlist'}
-            </button>
-          </div>
-        </div>
-      </div>
-
+    <main className="asset-list-page flex h-[calc(100vh-7rem)] flex-col text-ink-950 dark:text-ink-100">
       <div className="asset-list-commandbar">
         <div className="asset-list-tabs">
             {projectLists.map((list) => (
@@ -968,6 +929,17 @@ export default function AssetListPage({ project }) {
           <span className="asset-list-tool-divider" />
           <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={15} /> Columns</button>
           <span className="asset-list-autosave"><Check size={12} /> Autosaved</span>
+          <span className="asset-list-tool-divider" />
+          <label className="asset-list-toolbar-status">
+            <span>Status</span>
+            <select className="asset-list-status" value={assetStatus} onChange={(event) => updateAssetStatus(event.target.value)}>
+              {ASSET_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => downloadAssetListExcel(project, projectLists, 'all', clients)} className="asset-list-quiet-action"><Download size={15} /> Excel</button>
+          <button type="button" onClick={publishAssetList} className={`asset-list-quiet-action ${assetPublished ? 'is-active' : ''}`}>
+            {assetPublished ? 'Published' : 'Publish assetlist'}
+          </button>
         </div>
       </div>
 
