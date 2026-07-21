@@ -170,6 +170,72 @@ code,
   height: 0.12rem;
 }
 
+.project-topbar-title {
+  background: #ffcf4b;
+  border-radius: 6px;
+  color: #100e1d;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  max-width: min(34vw, 430px);
+  padding: 6px 10px;
+  text-transform: uppercase;
+}
+
+.project-topbar-client {
+  color: #a8b2ca;
+  font-size: 0.68rem;
+  font-weight: 700;
+  max-width: 130px;
+  white-space: nowrap;
+}
+
+.project-topbar-types,
+.project-topbar-versions {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+
+.project-topbar-types {
+  background: #151c2f;
+  border: 1px solid #2c3755;
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.project-topbar-types a,
+.project-topbar-versions a {
+  border-radius: 4px;
+  color: #8f9ab6;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 5px 7px;
+  white-space: nowrap;
+}
+
+.project-topbar-types a.is-active {
+  background: #6d5dfc;
+  color: #fff;
+}
+
+.project-topbar-versions a {
+  border: 1px solid #2c3755;
+}
+
+.project-topbar-versions a.is-active {
+  background: rgba(109, 93, 252, 0.18);
+  border-color: #7c6cff;
+  color: #f3f0ff;
+}
+
+@media (max-width: 900px) {
+  .project-topbar-title { max-width: 28vw; }
+  .project-topbar-types a,
+  .project-topbar-versions a { padding-inline: 5px; }
+}
+
 header .text-ink-500,
 nav .text-ink-500 {
   color: #8f9ab6 !important;

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
+import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 
 export function RovalLogo() {
   return (
@@ -17,7 +18,7 @@ export function RovalLogo() {
   );
 }
 
-export default function TopBar() {
+export default function TopBar({ project = null, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1', planningVersions = [], currentPath = '' }) {
   const { user, signOut, demoMode } = useAuth();
   const { profiles, saveError, clearSaveError, updateProfile } = usePlanner();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -59,14 +60,46 @@ export default function TopBar() {
         </div>
       )}
       <header className="relative z-[1200] flex h-16 items-center justify-between border-b border-black/10 bg-white/80 px-5 text-ink-950 backdrop-blur dark:border-white/10 dark:bg-ink-950/80 dark:text-ink-100">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] text-accent-300">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link to="/" className={`flex shrink-0 items-center text-sm font-bold uppercase tracking-[0.18em] text-accent-300 ${project ? '' : 'gap-2'}`}>
             <RovalLogo />
-            <span className="flex flex-col leading-none">
-              <span>ROVAL</span>
-              <span className="mt-1 text-[10px] font-semibold normal-case tracking-normal text-ink-500">the post production planner without clutter</span>
-            </span>
+            {!project && (
+              <span className="flex flex-col leading-none">
+                <span>ROVAL</span>
+                <span className="mt-1 text-[10px] font-semibold normal-case tracking-normal text-ink-500">the post production planner without clutter</span>
+              </span>
+            )}
           </Link>
+          {project && (
+            <div className="project-topbar-context flex min-w-0 items-center gap-2">
+              <span className="project-topbar-title truncate">{[project.project_number, project.name].filter(Boolean).join(' - ')}</span>
+              <span className="project-topbar-client truncate">{project.client || 'Internal project'}</span>
+              <span className="project-topbar-types">
+                {Object.values(PLANNING_TYPES).map((definition) => (
+                  <Link
+                    key={definition.key}
+                    to={`${currentPath}?type=${definition.key}&version=V1`}
+                    className={planningType === definition.key ? 'is-active' : ''}
+                  >
+                    {definition.shortLabel}
+                  </Link>
+                ))}
+              </span>
+              {planningVersions.length > 0 && (
+                <span className="project-topbar-versions">
+                  {planningVersions.map((version) => (
+                    <Link
+                      key={version}
+                      to={`${currentPath}?type=${planningType}&version=${version}`}
+                      className={version === planningVersion ? 'is-active' : ''}
+                    >
+                      {version}
+                    </Link>
+                  ))}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {demoMode && <span className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold text-amber-300">Demo mode</span>}

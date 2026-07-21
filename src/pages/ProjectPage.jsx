@@ -1,4 +1,4 @@
-import { Link, NavLink, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import TopBar from '../components/TopBar.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -35,7 +35,6 @@ export default function ProjectPage() {
   const fallbackVersion = requestedType === DEFAULT_PLANNING_TYPE ? project?.preferred_planning_version : null;
   const activeVersion = versions.includes(requestedVersion) ? requestedVersion : (versions.includes(fallbackVersion) ? fallbackVersion : versions[0] ?? 'V1');
   const actionsRef = useRef({ upsertPresence, clearPresence, markProjectEdited });
-  const showPlanningVersions = !location.pathname.endsWith('/assets');
 
   useEffect(() => {
     actionsRef.current = { upsertPresence, clearPresence, markProjectEdited };
@@ -67,25 +66,7 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
-      <TopBar project={project} />
-      <div className="flex min-h-14 flex-wrap items-center gap-2 border-b border-black/10 bg-white px-5 py-2 dark:border-white/10 dark:bg-ink-900">
-        <span className="inline-flex rounded-lg bg-amber-300 px-4 py-2 text-sm font-black uppercase tracking-wide text-ink-950 shadow-sm">
-          {[project.project_number, project.name].filter(Boolean).join(' - ')}
-        </span>
-        {showPlanningVersions && versions.length > 0 && (
-          <span className="flex flex-wrap items-center gap-1">
-            {versions.map((version) => (
-              <Link
-                key={version}
-                to={`${location.pathname}?type=${requestedType}&version=${version}`}
-                className={`rounded-md border px-2 py-1 text-xs font-semibold transition ${version === activeVersion ? 'border-accent-400 bg-accent-500/20 text-accent-100' : 'border-white/10 text-ink-500 hover:border-accent-400 hover:bg-accent-500/20 hover:text-accent-100'}`}
-              >
-                {version}
-              </Link>
-            ))}
-          </span>
-        )}
-      </div>
+      <TopBar project={project} planningType={requestedType} planningVersion={activeVersion} planningVersions={versions} currentPath={location.pathname} />
       <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
         <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
         <NavLink to={`/projects/${projectId}/client?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
