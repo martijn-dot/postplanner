@@ -145,7 +145,8 @@ function dateRangeFromBookings(items) {
   });
 }
 
-export function buildClientPlanningRows(project, items, categories, labelsById, showEmptyDates, uncategorizedName = 'Uncategorized') {
+export function buildClientPlanningRows(project, items, categories, labelsById, showEmptyDates, uncategorizedName = 'Uncategorized', planningType = DEFAULT_PLANNING_TYPE) {
+  const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const milestones = projectMilestones(project, items);
   const days = dateRangeFromMilestones(milestones);
   if (!days.length) return [];
@@ -195,8 +196,8 @@ export function buildClientPlanningRows(project, items, categories, labelsById, 
       Time: item.time ?? '',
       RowColor: item.row_color ?? '',
       Who: item.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', '),
-      Asset: item.asset,
-      What: labelsById[item.what]?.value ?? '',
+      Asset: isProduction ? '' : item.asset,
+      What: isProduction ? item.asset ?? '' : labelsById[item.what]?.value ?? '',
       Todo: labelsById[item.todo]?.value ?? '',
       Notes: item.notes ?? '',
       _item: item,
@@ -263,9 +264,9 @@ function googleCalendarUrl(row) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-export function clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName = 'Uncategorized', dateWindow = 'future') {
+export function clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName = 'Uncategorized', dateWindow = 'future', planningType = DEFAULT_PLANNING_TYPE) {
   const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
-  return annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName), dateWindow)).map((row) => ({
+  return annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType), dateWindow)).map((row) => ({
     Week: row.Week,
     Day: row.Day,
     Date: row.Date,
@@ -336,7 +337,8 @@ function OverflowNote({ note, onOpen }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE }) {
+  const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
@@ -355,7 +357,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   const showCategoryColumn = visibleCategoryCount > 1 && !forceHideCategoryColumn;
   const orderedColumns = prefs.order
     .map((key) => CLIENT_COLUMNS.find((column) => column.key === key))
-    .filter((column) => column && prefs.visible[column.key] !== false && (column.key !== 'category' || showCategoryColumn) && (column.key !== 'edit' || onUpdateLineItem));
+    .filter((column) => column && prefs.visible[column.key] !== false && (!isProduction || column.key !== 'asset') && (column.key !== 'category' || showCategoryColumn) && (column.key !== 'edit' || onUpdateLineItem));
   const updatePrefs = (nextPrefs) => {
     onColumnPrefsChange?.(nextPrefs);
   };
@@ -375,8 +377,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     window.addEventListener('pointerup', up);
   };
   const rows = useMemo(
-    () => annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName), dateWindow)),
-    [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, dateWindow],
+    () => annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType), dateWindow)),
+    [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, dateWindow, planningType],
   );
   const autoWidths = useMemo(() => {
     const maxText = (key, fallback) => rows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
@@ -430,7 +432,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
       if (column.key === 'time') return row._item ? (row.Time || '-') : null;
       if (column.key === 'who') return row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null;
       if (column.key === 'asset') return row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null;
-      if (column.key === 'what') return row._item ? <Pill label={labelsById[row._item.what]} /> : null;
+      if (column.key === 'what') return row._item ? (isProduction ? <span className="font-semibold">{row.What || '-'}</span> : <Pill label={labelsById[row._item.what]} />) : null;
       if (column.key === 'todo') return row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null;
       if (column.key === 'notes') return row._item?.notes ? <span className="note-preview group relative inline-flex min-w-0 items-center gap-2"><FileText size={14} /><span className="truncate">{row._item.notes}</span><span className="note-tooltip">{row._item.notes}</span></span> : null;
       if (column.key === 'category') return row._item ? row.Category : null;
@@ -586,7 +588,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item ? (row.Time || '-') : ''}</td>;
                       if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
                       if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
-                      if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.what]} /> : null}</td>;
+                      if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (isProduction ? <span className="font-semibold">{row.What || '-'}</span> : <Pill label={labelsById[row._item.what]} />) : null}</td>;
                       if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
                       if (column.key === 'notes') return (
                         <td key={column.key} className="min-w-0 overflow-hidden px-4 py-3">
@@ -624,7 +626,16 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
               </label>
               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">What</span>
-                <LabelSelect labels={labelsByType.what} value={editingItem.what} placeholder="What" onChange={(what) => onUpdateLineItem(editingItem.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} />
+                {isProduction ? (
+                  <input
+                    value={editingItem.asset ?? ''}
+                    onChange={(event) => onUpdateLineItem(editingItem.id, { asset: event.target.value })}
+                    className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
+                    placeholder="What"
+                  />
+                ) : (
+                  <LabelSelect labels={labelsByType.what} value={editingItem.what} placeholder="What" onChange={(what) => onUpdateLineItem(editingItem.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} />
+                )}
               </label>
               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Todo</span>
@@ -661,7 +672,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   );
 }
 
-export function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized', categoryMode = 'column', collapsedCategoryKeys = [], onToggleCategory, dateWindow = 'future', compact = false }) {
+export function ClientGanttChart({ project, lineItems, labels, categories, uncategorizedName = 'Uncategorized', categoryMode = 'column', collapsedCategoryKeys = [], onToggleCategory, dateWindow = 'future', compact = false, planningType = DEFAULT_PLANNING_TYPE }) {
+  const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const bookings = useMemo(() => {
     const today = new Date();
@@ -720,7 +732,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
           <div className="sticky top-0 z-20 grid bg-zinc-100 dark:bg-ink-850" style={{ gridTemplateColumns: `${leftWidth}px ${days.length * dayWidth}px` }}>
             <div className="sticky left-0 z-30 grid border-b border-r border-black/10 bg-zinc-100 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-850" style={{ gridTemplateColumns: `${whoWidth}px 1fr` }}>
               <span className="px-4 py-5">Who</span>
-              <span className="px-4 py-5">Asset</span>
+              <span className="px-4 py-5">{isProduction ? 'What' : 'Asset'}</span>
             </div>
             <div>
               <div className="flex h-5 border-b border-black/10 text-center font-mono text-[0.55rem] font-semibold text-ink-500 dark:border-white/10">
@@ -753,7 +765,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
                 const visibleEnd = min([itemEnd, days.at(-1)]);
                 const offset = differenceInCalendarDays(visibleStart, days[0]);
                 const duration = Math.max(1, differenceInCalendarDays(visibleEnd, visibleStart) + 1);
-                const what = labelsById[item.what];
+                const what = isProduction ? null : labelsById[item.what];
                 const todo = labelsById[item.todo];
                 const category = item.category_id ? categoriesById[item.category_id]?.name : uncategorizedName;
                 const blockColor = labelsById[item.who?.[0]]?.color ?? what?.color ?? '#6d5dfc';
@@ -833,8 +845,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
     return true;
   }), [bookingFilteredLineItems, hiddenCategoryKeys]);
   const exportRows = useMemo(
-    () => clientPlanningExportRows(project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName, dateWindow),
-    [project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName, dateWindow],
+    () => clientPlanningExportRows(project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName, dateWindow, activePlanningType),
+    [project, filteredLineItems, labels, versionCategories, showEmptyDates, uncategorizedName, dateWindow, activePlanningType],
   );
   const categoryGroupsFor = useCallback((items) => {
     const groups = new Map();
@@ -856,8 +868,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
     const rowIssues = versionLineItems.map((item) => {
       const missing = [];
       if (!Array.isArray(item.who) || !item.who.length) missing.push('Who');
-      if (!String(item.asset ?? '').trim()) missing.push('Asset');
-      if (!item.what) missing.push('What');
+      if (!String(item.asset ?? '').trim()) missing.push(activePlanningType === 'production' ? 'What' : 'Asset');
+      if (activePlanningType !== 'production' && !item.what) missing.push('What');
       if (!item.todo) missing.push('Todo');
       if (!String(item.time ?? '').trim()) missing.push('Time');
       if (!missing.length) return null;
@@ -987,7 +999,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             <button type="button" onClick={() => setColumnMenuOpen((next) => !next)} className="client-header-action"><Eye size={17} /> Columns</button>
             {columnMenuOpen && (
               <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-white/10 bg-ink-900 p-2 shadow-glow" onMouseEnter={keepColumnMenuOpen}>
-                {CLIENT_COLUMNS.map((column) => (
+                {CLIENT_COLUMNS.filter((column) => activePlanningType !== 'production' || column.key !== 'asset').map((column) => (
                   <button
                     key={column.key}
                     type="button"
@@ -1080,13 +1092,14 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     onColumnPrefsChange={updateColumnPrefs}
                     forceHideCategoryColumn
                     showWeekColumn
+                    planningType={activePlanningType}
                   />
                 )}
               </section>
             ))}
           </div>
       ) : (
-        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode="sections" collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} compact />
+        <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode="sections" collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} compact planningType={activePlanningType} />
       )}
 
       {publishValidationIssues.length > 0 && (

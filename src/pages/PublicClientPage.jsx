@@ -440,7 +440,7 @@ export default function PublicClientPage() {
                     type="button"
                     onClick={() => downloadPlanningExcel(
                       payload.project,
-                      clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full'),
+                      clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full', payload.share?.planning_type),
                     )}
                     className="public-download-button"
                   >
@@ -566,6 +566,7 @@ export default function PublicClientPage() {
                     publicCardLayout
                     columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'calendar'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, notes: false, rowColor: false, edit: false } }}
                     showWeekColumn={false}
+                    planningType={payload.share?.planning_type}
                   />
                 ) : (
                   <ClientGanttChart
@@ -576,6 +577,7 @@ export default function PublicClientPage() {
                     uncategorizedName={uncategorizedName}
                     categoryMode={categoryCount > 1 ? 'sections' : 'column'}
                     dateWindow="full"
+                    planningType={payload.share?.planning_type}
                   />
                 )}
               </>
