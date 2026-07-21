@@ -13,7 +13,6 @@ const LABEL_TYPES = ['who', 'what', 'todo'];
 const ASSET_LABEL_TYPES = [
   ['asset_type', 'Asset Type'],
   ['asset_ratio', 'Ratio'],
-  ['asset_unique_ratio', 'Unique/Ratio'],
   ['asset_platform', 'Platform'],
 ];
 

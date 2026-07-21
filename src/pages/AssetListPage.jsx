@@ -256,7 +256,8 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
 function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onSave, onDelete }) {
   const [name, setName] = useState(column.name);
   const customColumn = isCustomAssetColumn(column);
-  const [type, setType] = useState(customColumn && column.type === 'custom-dropdown' ? 'dropdown' : column.type ?? 'text');
+  const usesAdminLabels = customColumn && column.label_type && !['asset_type', 'asset_ratio', 'asset_unique_ratio'].includes(column.label_type);
+  const [type, setType] = useState(usesAdminLabels ? 'labels' : customColumn && column.type === 'custom-dropdown' ? 'dropdown' : column.type ?? 'text');
   const [labelType, setLabelType] = useState(column.label_type ?? '');
   const [separator, setSeparator] = useState(column.separator ?? '');
   const [optionsText, setOptionsText] = useState((column.options ?? []).join('\n'));
@@ -298,6 +299,7 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
                   <>
                     <option value="text">Text</option>
                     <option value="dropdown">Dropdown</option>
+                    <option value="labels">Labels</option>
                   </>
                 ) : (
                   <>
@@ -341,6 +343,28 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
               />
             </label>
           )}
+          {type === 'labels' && customColumn && (
+            <label className="block space-y-1">
+              <span className="text-xs font-semibold uppercase text-ink-500">Default label group</span>
+              <select
+                className="field"
+                value={labelType}
+                onChange={(event) => {
+                  const nextLabelType = event.target.value;
+                  setLabelType(nextLabelType);
+                  setName(LABEL_TYPE_NAMES[nextLabelType] ?? nextLabelType.replace(/^asset_/, '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()));
+                  setNameError('');
+                }}
+              >
+                <option value="">Choose label group</option>
+                {Object.keys(globalOptions)
+                  .filter((key) => !['asset_type', 'asset_ratio', 'asset_unique_ratio'].includes(key))
+                  .map((key) => (
+                    <option key={key} value={key}>{LABEL_TYPE_NAMES[key] ?? key.replace(/^asset_/, '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>
+                  ))}
+              </select>
+            </label>
+          )}
           {!customColumn && (
             <label className="block space-y-1">
               <span className="text-xs font-semibold uppercase text-ink-500">Separator after this column</span>
@@ -366,13 +390,17 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
                 setNameError('A column with this name already exists.');
                 return;
               }
+              if (type === 'labels' && !labelType) {
+                setNameError('Choose a default label group.');
+                return;
+              }
               onSave({
                 ...column,
                 name: trimmedName,
-                type,
-                label_type: customColumn ? null : type === 'dropdown' ? labelType : null,
+                type: type === 'labels' ? 'dropdown' : type,
+                label_type: type === 'labels' ? labelType : customColumn ? null : type === 'dropdown' ? labelType : null,
                 separator: customColumn ? null : separator || null,
-                options: customColumn && type === 'dropdown' ? options : type === 'custom-dropdown' ? options : globalOptions[labelType] ?? options,
+                options: type === 'labels' ? globalOptions[labelType] ?? [] : customColumn && type === 'dropdown' ? options : type === 'custom-dropdown' ? options : globalOptions[labelType] ?? options,
                 exclude_from_filename: type === 'url' ? true : column.exclude_from_filename,
               });
             }}
@@ -416,12 +444,18 @@ export default function AssetListPage({ project }) {
   const [dragTargetRowId, setDragTargetRowId] = useState('');
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
-  const globalOptions = useMemo(() => ({
-    asset_type: labels.filter((label) => !label.project_id && label.column_type === 'asset_type' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
-    asset_ratio: labels.filter((label) => !label.project_id && label.column_type === 'asset_ratio' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
-    asset_unique_ratio: labels.filter((label) => !label.project_id && label.column_type === 'asset_unique_ratio' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
-    asset_platform: labels.filter((label) => !label.project_id && label.column_type === 'asset_platform' && !label.is_divider).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((label) => label.value),
-  }), [labels]);
+  const globalOptions = useMemo(() => labels
+    .filter((label) => !label.project_id && label.column_type?.startsWith('asset_') && !label.is_divider)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .reduce((groups, label) => ({
+      ...groups,
+      [label.column_type]: [...(groups[label.column_type] ?? []), label.value],
+    }), {
+      asset_type: [],
+      asset_ratio: [],
+      asset_unique_ratio: [],
+      asset_platform: [],
+    }), [labels]);
   const assetTypeLabels = useMemo(() => labels
     .filter((label) => (!label.project_id || label.project_id === project.id) && label.column_type === 'asset_type' && !label.is_divider)
     .sort((a, b) => {
