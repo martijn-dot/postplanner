@@ -108,6 +108,7 @@ export default function SettingsPage() {
     producers,
     labels,
     appSettings,
+    deleteAssetListTemplate,
     projects,
     addGlobalLabel,
     reorderLabels,
@@ -409,7 +410,31 @@ export default function SettingsPage() {
         )}
 
         {tab === 'assetlist' && (
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div>
+            <section className="mb-4 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
+              <h2 className="text-lg font-semibold">Asset List Templates</h2>
+              <p className="mt-1 text-sm text-ink-500">Templates saved from an Asset List are available to every user.</p>
+              <div className="mt-4 grid gap-2">
+                {(appSettings?.assetListTemplates ?? []).map((template) => (
+                  <div key={template.id} className="flex items-center justify-between gap-3 rounded-md border border-black/10 px-3 py-2 dark:border-white/10">
+                    <div className="min-w-0">
+                      <strong className="block truncate text-sm">{template.name}</strong>
+                      <span className="text-xs text-ink-500">{template.categories?.length ?? 0} categories · {template.columns?.length ?? 0} columns</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button shrink-0"
+                      onClick={() => window.confirm(`Delete template “${template.name}”?`) && deleteAssetListTemplate(template.id)}
+                      aria-label={`Delete ${template.name}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+                {!(appSettings?.assetListTemplates ?? []).length && <p className="rounded-md border border-white/10 p-3 text-sm text-ink-500">No templates saved yet.</p>}
+              </div>
+            </section>
+            <div className="grid gap-4 lg:grid-cols-3">
             {ASSET_LABEL_TYPES.map(([type, title]) => (
               <section key={type} className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
                 <h2 className="mb-4 text-lg font-semibold">{title}</h2>
@@ -442,6 +467,7 @@ export default function SettingsPage() {
                 </DndContext>
               </section>
             ))}
+            </div>
           </div>
         )}
 

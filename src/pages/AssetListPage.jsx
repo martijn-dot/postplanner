@@ -104,7 +104,11 @@ function projectClientCode(project, clients = []) {
 
 function generatedFilename(project, list, row, clients = []) {
   const columns = orderedColumns(list);
-  const baseParts = [project.project_number, projectClientCode(project, clients), project.name, row.number]
+  const standardProjectParts = [project.project_number, projectClientCode(project, clients), project.name]
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean);
+  const customPrefix = String(list.filename_options?.prefix_override ?? '').trim();
+  const baseParts = [...(customPrefix ? [customPrefix] : standardProjectParts), row.number]
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   const rowParts = columns
@@ -479,6 +483,10 @@ export default function AssetListPage({ project }) {
   const [selectedRatios, setSelectedRatios] = useState([]);
   const [dragRowId, setDragRowId] = useState('');
   const [dragTargetRowId, setDragTargetRowId] = useState('');
+  const [dragCategoryId, setDragCategoryId] = useState('');
+  const [dragTargetCategoryId, setDragTargetCategoryId] = useState('');
+  const [prefixPopupOpen, setPrefixPopupOpen] = useState(false);
+  const [prefixDraft, setPrefixDraft] = useState('');
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => labels
@@ -584,6 +592,8 @@ export default function AssetListPage({ project }) {
     const filenameOptions = { ...(activeList.filename_options ?? {}) };
     delete filenameOptions.status;
     delete filenameOptions.asset_published_at;
+    delete filenameOptions.template_id;
+    delete filenameOptions.template_name;
     saveAssetListTemplate({
       name,
       columns: structuredClone(columns),
@@ -621,7 +631,7 @@ export default function AssetListPage({ project }) {
       categories: nextCategories,
       rows: nextRows,
       global_separator: template.global_separator ?? '_',
-      filename_options: { ...(template.filename_options ?? {}), status: 'none' },
+      filename_options: { ...(template.filename_options ?? {}), status: 'none', template_id: template.id, template_name: template.name },
     });
     markProjectEdited(project.id);
   };
@@ -902,6 +912,36 @@ export default function AssetListPage({ project }) {
 
   const updateCategory = (categoryId, patch) => {
     saveCategories(categories.map((category) => category.id === categoryId ? { ...category, ...patch } : category));
+  };
+
+  const dropCategory = (targetCategoryId) => {
+    const source = categories.find((category) => category.id === dragCategoryId);
+    const target = categories.find((category) => category.id === targetCategoryId);
+    if (!source || !target || source.id === target.id || (source.parent_id ?? null) !== (target.parent_id ?? null)) {
+      setDragCategoryId('');
+      setDragTargetCategoryId('');
+      return;
+    }
+    let nextCategories;
+    if (!source.parent_id) {
+      const rootBlocks = categories.filter((category) => !category.parent_id).map((root) => [root, ...categories.filter((category) => category.parent_id === root.id)]);
+      const sourceIndex = rootBlocks.findIndex((block) => block[0].id === source.id);
+      const targetIndex = rootBlocks.findIndex((block) => block[0].id === target.id);
+      const [moved] = rootBlocks.splice(sourceIndex, 1);
+      rootBlocks.splice(targetIndex, 0, moved);
+      nextCategories = rootBlocks.flat();
+    } else {
+      const siblings = categories.filter((category) => category.parent_id === source.parent_id);
+      const sourceIndex = siblings.findIndex((category) => category.id === source.id);
+      const targetIndex = siblings.findIndex((category) => category.id === target.id);
+      const [moved] = siblings.splice(sourceIndex, 1);
+      siblings.splice(targetIndex, 0, moved);
+      let siblingIndex = 0;
+      nextCategories = categories.map((category) => category.parent_id === source.parent_id ? siblings[siblingIndex++] : category);
+    }
+    saveCategories(nextCategories);
+    setDragCategoryId('');
+    setDragTargetCategoryId('');
   };
 
   const deleteCategory = (categoryId) => {
@@ -1292,10 +1332,23 @@ export default function AssetListPage({ project }) {
           <button type="button" onClick={addCategory} className="asset-list-tool"><Plus size={15} /> Category</button>
           <span className="asset-list-tool-divider" />
           <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={15} /> Columns</button>
+          <button
+            type="button"
+            className="asset-list-tool"
+            onClick={() => {
+              setPrefixDraft(activeList.filename_options?.prefix_override ?? '');
+              setPrefixPopupOpen(true);
+            }}
+          >
+            Filename prefix
+          </button>
           <label className="asset-template-picker">
             <span>Template</span>
-            <select value="" onChange={(event) => { applyAssetListTemplate(event.target.value); event.target.value = ''; }}>
+            <select value={activeList.filename_options?.template_id ?? ''} onChange={(event) => applyAssetListTemplate(event.target.value)}>
               <option value="">Choose template</option>
+              {activeList.filename_options?.template_id && !assetListTemplates.some((template) => template.id === activeList.filename_options.template_id) && (
+                <option value={activeList.filename_options.template_id}>{activeList.filename_options.template_name || 'Deleted template'}</option>
+              )}
               {assetListTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
             </select>
           </label>
@@ -1408,7 +1461,37 @@ export default function AssetListPage({ project }) {
             const categoryGridTemplate = isStaticCategory ? staticGridTemplate : fullGridTemplate;
             return (
               <div key={category.id} className={`asset-category-container ${category.parent_id ? 'is-subcategory' : ''}`}>
-                <div className={`asset-category-bar ${category.parent_id ? 'is-subcategory' : ''}`}>
+                <div
+                  className={`asset-category-bar ${category.parent_id ? 'is-subcategory' : ''} ${dragTargetCategoryId === category.id ? 'is-category-drop-target' : ''}`}
+                  onDragOver={(event) => {
+                    const source = categories.find((item) => item.id === dragCategoryId);
+                    if (!source || (source.parent_id ?? null) !== (category.parent_id ?? null)) return;
+                    event.preventDefault();
+                    setDragTargetCategoryId(category.id);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    dropCategory(category.id);
+                  }}
+                >
+                  <button
+                    type="button"
+                    draggable
+                    className="asset-header-icon asset-category-drag-handle"
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', category.id);
+                      setDragCategoryId(category.id);
+                    }}
+                    onDragEnd={() => {
+                      setDragCategoryId('');
+                      setDragTargetCategoryId('');
+                    }}
+                    aria-label={`Reorder ${category.name}`}
+                    data-tooltip="Drag category"
+                  >
+                    <GripVertical size={12} />
+                  </button>
                   {categories.length > 0 && (
                     <button type="button" onClick={() => deleteCategory(category.id)} className="asset-header-icon" data-tooltip="Delete category" aria-label="Delete category"><Trash2 size={12} /></button>
                   )}
@@ -1816,6 +1899,52 @@ export default function AssetListPage({ project }) {
           </div>
           <footer>{selectedRatios.length} additional {selectedRatios.length === 1 ? 'ratio' : 'ratios'} created</footer>
         </aside>
+      )}
+
+      {prefixPopupOpen && (
+        <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={() => setPrefixPopupOpen(false)}>
+          <div className="asset-prefix-popup" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <h2>Filename prefix</h2>
+                <p>Replace project number, client abbreviation, and project name with custom text.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setPrefixPopupOpen(false)} aria-label="Close"><X size={16} /></button>
+            </header>
+            <label>
+              <span>Custom prefix</span>
+              <input value={prefixDraft} onChange={(event) => setPrefixDraft(event.target.value)} placeholder="Enter filename prefix" autoFocus />
+            </label>
+            <div className="asset-prefix-preview">
+              <span>Current project prefix</span>
+              <strong>{[project.project_number, projectClientCode(project, clients), project.name].filter(Boolean).join(activeList.global_separator || '_')}</strong>
+            </div>
+            <footer>
+              <button
+                type="button"
+                className="asset-prefix-project-button"
+                onClick={() => {
+                  saveList({ filename_options: { ...(activeList.filename_options ?? {}), prefix_override: '' } });
+                  setPrefixPopupOpen(false);
+                }}
+              >
+                <Plus size={14} /> Use project code/name
+              </button>
+              <button type="button" className="secondary-button" onClick={() => setPrefixPopupOpen(false)}>Cancel</button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!prefixDraft.trim()}
+                onClick={() => {
+                  saveList({ filename_options: { ...(activeList.filename_options ?? {}), prefix_override: prefixDraft.trim() } });
+                  setPrefixPopupOpen(false);
+                }}
+              >
+                Save prefix
+              </button>
+            </footer>
+          </div>
+        </div>
       )}
 
       {settingsColumn && (

@@ -1089,6 +1089,13 @@ export function PlannerProvider({ children }) {
         }
         return savedTemplate;
       }),
+      deleteAssetListTemplate: (templateId) => mutate((draft) => {
+        const templates = (draft.appSettings?.assetListTemplates ?? []).filter((template) => template.id !== templateId);
+        draft.appSettings = { ...(draft.appSettings ?? DEFAULT_APP_SETTINGS), assetListTemplates: templates };
+        if (useSupabase) {
+          void saveSupabase('asset list templates', supabase.from('app_settings').upsert({ key: 'asset_list_templates', value: templates }, { onConflict: 'key' }));
+        }
+      }),
       addLineItem: (projectId, categoryId, startDate = null, values = {}, version = DEFAULT_PLANNING_VERSION, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
         const safeType = planningType(type);
         const count = draft.lineItems.filter((item) => item.project_id === projectId && planningType(item.planning_type) === safeType && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).length;
