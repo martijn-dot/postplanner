@@ -504,6 +504,7 @@ export default function AssetListPage({ project }) {
   const [ratioMenuRowId, setRatioMenuRowId] = useState('');
   const [selectedRatios, setSelectedRatios] = useState([]);
   const [customStaticSizeDraft, setCustomStaticSizeDraft] = useState('');
+  const [customRatioDraft, setCustomRatioDraft] = useState('');
   const [showClones, setShowClones] = useState(true);
   const [categoryKindPromptOpen, setCategoryKindPromptOpen] = useState(false);
   const [dragRowId, setDragRowId] = useState('');
@@ -546,6 +547,9 @@ export default function AssetListPage({ project }) {
     .sort((a, b) => Boolean(a.project_id) - Boolean(b.project_id) || (a.sort_order ?? 9999) - (b.sort_order ?? 9999)), [labels, project.id]);
   const staticSizeLabels = useMemo(() => labels
     .filter((label) => (!label.project_id || label.project_id === project.id) && label.column_type === 'asset_static_size' && !label.is_divider)
+    .sort((a, b) => Boolean(a.project_id) - Boolean(b.project_id) || (a.sort_order ?? 9999) - (b.sort_order ?? 9999)), [labels, project.id]);
+  const ratioLabels = useMemo(() => labels
+    .filter((label) => (!label.project_id || label.project_id === project.id) && label.column_type === 'asset_ratio' && !label.is_divider)
     .sort((a, b) => Boolean(a.project_id) - Boolean(b.project_id) || (a.sort_order ?? 9999) - (b.sort_order ?? 9999)), [labels, project.id]);
 
   useEffect(() => {
@@ -901,6 +905,7 @@ export default function AssetListPage({ project }) {
       .filter(Boolean);
     setSelectedRatios(createdRatios);
     setCustomStaticSizeDraft('');
+    setCustomRatioDraft('');
     setRatioMenuRowId(sourceRowId);
   };
 
@@ -914,6 +919,18 @@ export default function AssetListPage({ project }) {
       syncRatioGroup(sourceRowId, [...selectedRatios, size]);
     }
     setCustomStaticSizeDraft('');
+  };
+
+  const addProjectRatio = (sourceRowId) => {
+    const ratio = customRatioDraft.trim().replace(/\s*[x×:]\s*/i, 'x');
+    if (!ratio) return;
+    if (!ratioLabels.some((label) => label.value.trim().toLowerCase() === ratio.toLowerCase())) {
+      addLabel(project.id, 'asset_ratio', ratio, '#28b8ff');
+    }
+    if (!selectedRatios.some((item) => item.toLowerCase() === ratio.toLowerCase())) {
+      syncRatioGroup(sourceRowId, [...selectedRatios, ratio]);
+    }
+    setCustomRatioDraft('');
   };
 
   const toggleRatioForRow = (sourceRowId, ratio) => {
@@ -1353,7 +1370,7 @@ export default function AssetListPage({ project }) {
   const mainAssetRatio = ratioPanelSource?.values?.[ratioPanelColumn?.id] ?? '';
   const availableRatioOptions = ratioPanelIsStatic
     ? [...new Set([...STATIC_COLUMNS.find((column) => column.label_type === 'asset_static_size').options, ...staticSizeLabels.map((label) => label.value)])]
-    : [...new Set([...QUICK_RATIO_OPTIONS, ...(globalOptions.asset_ratio ?? [])])];
+    : [...new Set([...QUICK_RATIO_OPTIONS, ...ratioLabels.map((label) => label.value)])];
   const displayedCategories = categories.length
     ? categories
       .filter((category) => !category.parent_id)
@@ -1364,6 +1381,12 @@ export default function AssetListPage({ project }) {
     if (isUniqueRatioColumn(column) || /^length$/i.test(column?.name ?? '')) return 52;
     if (column?.label_type === 'asset_ratio') return 67;
     if (/^name$/i.test(column?.name ?? '')) return compactColumnWidth(Number(column.width) || 240);
+    if (column?.label_type === 'asset_static_type') {
+      const videoAssetTypeColumn = columns.find((item) => item.label_type === 'asset_type');
+      return videoAssetTypeColumn
+        ? compactColumnWidth(autoFitColumnWidth(videoAssetTypeColumn))
+        : compactColumnWidth(Number(column.width) || 180);
+    }
     return compactColumnWidth(autoFitColumnWidth(column));
   };
   const fullGridTemplate = `52px 78px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
@@ -1902,23 +1925,22 @@ export default function AssetListPage({ project }) {
             <strong>{mainAssetRatio || 'Not selected'}</strong>
           </div>
           <p>Selecting a {ratioPanelIsStatic ? 'size' : 'ratio'} creates a numbered row directly below the main asset. Deselecting it removes that row.</p>
-          {ratioPanelIsStatic && (
-            <form
-              className="asset-ratio-drawer-add"
-              onSubmit={(event) => {
-                event.preventDefault();
-                addProjectStaticSize(ratioPanelSource.id);
-              }}
-            >
-              <input
-                value={customStaticSizeDraft}
-                onChange={(event) => setCustomStaticSizeDraft(event.target.value)}
-                placeholder="Add project size, e.g. 400x500"
-                aria-label="Add a project-specific static size"
-              />
-              <button type="submit" disabled={!customStaticSizeDraft.trim()}><Plus size={14} /> Add</button>
-            </form>
-          )}
+          <form
+            className="asset-ratio-drawer-add"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (ratioPanelIsStatic) addProjectStaticSize(ratioPanelSource.id);
+              else addProjectRatio(ratioPanelSource.id);
+            }}
+          >
+            <input
+              value={ratioPanelIsStatic ? customStaticSizeDraft : customRatioDraft}
+              onChange={(event) => ratioPanelIsStatic ? setCustomStaticSizeDraft(event.target.value) : setCustomRatioDraft(event.target.value)}
+              placeholder={ratioPanelIsStatic ? 'Add project size, e.g. 400x500' : 'Add custom ratio, e.g. 5x4'}
+              aria-label={ratioPanelIsStatic ? 'Add a project-specific static size' : 'Add a project-specific ratio'}
+            />
+            <button type="submit" disabled={!(ratioPanelIsStatic ? customStaticSizeDraft : customRatioDraft).trim()}><Plus size={14} /> Add</button>
+          </form>
           <div className="asset-ratio-drawer-options">
             {availableRatioOptions.map((ratio) => {
               const ratioSelected = selectedRatios.includes(ratio);
