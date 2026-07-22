@@ -1732,7 +1732,7 @@ nav .tab-active {
 }
 
 .asset-frame-link-actions {
-  align-items: center;
+  align-items: flex-end;
   display: flex;
   gap: 4px;
   justify-content: flex-start;
@@ -1760,9 +1760,24 @@ nav .tab-active {
   padding: 0 8px;
 }
 
+.asset-frame-link-main.is-preview {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #f59e0b;
+  color: #ffd27a;
+}
+
+.asset-frame-link-main.is-preview:hover {
+  background: rgba(245, 158, 11, 0.34);
+  border-color: #fbbf24;
+  color: #fff4d6;
+}
+
 .asset-frame-link-mini {
+  border-radius: 3px;
+  font-size: 0.34rem;
+  height: 12px;
   padding: 0;
-  width: 24px;
+  width: 12px;
 }
 
 .asset-frame-link-main:hover,

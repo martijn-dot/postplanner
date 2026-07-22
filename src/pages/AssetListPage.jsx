@@ -1816,7 +1816,7 @@ export default function AssetListPage({ project }) {
                             <div className="asset-frame-link-actions">
                               {value ? (
                                 <>
-                                  <a className="asset-frame-link-main" href={linkHref(value)} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+                                  <a className="asset-frame-link-main is-preview" href={linkHref(value)} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
                                     Preview
                                   </a>
                                   <button type="button" className="asset-frame-link-mini" onClick={(event) => { event.stopPropagation(); openFrameLinkPopup(row.id, column.id, value); }} aria-label="Update Frame.io link" title="Update link">U</button>
