@@ -14,6 +14,8 @@ const ASSET_LABEL_TYPES = [
   ['asset_type', 'Asset Type'],
   ['asset_ratio', 'Ratio'],
   ['asset_platform', 'Platform'],
+  ['asset_static_type', 'Static Asset Type'],
+  ['asset_static_size', 'Static Size'],
 ];
 
 function SortableLabelRow({ label, onUpdate, onDelete }) {

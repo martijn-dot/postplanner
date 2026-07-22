@@ -33,6 +33,10 @@ const DEFAULT_ASSET_LABELS = [
     .map((value, index) => ({ column_type: 'asset_unique_ratio', value, color: '#f59e0b', sort_order: index })),
   ...['IG', 'FB', 'IG+TB', 'YT', 'TK', 'PIN', 'SPF']
     .map((value, index) => ({ column_type: 'asset_platform', value, color: '#10b981', sort_order: index })),
+  ...['IMG', 'Static', 'Banner', 'Dyn Banner', 'Photo']
+    .map((value, index) => ({ column_type: 'asset_static_type', value, color: '#28b8ff', sort_order: index })),
+  ...['300x250', '728x90', '160x600', '300x600', '320x50', '1080x1080', '1080x1350', '1080x1920', '1200x628', '1920x1080']
+    .map((value, index) => ({ column_type: 'asset_static_size', value, color: '#10b981', sort_order: index })),
 ];
 
 function projectVersions(project) {
@@ -184,6 +188,8 @@ function defaultAssetColumns() {
     { id: id(), name: 'Frame.io', type: 'url', options: [], separator: null, width: 210, sort_order: 3, exclude_from_filename: true },
     { id: id(), name: 'Length', type: 'length', options: [], separator: null, width: 120, sort_order: 4 },
     { id: id(), name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_ratio').map((label) => label.value), separator: null, width: 140, sort_order: 5 },
+    { id: id(), name: 'Static Asset Type', type: 'dropdown', label_type: 'asset_static_type', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_static_type').map((label) => label.value), separator: null, width: 180, sort_order: 6 },
+    { id: id(), name: 'Size', type: 'dropdown', label_type: 'asset_static_size', options: DEFAULT_ASSET_LABELS.filter((label) => label.column_type === 'asset_static_size').map((label) => label.value), separator: null, width: 150, sort_order: 7 },
   ];
 }
 

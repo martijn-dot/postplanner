@@ -14,6 +14,8 @@ const LABEL_TYPE_NAMES = {
   asset_ratio: 'Ratio',
   asset_unique_ratio: 'Unique/Ratio',
   asset_platform: 'Platform',
+  asset_static_type: 'Static Asset Type',
+  asset_static_size: 'Size',
 };
 
 const STANDARD_COLUMNS = [
@@ -23,6 +25,10 @@ const STANDARD_COLUMNS = [
   { name: 'Frame.io', type: 'url', options: [], width: 210, exclude_from_filename: true },
   { name: 'Length', type: 'length', options: [], width: 120 },
   { name: 'Ratio', type: 'dropdown', label_type: 'asset_ratio', options: DEFAULT_RATIOS, width: 140 },
+];
+const STATIC_COLUMNS = [
+  { name: 'Static Asset Type', type: 'dropdown', label_type: 'asset_static_type', options: ['IMG', 'Static', 'Banner', 'Dyn Banner', 'Photo'], width: 180 },
+  { name: 'Size', type: 'dropdown', label_type: 'asset_static_size', options: ['300x250', '728x90', '160x600', '300x600', '320x50', '1080x1080', '1080x1350', '1080x1920', '1200x628', '1920x1080'], width: 150 },
 ];
 
 const SEPARATORS = ['-', '_', ' '];
@@ -479,6 +485,8 @@ export default function AssetListPage({ project }) {
       asset_ratio: [],
       asset_unique_ratio: [],
       asset_platform: [],
+      asset_static_type: [],
+      asset_static_size: [],
     }), [labels]);
   const assetTypeLabels = useMemo(() => labels
     .filter((label) => (!label.project_id || label.project_id === project.id) && label.column_type === 'asset_type' && !label.is_divider)
@@ -486,6 +494,12 @@ export default function AssetListPage({ project }) {
       if (Boolean(a.project_id) !== Boolean(b.project_id)) return a.project_id ? 1 : -1;
       return (a.sort_order ?? 9999) - (b.sort_order ?? 9999);
     }), [labels, project.id]);
+  const staticAssetTypeLabels = useMemo(() => labels
+    .filter((label) => (!label.project_id || label.project_id === project.id) && label.column_type === 'asset_static_type' && !label.is_divider)
+    .sort((a, b) => Boolean(a.project_id) - Boolean(b.project_id) || (a.sort_order ?? 9999) - (b.sort_order ?? 9999)), [labels, project.id]);
+  const staticSizeLabels = useMemo(() => labels
+    .filter((label) => (!label.project_id || label.project_id === project.id) && label.column_type === 'asset_static_size' && !label.is_divider)
+    .sort((a, b) => Boolean(a.project_id) - Boolean(b.project_id) || (a.sort_order ?? 9999) - (b.sort_order ?? 9999)), [labels, project.id]);
 
   useEffect(() => {
     if (!projectLists.length) {
@@ -498,7 +512,7 @@ export default function AssetListPage({ project }) {
 
   const activeList = projectLists.find((item) => item.id === activeId) ?? projectLists[0];
   const columns = orderedColumns(activeList);
-  const visibleColumns = columns.filter((column) => isUniqueRatioColumn(column) || !column.hidden);
+  const visibleColumns = columns.filter((column) => (isUniqueRatioColumn(column) || !column.hidden) && !['asset_static_type', 'asset_static_size'].includes(column.label_type));
   const beforeFilenameColumns = visibleColumns.filter((column) => !isFrameColumn(column));
   const afterCopyColumns = visibleColumns.filter(isFrameColumn);
   const rows = orderedRows(activeList);
@@ -679,6 +693,22 @@ export default function AssetListPage({ project }) {
   }, [activeList?.id, columns.length]);
 
   useEffect(() => {
+    if (!activeList || !columns.length) return;
+    const missingStaticColumns = STATIC_COLUMNS.filter((definition) => !columns.some((column) => column.label_type === definition.label_type));
+    if (!missingStaticColumns.length) return;
+    const additions = missingStaticColumns.map((definition, index) => ({
+      ...definition,
+      id: uid(),
+      separator: null,
+      sort_order: columns.length + index,
+      options: globalOptions[definition.label_type]?.length ? globalOptions[definition.label_type] : definition.options,
+    }));
+    const nextRows = additions.reduce((currentRows, column) => updateRowsForColumn(currentRows, column.id), activeList.rows);
+    saveColumns([...columns, ...additions], nextRows);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeList?.id, columns.length]);
+
+  useEffect(() => {
     if (!activeList || categories.length) return;
     const category = { id: uid(), name: 'Category 1', collapsed: false, sort_order: 0 };
     saveList({
@@ -797,7 +827,7 @@ export default function AssetListPage({ project }) {
 
   const addCategory = () => {
     const mainCategoryCount = categories.filter((category) => !category.parent_id).length;
-    const category = { id: uid(), name: `Category ${mainCategoryCount + 1}`, collapsed: false, sort_order: categories.length };
+    const category = { id: uid(), name: `Category ${mainCategoryCount + 1}`, asset_kind: 'video', collapsed: false, sort_order: categories.length };
     saveCategories([...categories, category]);
   };
 
@@ -807,6 +837,7 @@ export default function AssetListPage({ project }) {
       id: uid(),
       name: `Subcategory ${siblingCount + 1}`,
       parent_id: parentId,
+      asset_kind: categories.find((category) => category.id === parentId)?.asset_kind ?? 'video',
       collapsed: false,
       sort_order: categories.length,
     };
@@ -1158,6 +1189,16 @@ export default function AssetListPage({ project }) {
     return compactColumnWidth(autoFitColumnWidth(column));
   };
   const fullGridTemplate = `52px 78px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
+  const staticVisibleColumns = [
+    columns.find((column) => column.label_type === 'asset_ratio'),
+    columns.find((column) => column.label_type === 'asset_static_type'),
+    columns.find((column) => /^name$/i.test(column.name ?? '')),
+    columns.find((column) => column.label_type === 'asset_static_size'),
+    columns.find((column) => isFrameColumn(column)),
+  ].filter(Boolean);
+  const staticBeforeFilenameColumns = staticVisibleColumns.filter((column) => !isFrameColumn(column));
+  const staticAfterCopyColumns = staticVisibleColumns.filter(isFrameColumn);
+  const staticGridTemplate = `52px 78px 60px ${staticBeforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${staticAfterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
 
   return (
     <main className="asset-list-page flex h-[calc(100vh-7rem)] flex-col text-ink-950 dark:text-ink-100">
@@ -1212,6 +1253,7 @@ export default function AssetListPage({ project }) {
 
       <div className="asset-list-scroll flex-1 overflow-auto">
         <div className="min-w-max">
+          {displayedCategories.some((category) => !category.container_only && category.asset_kind !== 'static') && (
           <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: fullGridTemplate }}>
             <div className="asset-list-header locked" aria-label="Actions" />
             <div className="asset-list-header locked"><span className="asset-header-label">Status</span></div>
@@ -1290,11 +1332,16 @@ export default function AssetListPage({ project }) {
             ))}
             <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
           </div>
+          )}
 
           {displayedCategories.map((category) => {
             const parentCategory = category.parent_id ? categories.find((item) => item.id === category.parent_id) : null;
             if (parentCategory?.collapsed) return null;
             const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === category.id);
+            const isStaticCategory = category.asset_kind === 'static';
+            const categoryBeforeColumns = isStaticCategory ? staticBeforeFilenameColumns : beforeFilenameColumns;
+            const categoryAfterColumns = isStaticCategory ? staticAfterCopyColumns : afterCopyColumns;
+            const categoryGridTemplate = isStaticCategory ? staticGridTemplate : fullGridTemplate;
             return (
               <div key={category.id} className={`asset-category-container ${category.parent_id ? 'is-subcategory' : ''}`}>
                 <div className={`asset-category-bar ${category.parent_id ? 'is-subcategory' : ''}`}>
@@ -1309,6 +1356,15 @@ export default function AssetListPage({ project }) {
                     value={category.name}
                     onChange={(event) => updateCategory(category.id, { name: event.target.value })}
                   />
+                  {!category.container_only && (
+                    <label className="asset-category-kind">
+                      <span>Type</span>
+                      <select value={category.asset_kind ?? 'video'} onChange={(event) => updateCategory(category.id, { asset_kind: event.target.value })}>
+                        <option value="video">Video</option>
+                        <option value="static">Static</option>
+                      </select>
+                    </label>
+                  )}
                   {!category.parent_id && (
                     <button
                       type="button"
@@ -1320,13 +1376,25 @@ export default function AssetListPage({ project }) {
                   )}
                 </div>
                 <div className="asset-category-body">
+                {isStaticCategory && !category.collapsed && (
+                  <div className="asset-list-row asset-static-header grid" style={{ gridTemplateColumns: categoryGridTemplate }}>
+                    <div className="asset-list-header locked" />
+                    <div className="asset-list-header locked"><span className="asset-header-label">Status</span></div>
+                    <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
+                    {categoryBeforeColumns.map((column) => <div key={column.id} className="asset-list-header"><span className="asset-header-label">{column.label_type === 'asset_static_type' ? 'Asset Type' : column.name}</span></div>)}
+                    <div className="asset-list-header locked"><span className="asset-header-label">Filename</span></div>
+                    <div className="asset-list-header locked"><span className="asset-header-label">Copy</span></div>
+                    {categoryAfterColumns.map((column) => <div key={column.id} className="asset-list-header"><span className="asset-header-label">{column.name}</span></div>)}
+                    <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
+                  </div>
+                )}
                 {!category.collapsed && groupRows.map((row) => {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
                   return (
                     <div
                       key={row.id}
                       className={`asset-list-row grid border-b border-black/5 bg-white dark:border-white/5 dark:bg-ink-950 ${row.ratio_group ? 'is-ratio-group-parent' : ''} ${row.ratio_parent_id ? 'is-ratio-group-child' : ''} ${dragTargetRowId === row.id ? 'is-row-drop-target' : ''}`}
-                      style={{ gridTemplateColumns: fullGridTemplate }}
+                      style={{ gridTemplateColumns: categoryGridTemplate }}
                       onDragOver={(event) => {
                         if (!dragRowId || row.ratio_parent_id) return;
                         event.preventDefault();
@@ -1392,11 +1460,13 @@ export default function AssetListPage({ project }) {
                           onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'number' })}
                         />
                       </div>
-                      {beforeFilenameColumns.map((column) => {
+                      {categoryBeforeColumns.map((column) => {
                         const columnIndex = columns.findIndex((item) => item.id === column.id);
                         const isUniqueRatioColumn = column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? '');
                         const isRatioColumn = column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? '');
                         const isAssetTypeColumn = column.label_type === 'asset_type' || /^asset\s*type$/i.test(column.name ?? '');
+                        const isStaticAssetTypeColumn = column.label_type === 'asset_static_type';
+                        const isStaticSizeColumn = column.label_type === 'asset_static_size';
                         const isRatioSharedColumn = !isUniqueRatioColumn && !isRatioColumn;
                         const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
                         const value = row.values?.[column.id] ?? '';
@@ -1464,6 +1534,17 @@ export default function AssetListPage({ project }) {
                                   placeholder={<span className="asset-label-chip is-none">None</span>}
                                   onChange={(labelId) => updateCell(row.id, column.id, assetTypeLabels.find((label) => label.id === labelId)?.value ?? '')}
                                   onAddLabel={(labelValue, color) => addLabel(project.id, 'asset_type', labelValue, color)}
+                                  onDeleteLabel={deleteLabel}
+                                />
+                              </div>
+                            ) : isStaticAssetTypeColumn || isStaticSizeColumn ? (
+                              <div className="asset-type-label-select">
+                                <LabelSelect
+                                  labels={isStaticAssetTypeColumn ? staticAssetTypeLabels : staticSizeLabels}
+                                  value={(isStaticAssetTypeColumn ? staticAssetTypeLabels : staticSizeLabels).find((label) => label.value === value)?.id ?? ''}
+                                  placeholder={<span className="asset-label-chip is-none">None</span>}
+                                  onChange={(labelId) => updateCell(row.id, column.id, (isStaticAssetTypeColumn ? staticAssetTypeLabels : staticSizeLabels).find((label) => label.id === labelId)?.value ?? '')}
+                                  onAddLabel={(labelValue, color) => addLabel(project.id, isStaticAssetTypeColumn ? 'asset_static_type' : 'asset_static_size', labelValue, color)}
                                   onDeleteLabel={deleteLabel}
                                 />
                               </div>
@@ -1536,7 +1617,7 @@ export default function AssetListPage({ project }) {
                           Copy
                         </button>
                       </div>
-                      {afterCopyColumns.map((column) => {
+                      {categoryAfterColumns.map((column) => {
                         const columnIndex = columns.findIndex((item) => item.id === column.id);
                         const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
                         const value = row.values?.[column.id] ?? '';

@@ -1256,6 +1256,43 @@ nav .tab-active {
   border-color: rgba(109, 93, 252, 0.58);
 }
 
+.asset-category-kind {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.asset-category-kind > span {
+  color: #858da3;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-category-kind select {
+  background: #11182a;
+  border: 1px solid #35405a;
+  border-radius: 7px;
+  color: #dae2fd;
+  font-size: 0.7rem;
+  font-weight: 750;
+  min-height: 29px;
+  outline: none;
+  padding: 0 26px 0 9px;
+}
+
+.asset-category-kind select:focus {
+  border-color: #8083ff;
+}
+
+.asset-static-header {
+  background: #10182a;
+  border-bottom: 1px solid #35405a;
+  min-height: 42px;
+}
+
 .asset-category-body {
   position: relative;
 }
