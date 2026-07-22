@@ -1364,6 +1364,7 @@ export default function AssetListPage({ project }) {
   const columnGridWidth = (column) => {
     if (isUniqueRatioColumn(column) || /^length$/i.test(column?.name ?? '')) return 52;
     if (column?.label_type === 'asset_ratio') return 67;
+    if (/^name$/i.test(column?.name ?? '')) return compactColumnWidth(Number(column.width) || 240);
     return compactColumnWidth(autoFitColumnWidth(column));
   };
   const fullGridTemplate = `52px 78px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
