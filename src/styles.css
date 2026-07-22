@@ -800,6 +800,35 @@ nav .tab-active {
 .asset-list-page .asset-filename-input { font-size: 0.62rem; padding-inline: 5px; }
 .asset-list-page .asset-category-bar { gap: 4px; min-height: 27px; padding: 3px 6px 3px 0; }
 .asset-list-page .asset-category-name { font-size: 0.52rem; min-width: 126px; padding: 3px 5px; }
+.asset-list-page .asset-category-title {
+  display: grid;
+  gap: 0;
+  min-width: 126px;
+}
+.asset-list-page .asset-category-title .asset-category-name {
+  padding-bottom: 0;
+}
+.asset-list-page .asset-category-type-label {
+  border: 1px solid rgba(139, 124, 255, 0.62);
+  border-radius: 3px;
+  color: #b9b0ff;
+  font-size: 0.38rem;
+  font-weight: 850;
+  justify-self: start;
+  letter-spacing: 0.075em;
+  line-height: 1;
+  margin-left: 5px;
+  padding: 2px 4px;
+  text-transform: uppercase;
+}
+.asset-list-page .asset-category-type-label.is-video {
+  background: #7567f8;
+  border-color: #7567f8;
+  color: #fff;
+}
+.asset-list-page .asset-category-type-label.is-static {
+  background: rgba(109, 93, 252, 0.1);
+}
 .asset-list-page .asset-category-bar .icon-button { height: 20px !important; width: 20px !important; }
 .asset-list-page .asset-category-bar svg { height: 11px; width: 11px; }
 .asset-list-page .asset-header-icon { height: 16px; width: 16px; }

@@ -1556,11 +1556,16 @@ export default function AssetListPage({ project }) {
                   <button type="button" onClick={() => updateCategory(category.id, { collapsed: !category.collapsed })} className="icon-button !h-7 !w-7">
                     {category.collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                   </button>
-                  <input
-                    className="asset-category-name"
-                    value={category.name}
-                    onChange={(event) => updateCategory(category.id, { name: event.target.value })}
-                  />
+                  <div className="asset-category-title">
+                    <input
+                      className="asset-category-name"
+                      value={category.name}
+                      onChange={(event) => updateCategory(category.id, { name: event.target.value })}
+                    />
+                    <span className={`asset-category-type-label is-${isStaticCategory ? 'static' : 'video'}`}>
+                      {isStaticCategory ? 'Static' : 'Video'}
+                    </span>
+                  </div>
                   {!category.parent_id && (
                     <button
                       type="button"
