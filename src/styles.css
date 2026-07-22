@@ -1719,6 +1719,110 @@ nav .tab-active {
   color: #c7c0ff;
 }
 
+.asset-frame-link-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-start;
+  min-width: 0;
+  width: 100%;
+}
+
+.asset-frame-link-main,
+.asset-frame-link-mini {
+  align-items: center;
+  background: rgba(109, 93, 252, 0.12);
+  border: 1px solid rgba(128, 131, 255, 0.46);
+  border-radius: 5px;
+  color: #c7c0ff;
+  display: inline-flex;
+  font-size: 0.58rem;
+  font-weight: 850;
+  height: 24px;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.asset-frame-link-main {
+  padding: 0 8px;
+}
+
+.asset-frame-link-mini {
+  padding: 0;
+  width: 24px;
+}
+
+.asset-frame-link-main:hover,
+.asset-frame-link-mini:hover {
+  background: rgba(109, 93, 252, 0.28);
+  border-color: #8083ff;
+  color: #fff;
+}
+
+.asset-frame-link-popup {
+  background: #11182a;
+  border: 1px solid #35405a;
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
+  color: #dae2fd;
+  padding: 18px;
+  width: min(520px, 100%);
+}
+
+.asset-frame-link-popup header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.asset-frame-link-popup h2 {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.asset-frame-link-popup header p {
+  color: #8f99b2;
+  font-size: 0.76rem;
+  margin-top: 4px;
+}
+
+.asset-frame-link-popup > label {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.asset-frame-link-popup > label > span {
+  color: #858da3;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.asset-frame-link-popup input {
+  background: #0b1326;
+  border: 1px solid #3c465e;
+  border-radius: 8px;
+  color: #dae2fd;
+  min-height: 42px;
+  outline: none;
+  padding: 0 12px;
+}
+
+.asset-frame-link-popup input:focus {
+  border-color: #8083ff;
+}
+
+.asset-frame-link-popup footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
 .asset-column-order-row {
   align-items: center;
   background: #11182a;

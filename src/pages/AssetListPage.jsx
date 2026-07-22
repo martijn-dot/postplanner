@@ -511,6 +511,8 @@ export default function AssetListPage({ project }) {
   const [templateSaveMode, setTemplateSaveMode] = useState('new');
   const [templateNameDraft, setTemplateNameDraft] = useState('');
   const [templateUpdateId, setTemplateUpdateId] = useState('');
+  const [frameLinkPopup, setFrameLinkPopup] = useState(null);
+  const [frameLinkDraft, setFrameLinkDraft] = useState('');
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => labels
@@ -582,6 +584,17 @@ export default function AssetListPage({ project }) {
   const updateAssetStatus = (status) => {
     saveList({ filename_options: { ...(activeList.filename_options ?? {}), status } }, { trackUndo: false });
     markProjectEdited(project.id);
+  };
+
+  const openFrameLinkPopup = (rowId, columnId, value = '') => {
+    setFrameLinkDraft(value);
+    setFrameLinkPopup({ rowId, columnId });
+  };
+
+  const saveFrameLink = () => {
+    if (!frameLinkPopup) return;
+    updateCell(frameLinkPopup.rowId, frameLinkPopup.columnId, frameLinkDraft.trim());
+    setFrameLinkPopup(null);
   };
 
   const publishAssetList = () => {
@@ -1832,25 +1845,17 @@ export default function AssetListPage({ project }) {
                             }}
                             onPaste={(event) => pasteCells(event, absoluteRowIndex, columnIndex)}
                           >
-                            <div className="asset-link-cell">
-                              <input
-                                className="table-input"
-                                value={value}
-                                onChange={(event) => updateCell(row.id, column.id, event.target.value)}
-                                onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
-                                onKeyDown={(event) => {
-                                  if (moveCellFocus(event, absoluteRowIndex, columnIndex)) return;
-                                  if (event.key === 'Enter') {
-                                    event.preventDefault();
-                                    focusCellBelow(absoluteRowIndex, columnIndex);
-                                  }
-                                }}
-                                placeholder="Frame.io link"
-                              />
-                              {value && (
-                                <a className="asset-open-link" href={linkHref(value)} target="_blank" rel="noreferrer" aria-label="Open Frame.io link" onClick={(event) => event.stopPropagation()}>
-                                  <ExternalLink size={13} />
-                                </a>
+                            <div className="asset-frame-link-actions">
+                              {value ? (
+                                <>
+                                  <a className="asset-frame-link-main" href={linkHref(value)} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+                                    Preview
+                                  </a>
+                                  <button type="button" className="asset-frame-link-mini" onClick={(event) => { event.stopPropagation(); openFrameLinkPopup(row.id, column.id, value); }} aria-label="Update Frame.io link" title="Update link">U</button>
+                                  <button type="button" className="asset-frame-link-mini" onClick={(event) => { event.stopPropagation(); navigator.clipboard?.writeText(value); }} aria-label="Copy Frame.io link" title="Copy link">C</button>
+                                </>
+                              ) : (
+                                <button type="button" className="asset-frame-link-main" onClick={(event) => { event.stopPropagation(); openFrameLinkPopup(row.id, column.id); }}>+ Add link</button>
                               )}
                             </div>
                           </div>
@@ -1988,6 +1993,39 @@ export default function AssetListPage({ project }) {
               <button type="button" className="primary-button" disabled={!templateNameDraft.trim() || (templateSaveMode === 'update' && !templateUpdateId)} onClick={confirmSaveCurrentListAsTemplate}>
                 {templateSaveMode === 'update' ? 'Update template' : 'Save template'}
               </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {frameLinkPopup && (
+        <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={() => setFrameLinkPopup(null)}>
+          <div className="asset-frame-link-popup" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <h2>{frameLinkDraft ? 'Update Frame.io link' : 'Add Frame.io link'}</h2>
+                <p>Paste the link for this asset below.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setFrameLinkPopup(null)} aria-label="Close"><X size={16} /></button>
+            </header>
+            <label>
+              <span>Frame.io link</span>
+              <input
+                value={frameLinkDraft}
+                onChange={(event) => setFrameLinkDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    saveFrameLink();
+                  }
+                }}
+                placeholder="https://frame.io/..."
+                autoFocus
+              />
+            </label>
+            <footer>
+              <button type="button" className="secondary-button" onClick={() => setFrameLinkPopup(null)}>Cancel</button>
+              <button type="button" className="primary-button" onClick={saveFrameLink}>Save link</button>
             </footer>
           </div>
         </div>

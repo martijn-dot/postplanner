@@ -1,7 +1,7 @@
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArchiveRestore, GripVertical, KeyRound, Plus, Search, Trash2, UserX, XCircle } from 'lucide-react';
+import { ArchiveRestore, Check, GripVertical, KeyRound, Pencil, Plus, Search, Trash2, UserX, X, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
@@ -108,6 +108,7 @@ export default function SettingsPage() {
     producers,
     labels,
     appSettings,
+    saveAssetListTemplate,
     deleteAssetListTemplate,
     projects,
     addGlobalLabel,
@@ -144,11 +145,21 @@ export default function SettingsPage() {
   const [confirmDelete, setConfirmDelete] = useState('');
   const [confirmUserDelete, setConfirmUserDelete] = useState('');
   const [archiveSearch, setArchiveSearch] = useState('');
+  const [editingTemplateId, setEditingTemplateId] = useState(null);
+  const [templateNameDraft, setTemplateNameDraft] = useState('');
   const labelSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const selectedProfile = profiles.find((item) => item.id === selectedUserId) ?? null;
   const pendingInvites = (invitations ?? [])
     .filter((invite) => !invite.accepted && !profiles.some((item) => item.email?.toLowerCase() === invite.email?.toLowerCase()))
     .sort((a, b) => new Date(b.created_at ?? 0) - new Date(a.created_at ?? 0));
+
+  const saveTemplateName = (template) => {
+    const name = templateNameDraft.trim();
+    if (!name) return;
+    saveAssetListTemplate({ ...template, name });
+    setEditingTemplateId(null);
+    setTemplateNameDraft('');
+  };
 
   const globalLabels = useMemo(() => {
     const byKey = new Map();
@@ -418,17 +429,50 @@ export default function SettingsPage() {
                 {(appSettings?.assetListTemplates ?? []).map((template) => (
                   <div key={template.id} className="flex items-center justify-between gap-3 rounded-md border border-black/10 px-3 py-2 dark:border-white/10">
                     <div className="min-w-0">
-                      <strong className="block truncate text-sm">{template.name}</strong>
+                      {editingTemplateId === template.id ? (
+                        <input
+                          className="field !h-8 !py-1 text-sm font-semibold"
+                          value={templateNameDraft}
+                          onChange={(event) => setTemplateNameDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') saveTemplateName(template);
+                            if (event.key === 'Escape') {
+                              setEditingTemplateId(null);
+                              setTemplateNameDraft('');
+                            }
+                          }}
+                          aria-label={`Name for ${template.name}`}
+                          autoFocus
+                        />
+                      ) : (
+                        <strong className="block truncate text-sm">{template.name}</strong>
+                      )}
                       <span className="text-xs text-ink-500">{template.categories?.length ?? 0} categories · {template.columns?.length ?? 0} columns</span>
                     </div>
-                    <button
-                      type="button"
-                      className="icon-button shrink-0"
-                      onClick={() => window.confirm(`Delete template “${template.name}”?`) && deleteAssetListTemplate(template.id)}
-                      aria-label={`Delete ${template.name}`}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {editingTemplateId === template.id ? (
+                        <>
+                          <button type="button" className="icon-button" onClick={() => saveTemplateName(template)} disabled={!templateNameDraft.trim()} aria-label={`Save name for ${template.name}`}>
+                            <Check size={15} />
+                          </button>
+                          <button type="button" className="icon-button" onClick={() => { setEditingTemplateId(null); setTemplateNameDraft(''); }} aria-label="Cancel renaming">
+                            <X size={15} />
+                          </button>
+                        </>
+                      ) : (
+                        <button type="button" className="icon-button" onClick={() => { setEditingTemplateId(template.id); setTemplateNameDraft(template.name); }} aria-label={`Rename ${template.name}`}>
+                          <Pencil size={15} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => window.confirm(`Delete template “${template.name}”?`) && deleteAssetListTemplate(template.id)}
+                        aria-label={`Delete ${template.name}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {!(appSettings?.assetListTemplates ?? []).length && <p className="rounded-md border border-white/10 p-3 text-sm text-ink-500">No templates saved yet.</p>}
