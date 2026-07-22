@@ -29,7 +29,7 @@ const STANDARD_COLUMNS = [
 ];
 const STATIC_COLUMNS = [
   { name: 'Static Asset Type', type: 'dropdown', label_type: 'asset_static_type', options: ['IMG', 'Static', 'Banner', 'Dyn Banner', 'Photo'], width: 180 },
-  { name: 'Size', type: 'dropdown', label_type: 'asset_static_size', options: ['300x250', '728x90', '160x600', '300x600', '320x50', '1080x1080', '1080x1350', '1080x1920', '1200x628', '1920x1080'], width: 150 },
+  { name: 'Size', type: 'dropdown', label_type: 'asset_static_size', options: ['88x31', '100x100', '120x60', '120x90', '120x240', '120x600', '160x600', '180x150', '234x60', '240x400', '250x250', '300x100', '300x250', '300x600', '320x50', '336x280', '468x60', '720x300', '728x90', '1080x1080', '1080x1350', '1080x1920', '1200x628', '1920x1080'], width: 150 },
 ];
 
 const SEPARATORS = ['-', '_', ' '];
@@ -108,7 +108,9 @@ function generatedFilename(project, list, row, clients = []) {
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   const customPrefix = String(list.filename_options?.prefix_override ?? '').trim();
-  const baseParts = [...(customPrefix ? [customPrefix] : standardProjectParts), row.number]
+  const prefixSeparator = list.filename_options?.prefix_separator ?? list.global_separator ?? '_';
+  const formattedCustomPrefix = customPrefix.replace(/\s+/g, prefixSeparator);
+  const baseParts = [...(formattedCustomPrefix ? [formattedCustomPrefix] : standardProjectParts), row.number]
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   const rowParts = columns
@@ -487,6 +489,11 @@ export default function AssetListPage({ project }) {
   const [dragTargetCategoryId, setDragTargetCategoryId] = useState('');
   const [prefixPopupOpen, setPrefixPopupOpen] = useState(false);
   const [prefixDraft, setPrefixDraft] = useState('');
+  const [prefixSeparator, setPrefixSeparator] = useState('_');
+  const [templatePopupOpen, setTemplatePopupOpen] = useState(false);
+  const [templateSaveMode, setTemplateSaveMode] = useState('new');
+  const [templateNameDraft, setTemplateNameDraft] = useState('');
+  const [templateUpdateId, setTemplateUpdateId] = useState('');
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => labels
@@ -587,20 +594,34 @@ export default function AssetListPage({ project }) {
 
   const saveCurrentListAsTemplate = () => {
     if (!isAdmin || !activeList) return;
-    const name = window.prompt('Template name', activeList.name || 'Asset list template')?.trim();
+    setTemplateSaveMode('new');
+    setTemplateUpdateId('');
+    setTemplateNameDraft(activeList.name || 'Asset list template');
+    setTemplatePopupOpen(true);
+  };
+
+  const confirmSaveCurrentListAsTemplate = () => {
+    if (!isAdmin || !activeList) return;
+    const selectedTemplate = assetListTemplates.find((template) => template.id === templateUpdateId);
+    const name = templateNameDraft.trim();
     if (!name) return;
     const filenameOptions = { ...(activeList.filename_options ?? {}) };
     delete filenameOptions.status;
     delete filenameOptions.asset_published_at;
     delete filenameOptions.template_id;
     delete filenameOptions.template_name;
-    saveAssetListTemplate({
+    const savedTemplate = saveAssetListTemplate({
+      id: templateSaveMode === 'update' ? selectedTemplate?.id : undefined,
       name,
       columns: structuredClone(columns),
       categories: structuredClone(categories),
       global_separator: activeList.global_separator ?? '_',
       filename_options: filenameOptions,
     });
+    if (savedTemplate) {
+      saveList({ filename_options: { ...(activeList.filename_options ?? {}), template_id: savedTemplate.id, template_name: savedTemplate.name } }, { trackUndo: false });
+    }
+    setTemplatePopupOpen(false);
   };
 
   const applyAssetListTemplate = (templateId) => {
@@ -1337,6 +1358,7 @@ export default function AssetListPage({ project }) {
             className="asset-list-tool"
             onClick={() => {
               setPrefixDraft(activeList.filename_options?.prefix_override ?? '');
+              setPrefixSeparator(activeList.filename_options?.prefix_separator ?? activeList.global_separator ?? '_');
               setPrefixPopupOpen(true);
             }}
           >
@@ -1901,6 +1923,56 @@ export default function AssetListPage({ project }) {
         </aside>
       )}
 
+      {templatePopupOpen && (
+        <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={() => setTemplatePopupOpen(false)}>
+          <div className="asset-template-save-popup" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <h2>Save Asset List template</h2>
+                <p>Add this setup as a new template or update an existing template.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setTemplatePopupOpen(false)} aria-label="Close"><X size={16} /></button>
+            </header>
+            <div className="asset-template-save-modes">
+              <button type="button" className={templateSaveMode === 'new' ? 'is-active' : ''} onClick={() => { setTemplateSaveMode('new'); setTemplateUpdateId(''); setTemplateNameDraft(activeList.name || 'Asset list template'); }}>
+                <Plus size={14} /> New template
+              </button>
+              <button type="button" className={templateSaveMode === 'update' ? 'is-active' : ''} disabled={!assetListTemplates.length} onClick={() => {
+                const firstTemplate = assetListTemplates[0];
+                setTemplateSaveMode('update');
+                setTemplateUpdateId(firstTemplate?.id ?? '');
+                setTemplateNameDraft(firstTemplate?.name ?? '');
+              }}>
+                Update existing
+              </button>
+            </div>
+            {templateSaveMode === 'update' && (
+              <label>
+                <span>Existing template</span>
+                <select value={templateUpdateId} onChange={(event) => {
+                  const template = assetListTemplates.find((item) => item.id === event.target.value);
+                  setTemplateUpdateId(event.target.value);
+                  setTemplateNameDraft(template?.name ?? '');
+                }}>
+                  {assetListTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                </select>
+              </label>
+            )}
+            <label>
+              <span>Template name</span>
+              <input value={templateNameDraft} onChange={(event) => setTemplateNameDraft(event.target.value)} autoFocus />
+            </label>
+            {templateSaveMode === 'update' && <p className="asset-template-overwrite-note">The selected template will be overwritten for all users.</p>}
+            <footer>
+              <button type="button" className="secondary-button" onClick={() => setTemplatePopupOpen(false)}>Cancel</button>
+              <button type="button" className="primary-button" disabled={!templateNameDraft.trim() || (templateSaveMode === 'update' && !templateUpdateId)} onClick={confirmSaveCurrentListAsTemplate}>
+                {templateSaveMode === 'update' ? 'Update template' : 'Save template'}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       {prefixPopupOpen && (
         <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={() => setPrefixPopupOpen(false)}>
           <div className="asset-prefix-popup" onMouseDown={(event) => event.stopPropagation()}>
@@ -1915,6 +1987,27 @@ export default function AssetListPage({ project }) {
               <span>Custom prefix</span>
               <input value={prefixDraft} onChange={(event) => setPrefixDraft(event.target.value)} placeholder="Enter filename prefix" autoFocus />
             </label>
+            <div className="asset-prefix-separators">
+              <span>Divider for blank spaces</span>
+              <div>
+                {[
+                  { value: '-', label: 'Hyphen', symbol: '-' },
+                  { value: '_', label: 'Underscore', symbol: '_' },
+                  { value: ' ', label: 'Blank space', symbol: 'Blank' },
+                ].map((separator) => (
+                  <button
+                    key={separator.label}
+                    type="button"
+                    className={prefixSeparator === separator.value ? 'is-active' : ''}
+                    onClick={() => setPrefixSeparator(separator.value)}
+                    aria-pressed={prefixSeparator === separator.value}
+                    title={separator.label}
+                  >
+                    {separator.symbol}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="asset-prefix-preview">
               <span>Current project prefix</span>
               <strong>{[project.project_number, projectClientCode(project, clients), project.name].filter(Boolean).join(activeList.global_separator || '_')}</strong>
@@ -1936,7 +2029,7 @@ export default function AssetListPage({ project }) {
                 className="primary-button"
                 disabled={!prefixDraft.trim()}
                 onClick={() => {
-                  saveList({ filename_options: { ...(activeList.filename_options ?? {}), prefix_override: prefixDraft.trim() } });
+                  saveList({ filename_options: { ...(activeList.filename_options ?? {}), prefix_override: prefixDraft.trim(), prefix_separator: prefixSeparator } });
                   setPrefixPopupOpen(false);
                 }}
               >

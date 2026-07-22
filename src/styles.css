@@ -465,6 +465,111 @@ nav .tab-active {
   width: min(520px, 100%);
 }
 
+.asset-template-save-popup {
+  background: #11182a;
+  border: 1px solid #35405a;
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
+  color: #dae2fd;
+  padding: 18px;
+  width: min(520px, 100%);
+}
+
+.asset-template-save-popup header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.asset-template-save-popup h2 {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.asset-template-save-popup header p,
+.asset-template-overwrite-note {
+  color: #8f99b2;
+  font-size: 0.76rem;
+  margin-top: 4px;
+}
+
+.asset-template-save-modes {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 18px;
+}
+
+.asset-template-save-modes button {
+  align-items: center;
+  border: 1px solid #665cb2;
+  border-radius: 8px;
+  color: #b9b0ff;
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 800;
+  gap: 6px;
+  justify-content: center;
+  min-height: 38px;
+}
+
+.asset-template-save-modes button.is-active {
+  background: #7567f8;
+  border-color: #7567f8;
+  color: white;
+}
+
+.asset-template-save-modes button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.asset-template-save-popup > label {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.asset-template-save-popup > label > span {
+  color: #858da3;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.asset-template-save-popup input,
+.asset-template-save-popup select {
+  background: #0b1326;
+  border: 1px solid #3c465e;
+  border-radius: 8px;
+  color: #dae2fd;
+  min-height: 42px;
+  outline: none;
+  padding: 0 12px;
+}
+
+.asset-template-save-popup input:focus,
+.asset-template-save-popup select:focus {
+  border-color: #8083ff;
+}
+
+.asset-template-overwrite-note {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  border-radius: 7px;
+  color: #f7c875;
+  padding: 8px 10px;
+}
+
+.asset-template-save-popup footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
 .asset-prefix-popup header {
   align-items: flex-start;
   display: flex;
@@ -509,6 +614,45 @@ nav .tab-active {
 
 .asset-prefix-popup input:focus {
   border-color: #8083ff;
+}
+
+.asset-prefix-separators {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.asset-prefix-separators > span {
+  color: #858da3;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.asset-prefix-separators > div {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.asset-prefix-separators button {
+  background: transparent;
+  border: 1px solid #665cb2;
+  border-radius: 6px;
+  color: #b9b0ff;
+  font-size: 0.68rem;
+  font-weight: 850;
+  min-height: 28px;
+  min-width: 34px;
+  padding: 0 8px;
+}
+
+.asset-prefix-separators button.is-active {
+  background: #7567f8;
+  border-color: #7567f8;
+  color: #ffffff;
 }
 
 .asset-prefix-preview {

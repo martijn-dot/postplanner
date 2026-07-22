@@ -36,7 +36,11 @@ const DEFAULT_ASSET_LABELS = [
     .map((value, index) => ({ column_type: 'asset_platform', value, color: '#10b981', sort_order: index })),
   ...['IMG', 'Static', 'Banner', 'Dyn Banner', 'Photo']
     .map((value, index) => ({ column_type: 'asset_static_type', value, color: '#28b8ff', sort_order: index })),
-  ...['300x250', '728x90', '160x600', '300x600', '320x50', '1080x1080', '1080x1350', '1080x1920', '1200x628', '1920x1080']
+  ...[
+    '88x31', '100x100', '120x60', '120x90', '120x240', '120x600', '160x600', '180x150',
+    '234x60', '240x400', '250x250', '300x100', '300x250', '300x600', '320x50', '336x280',
+    '468x60', '720x300', '728x90', '1080x1080', '1080x1350', '1080x1920', '1200x628', '1920x1080',
+  ]
     .map((value, index) => ({ column_type: 'asset_static_size', value, color: '#10b981', sort_order: index })),
 ];
 
@@ -205,9 +209,16 @@ function defaultAssetRows(columns = [], groupId = null) {
 }
 
 function mergeDefaultAssetLabels(labels) {
-  const nextLabels = [...labels];
-  const existingAssetTypes = new Set(nextLabels.filter((item) => !item.project_id).map((item) => item.column_type));
-  DEFAULT_ASSET_LABELS.filter((label) => !existingAssetTypes.has(label.column_type)).forEach((label) => {
+  const assetLabelTypes = new Set(DEFAULT_ASSET_LABELS.map((label) => label.column_type));
+  const seenGlobalAssetLabels = new Set();
+  const nextLabels = labels.filter((label) => {
+    if (label.project_id || !assetLabelTypes.has(label.column_type)) return true;
+    const key = `${label.column_type}:${normalizedName(label.value)}`;
+    if (seenGlobalAssetLabels.has(key)) return false;
+    seenGlobalAssetLabels.add(key);
+    return true;
+  });
+  DEFAULT_ASSET_LABELS.forEach((label) => {
     const exists = nextLabels.some((item) => !item.project_id && item.column_type === label.column_type && normalizedName(item.value) === normalizedName(label.value));
     if (!exists) {
       nextLabels.push({
@@ -1079,7 +1090,7 @@ export function PlannerProvider({ children }) {
       }),
       saveAssetListTemplate: (template) => mutate((draft) => {
         const templates = [...(draft.appSettings?.assetListTemplates ?? [])];
-        const existingIndex = templates.findIndex((item) => item.name.trim().toLowerCase() === template.name.trim().toLowerCase());
+        const existingIndex = templates.findIndex((item) => (template.id && item.id === template.id) || item.name.trim().toLowerCase() === template.name.trim().toLowerCase());
         const savedTemplate = { ...template, id: existingIndex >= 0 ? templates[existingIndex].id : id(), updated_at: new Date().toISOString() };
         if (existingIndex >= 0) templates[existingIndex] = savedTemplate;
         else templates.push(savedTemplate);
