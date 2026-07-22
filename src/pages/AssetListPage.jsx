@@ -708,8 +708,7 @@ export default function AssetListPage({ project }) {
     if (activeList?.filename_options?.filename_column_width) {
       return Math.max(150, Number(activeList.filename_options.filename_column_width));
     }
-    const longest = rows.reduce((maxLength, row) => Math.max(maxLength, generatedFilename(project, activeList, row, clients).length), 'Filename'.length);
-    return Math.max(260, Math.min(860, longest * 8 + 34));
+    return 360;
   };
 
   const startColumnResize = (event, columnId) => {
