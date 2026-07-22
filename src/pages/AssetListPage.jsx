@@ -32,6 +32,22 @@ const STATIC_COLUMNS = [
   { name: 'Size', type: 'dropdown', label_type: 'asset_static_size', options: ['88x31', '100x100', '120x60', '120x90', '120x240', '120x600', '160x600', '180x150', '234x60', '240x400', '250x250', '300x100', '300x250', '300x600', '320x50', '336x280', '468x60', '720x300', '728x90', '1080x1080', '1080x1350', '1080x1920', '1200x628', '1920x1080'], width: 150 },
 ];
 
+const DEFAULT_ASSET_LIST_TEMPLATE_ID = 'default-asset-list';
+const DEFAULT_ASSET_LIST_TEMPLATE = {
+  id: DEFAULT_ASSET_LIST_TEMPLATE_ID,
+  name: 'Default asset list',
+  columns: [...STANDARD_COLUMNS, ...STATIC_COLUMNS].map((column, index) => ({
+    ...column,
+    id: `default-column-${index}`,
+    separator: null,
+    sort_order: index,
+  })),
+  categories: [{ id: 'default-category', name: 'Category 1', asset_kind: 'video', collapsed: false, sort_order: 0 }],
+  global_separator: '_',
+  filename_options: { lowercase: false, capitalizeWords: false, hyphenateSpaces: false },
+  starter_row_count: 8,
+};
+
 const SEPARATORS = ['-', '_', ' '];
 const ASSET_STATUS_OPTIONS = [
   { value: 'none', label: 'None' },
@@ -470,6 +486,7 @@ export default function AssetListPage({ project }) {
   } = usePlanner();
   const isAdmin = profiles.some((profile) => profile.id === user.id && profile.role === 'admin');
   const assetListTemplates = appSettings.assetListTemplates ?? [];
+  const availableAssetListTemplates = [DEFAULT_ASSET_LIST_TEMPLATE, ...assetListTemplates];
   const projectLists = useMemo(
     () => assetLists.filter((item) => item.project_id === project.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
     [assetLists, project.id],
@@ -625,7 +642,7 @@ export default function AssetListPage({ project }) {
   };
 
   const applyAssetListTemplate = (templateId) => {
-    const template = assetListTemplates.find((item) => item.id === templateId);
+    const template = availableAssetListTemplates.find((item) => item.id === templateId);
     if (!template || !activeList) return;
     if (!window.confirm(`Apply “${template.name}”? Current columns, categories, and rows will be replaced.`)) return;
     const columnIdMap = Object.fromEntries((template.columns ?? []).map((column) => [column.id, uid()]));
@@ -639,9 +656,12 @@ export default function AssetListPage({ project }) {
       sort_order: index,
     }));
     const rowCategories = nextCategories.filter((category) => !category.container_only);
-    const nextRows = rowCategories.map((category, index) => ({
+    const rowTargets = template.starter_row_count
+      ? Array.from({ length: template.starter_row_count }, () => rowCategories[0])
+      : rowCategories;
+    const nextRows = rowTargets.map((category, index) => ({
       id: uid(),
-      number: String((index + 1) * 10).padStart(3, '0'),
+      number: template.starter_row_count ? String(index + 1).padStart(2, '0') : String((index + 1) * 10).padStart(3, '0'),
       group_id: category.id,
       values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])),
       sort_order: index,
@@ -1307,7 +1327,6 @@ export default function AssetListPage({ project }) {
   };
   const fullGridTemplate = `52px 78px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
   const staticVisibleColumns = [
-    columns.find((column) => column.label_type === 'asset_ratio'),
     columns.find((column) => column.label_type === 'asset_static_type'),
     columns.find((column) => /^name$/i.test(column.name ?? '')),
     columns.find((column) => column.label_type === 'asset_static_size'),
@@ -1368,10 +1387,10 @@ export default function AssetListPage({ project }) {
             <span>Template</span>
             <select value={activeList.filename_options?.template_id ?? ''} onChange={(event) => applyAssetListTemplate(event.target.value)}>
               <option value="">Choose template</option>
-              {activeList.filename_options?.template_id && !assetListTemplates.some((template) => template.id === activeList.filename_options.template_id) && (
+              {activeList.filename_options?.template_id && !availableAssetListTemplates.some((template) => template.id === activeList.filename_options.template_id) && (
                 <option value={activeList.filename_options.template_id}>{activeList.filename_options.template_name || 'Deleted template'}</option>
               )}
-              {assetListTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+              {availableAssetListTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
             </select>
           </label>
           {isAdmin && <button type="button" onClick={saveCurrentListAsTemplate} className="asset-list-tool"><Plus size={15} /> Save template</button>}
