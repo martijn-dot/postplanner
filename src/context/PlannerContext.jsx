@@ -20,6 +20,7 @@ const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
 const PLANNER_LOAD_TIMEOUT_MS = 12000;
 const DEFAULT_APP_SETTINGS = {
   defaultPlanning: DEFAULT_PLANNING_WHAT_LABELS,
+  assetListTemplates: [],
 };
 const DEFAULT_PLANNING_VERSION = 'V1';
 const OPTIONAL_LINE_ITEM_COLUMNS = new Set(['row_color', 'planning_type']);
@@ -496,7 +497,7 @@ async function loadSupabaseData() {
     supabase.from('invitations').select('*').order('created_at', { ascending: false }),
     supabase.from('clients').select('*').order('name'),
     supabase.from('producers').select('*').order('name'),
-    supabase.from('app_settings').select('*').eq('key', 'default_planning').maybeSingle(),
+    supabase.from('app_settings').select('*').in('key', ['default_planning', 'asset_list_templates']),
     supabase.from('asset_lists').select('*').order('sort_order'),
     supabase.from('public_share_links').select('*').is('revoked_at', null),
   ]);
@@ -519,6 +520,7 @@ async function loadSupabaseData() {
     preferred_planning_version: project.preferred_planning_version ?? projectVersions(project)[0] ?? DEFAULT_PLANNING_VERSION,
   }));
   const loadedLabels = mergeDefaultAssetLabels(mergeGlobalDefaultLabels(labels.data.map((label) => applyDefaultLabelColor({ ...label, sort_order: label.sort_order ?? 0, is_divider: label.is_divider ?? false }))));
+  const appSettingsByKey = Object.fromEntries((appSettings.data ?? []).map((setting) => [setting.key, setting.value]));
   return {
     projects: loadedProjects,
     categories: categories.data.map((category) => ({ ...category, planning_type: category.planning_type ?? DEFAULT_PLANNING_TYPE, planning_version: category.planning_version ?? DEFAULT_PLANNING_VERSION, collapsed: false })),
@@ -544,7 +546,8 @@ async function loadSupabaseData() {
     })),
     appSettings: {
       ...DEFAULT_APP_SETTINGS,
-      defaultPlanning: resolveDefaultPlanning({ defaultPlanning: appSettings.data?.value }, loadedLabels),
+      defaultPlanning: resolveDefaultPlanning({ defaultPlanning: appSettingsByKey.default_planning }, loadedLabels),
+      assetListTemplates: Array.isArray(appSettingsByKey.asset_list_templates) ? appSettingsByKey.asset_list_templates : [],
     },
   };
 }
@@ -1073,6 +1076,18 @@ export function PlannerProvider({ children }) {
         if (useSupabase) {
           void saveSupabase('default planning', supabase.from('app_settings').upsert({ key: 'default_planning', value: uniqueIds }, { onConflict: 'key' }));
         }
+      }),
+      saveAssetListTemplate: (template) => mutate((draft) => {
+        const templates = [...(draft.appSettings?.assetListTemplates ?? [])];
+        const existingIndex = templates.findIndex((item) => item.name.trim().toLowerCase() === template.name.trim().toLowerCase());
+        const savedTemplate = { ...template, id: existingIndex >= 0 ? templates[existingIndex].id : id(), updated_at: new Date().toISOString() };
+        if (existingIndex >= 0) templates[existingIndex] = savedTemplate;
+        else templates.push(savedTemplate);
+        draft.appSettings = { ...(draft.appSettings ?? DEFAULT_APP_SETTINGS), assetListTemplates: templates };
+        if (useSupabase) {
+          void saveSupabase('asset list templates', supabase.from('app_settings').upsert({ key: 'asset_list_templates', value: templates }, { onConflict: 'key' }));
+        }
+        return savedTemplate;
       }),
       addLineItem: (projectId, categoryId, startDate = null, values = {}, version = DEFAULT_PLANNING_VERSION, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
         const safeType = planningType(type);

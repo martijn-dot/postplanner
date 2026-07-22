@@ -1,6 +1,7 @@
 import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { downloadAssetListExcel } from '../lib/exportExcel.js';
 
@@ -445,6 +446,7 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
 }
 
 export default function AssetListPage({ project }) {
+  const { user } = useAuth();
   const {
     assetLists = [],
     labels = [],
@@ -456,7 +458,12 @@ export default function AssetListPage({ project }) {
     addLabel,
     deleteLabel,
     markProjectEdited,
+    profiles = [],
+    appSettings = {},
+    saveAssetListTemplate,
   } = usePlanner();
+  const isAdmin = profiles.some((profile) => profile.id === user.id && profile.role === 'admin');
+  const assetListTemplates = appSettings.assetListTemplates ?? [];
   const projectLists = useMemo(
     () => assetLists.filter((item) => item.project_id === project.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
     [assetLists, project.id],
@@ -568,6 +575,55 @@ export default function AssetListPage({ project }) {
       categories: nextCategories.map((category, index) => ({ ...category, sort_order: index })),
       rows: nextRows,
     });
+  };
+
+  const saveCurrentListAsTemplate = () => {
+    if (!isAdmin || !activeList) return;
+    const name = window.prompt('Template name', activeList.name || 'Asset list template')?.trim();
+    if (!name) return;
+    const filenameOptions = { ...(activeList.filename_options ?? {}) };
+    delete filenameOptions.status;
+    delete filenameOptions.asset_published_at;
+    saveAssetListTemplate({
+      name,
+      columns: structuredClone(columns),
+      categories: structuredClone(categories),
+      global_separator: activeList.global_separator ?? '_',
+      filename_options: filenameOptions,
+    });
+  };
+
+  const applyAssetListTemplate = (templateId) => {
+    const template = assetListTemplates.find((item) => item.id === templateId);
+    if (!template || !activeList) return;
+    if (!window.confirm(`Apply “${template.name}”? Current columns, categories, and rows will be replaced.`)) return;
+    const columnIdMap = Object.fromEntries((template.columns ?? []).map((column) => [column.id, uid()]));
+    const categoryIdMap = Object.fromEntries((template.categories ?? []).map((category) => [category.id, uid()]));
+    const nextColumns = (template.columns ?? []).map((column, index) => ({ ...structuredClone(column), id: columnIdMap[column.id], sort_order: index }));
+    const nextCategories = (template.categories?.length ? template.categories : [{ id: 'template-default', name: 'Category 1', asset_kind: 'video' }]).map((category, index) => ({
+      ...structuredClone(category),
+      id: categoryIdMap[category.id] ?? uid(),
+      parent_id: category.parent_id ? categoryIdMap[category.parent_id] ?? null : null,
+      collapsed: false,
+      sort_order: index,
+    }));
+    const rowCategories = nextCategories.filter((category) => !category.container_only);
+    const nextRows = rowCategories.map((category, index) => ({
+      id: uid(),
+      number: String((index + 1) * 10).padStart(3, '0'),
+      group_id: category.id,
+      values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])),
+      sort_order: index,
+      notes: '',
+    }));
+    saveList({
+      columns: nextColumns,
+      categories: nextCategories,
+      rows: nextRows,
+      global_separator: template.global_separator ?? '_',
+      filename_options: { ...(template.filename_options ?? {}), status: 'none' },
+    });
+    markProjectEdited(project.id);
   };
 
   const autoFitColumnWidth = (column) => {
@@ -1236,6 +1292,14 @@ export default function AssetListPage({ project }) {
           <button type="button" onClick={addCategory} className="asset-list-tool"><Plus size={15} /> Category</button>
           <span className="asset-list-tool-divider" />
           <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={15} /> Columns</button>
+          <label className="asset-template-picker">
+            <span>Template</span>
+            <select value="" onChange={(event) => { applyAssetListTemplate(event.target.value); event.target.value = ''; }}>
+              <option value="">Choose template</option>
+              {assetListTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+            </select>
+          </label>
+          {isAdmin && <button type="button" onClick={saveCurrentListAsTemplate} className="asset-list-tool"><Plus size={15} /> Save template</button>}
           <span className="asset-list-autosave"><Check size={12} /> Autosaved</span>
           <span className="asset-list-tool-divider" />
           <label className="asset-list-toolbar-status">
@@ -1357,13 +1421,22 @@ export default function AssetListPage({ project }) {
                     onChange={(event) => updateCategory(category.id, { name: event.target.value })}
                   />
                   {!category.container_only && (
-                    <label className="asset-category-kind">
-                      <span>Type</span>
-                      <select value={category.asset_kind ?? 'video'} onChange={(event) => updateCategory(category.id, { asset_kind: event.target.value })}>
-                        <option value="video">Video</option>
-                        <option value="static">Static</option>
-                      </select>
-                    </label>
+                    <div className="asset-category-kind" aria-label="Asset category type">
+                      {['video', 'static'].map((kind) => {
+                        const active = (category.asset_kind ?? 'video') === kind;
+                        return (
+                          <button
+                            key={kind}
+                            type="button"
+                            className={active ? 'is-active' : ''}
+                            onClick={() => updateCategory(category.id, { asset_kind: kind })}
+                            aria-pressed={active}
+                          >
+                            {kind}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                   {!category.parent_id && (
                     <button
