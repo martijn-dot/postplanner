@@ -318,12 +318,11 @@ export default function Dashboard() {
                 setVersionMenuType(definition.key);
                 setVersionMenuProjectId(project.id);
               };
-              const archivePlanningModuleAction = (definition, event) => {
+              const openArchiveAction = (event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                if (window.confirm(`Archive ${definition.label} planning for ${project.name}? This removes that planning row from the project panel.`)) {
-                  deletePlanningModule(project.id, definition.key);
-                }
+                setArchiveProjectTarget(project);
+                setArchiveConfirmText('');
               };
               const openAssetListAction = (event) => {
                 event.preventDefault();
@@ -438,10 +437,10 @@ export default function Dashboard() {
                             </button>
                             <button
                               type="button"
-                              onClick={(event) => archivePlanningModuleAction(definition, event)}
+                              onClick={openArchiveAction}
                               className="project-action-button"
-                              aria-label={`Archive ${definition.label} planning`}
-                              title={`Archive ${definition.label} planning`}
+                              aria-label={`Remove ${project.name} from projects`}
+                              title="Remove project from overview"
                             >
                               <Trash2 size={17} />
                             </button>
