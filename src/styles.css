@@ -827,7 +827,9 @@ nav .tab-active {
   color: #fff;
 }
 .asset-list-page .asset-category-type-label.is-static {
-  background: rgba(109, 93, 252, 0.1);
+  background: #7567f8;
+  border-color: #7567f8;
+  color: #fff;
 }
 .asset-list-page .asset-category-bar .icon-button { height: 20px !important; width: 20px !important; }
 .asset-list-page .asset-category-bar svg { height: 11px; width: 11px; }
