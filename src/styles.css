@@ -1296,14 +1296,18 @@ nav .tab-active {
 .asset-category-kind button {
   background: transparent;
   border: 1px solid #8b7cff;
-  border-radius: 7px;
+  border-radius: 6px;
   color: #b9b0ff;
-  font-size: 0.68rem;
-  font-weight: 850;
-  min-height: 28px;
-  padding: 0 10px;
+  font-size: 0.52rem;
+  font-weight: 800;
+  min-height: 21px;
+  padding: 0 7px;
   text-transform: uppercase;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.asset-category-bar.is-subcategory .asset-category-kind {
+  margin-left: auto;
 }
 
 .asset-category-kind button:hover {

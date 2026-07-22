@@ -1420,6 +1420,15 @@ export default function AssetListPage({ project }) {
                     value={category.name}
                     onChange={(event) => updateCategory(category.id, { name: event.target.value })}
                   />
+                  {!category.parent_id && (
+                    <button
+                      type="button"
+                      onClick={() => addSubcategory(category.id)}
+                      className="asset-add-subcategory"
+                    >
+                      <Plus size={12} /> Subcategory
+                    </button>
+                  )}
                   {!category.container_only && (
                     <div className="asset-category-kind" aria-label="Asset category type">
                       {['video', 'static'].map((kind) => {
@@ -1437,15 +1446,6 @@ export default function AssetListPage({ project }) {
                         );
                       })}
                     </div>
-                  )}
-                  {!category.parent_id && (
-                    <button
-                      type="button"
-                      onClick={() => addSubcategory(category.id)}
-                      className="asset-add-subcategory"
-                    >
-                      <Plus size={12} /> Subcategory
-                    </button>
                   )}
                 </div>
                 <div className="asset-category-body">
