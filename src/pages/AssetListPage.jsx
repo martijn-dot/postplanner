@@ -503,6 +503,9 @@ export default function AssetListPage({ project }) {
   const [openDropdownId, setOpenDropdownId] = useState('');
   const [ratioMenuRowId, setRatioMenuRowId] = useState('');
   const [selectedRatios, setSelectedRatios] = useState([]);
+  const [customStaticSizeDraft, setCustomStaticSizeDraft] = useState('');
+  const [showClones, setShowClones] = useState(true);
+  const [categoryKindPromptOpen, setCategoryKindPromptOpen] = useState(false);
   const [dragRowId, setDragRowId] = useState('');
   const [dragTargetRowId, setDragTargetRowId] = useState('');
   const [dragCategoryId, setDragCategoryId] = useState('');
@@ -831,16 +834,6 @@ export default function AssetListPage({ project }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeList?.id, columns.length]);
 
-  useEffect(() => {
-    if (!activeList || categories.length) return;
-    const category = { id: uid(), name: 'Category 1', collapsed: false, sort_order: 0 };
-    saveList({
-      categories: [category],
-      rows: rows.map((row) => ({ ...row, group_id: row.group_id ?? category.id })),
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeList?.id, categories.length]);
-
   const addRow = () => {
     const nextRow = {
       id: uid(),
@@ -908,7 +901,20 @@ export default function AssetListPage({ project }) {
       .map((row) => row.ratio_value || row.values?.[cloneValueColumn?.id])
       .filter(Boolean);
     setSelectedRatios(createdRatios);
+    setCustomStaticSizeDraft('');
     setRatioMenuRowId(sourceRowId);
+  };
+
+  const addProjectStaticSize = (sourceRowId) => {
+    const size = customStaticSizeDraft.trim().replace(/\s*[x×]\s*/i, 'x');
+    if (!size) return;
+    if (!staticSizeLabels.some((label) => label.value.trim().toLowerCase() === size.toLowerCase())) {
+      addLabel(project.id, 'asset_static_size', size, '#10b981');
+    }
+    if (!selectedRatios.some((item) => item.toLowerCase() === size.toLowerCase())) {
+      syncRatioGroup(sourceRowId, [...selectedRatios, size]);
+    }
+    setCustomStaticSizeDraft('');
   };
 
   const toggleRatioForRow = (sourceRowId, ratio) => {
@@ -955,10 +961,11 @@ export default function AssetListPage({ project }) {
     setSettingsColumnId(column.id);
   };
 
-  const addCategory = () => {
+  const addCategory = (assetKind) => {
     const mainCategoryCount = categories.filter((category) => !category.parent_id).length;
-    const category = { id: uid(), name: `Category ${mainCategoryCount + 1}`, asset_kind: 'video', collapsed: false, sort_order: categories.length };
+    const category = { id: uid(), name: `Category ${mainCategoryCount + 1}`, asset_kind: assetKind, collapsed: false, sort_order: categories.length };
     saveCategories([...categories, category]);
+    setCategoryKindPromptOpen(false);
   };
 
   const addSubcategory = (parentId) => {
@@ -1352,7 +1359,7 @@ export default function AssetListPage({ project }) {
     ? categories
       .filter((category) => !category.parent_id)
       .flatMap((category) => [category, ...categories.filter((item) => item.parent_id === category.id)])
-    : [fallbackCategory];
+    : [];
   const compactColumnWidth = (width) => Math.max(52, Math.round(width * 0.7));
   const columnGridWidth = (column) => {
     if (isUniqueRatioColumn(column) || /^length$/i.test(column?.name ?? '')) return 52;
@@ -1440,12 +1447,22 @@ export default function AssetListPage({ project }) {
             ))}
             <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="asset-tab-new" aria-label="Create new assetlist tab" data-tooltip="New tab"><Plus size={16} /></button>
         </div>
-        <div className="asset-list-tools">
+        <div className={`asset-list-tools ${categories.length ? '' : 'is-empty'}`}>
           <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={15} /> Column</button>
           <button type="button" onClick={addRow} className="asset-list-tool"><Plus size={15} /> Row</button>
-          <button type="button" onClick={addCategory} className="asset-list-tool"><Plus size={15} /> Category</button>
+          <button type="button" onClick={() => setCategoryKindPromptOpen(true)} className="asset-list-tool"><Plus size={15} /> Category</button>
           <span className="asset-list-tool-divider" />
           <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={15} /> Columns</button>
+          <button
+            type="button"
+            onClick={() => setShowClones((current) => !current)}
+            className={`asset-list-tool ${showClones ? 'is-active' : ''}`}
+            aria-pressed={showClones}
+            title={showClones ? 'Hide clone rows' : 'Show clone rows'}
+          >
+            {showClones ? <Eye size={15} /> : <EyeOff size={15} />}
+            {showClones ? 'Hide clones' : 'Show clones'}
+          </button>
           <button
             type="button"
             className="asset-list-tool"
@@ -1485,10 +1502,17 @@ export default function AssetListPage({ project }) {
 
       <div className="asset-list-scroll flex-1 overflow-auto">
         <div className="min-w-max">
+          {!categories.length && (
+            <div className="asset-list-empty-start">
+              <button type="button" onClick={() => setCategoryKindPromptOpen(true)} aria-label="Create first category" title="Create first category">
+                <Plus size={20} />
+              </button>
+            </div>
+          )}
           {displayedCategories.map((category) => {
             const parentCategory = category.parent_id ? categories.find((item) => item.id === category.parent_id) : null;
             if (parentCategory?.collapsed) return null;
-            const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === category.id);
+            const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === category.id && (showClones || !row.ratio_parent_id));
             const isStaticCategory = category.asset_kind === 'static';
             const categoryBeforeColumns = isStaticCategory ? staticBeforeFilenameColumns : beforeFilenameColumns;
             const categoryAfterColumns = isStaticCategory ? staticAfterCopyColumns : afterCopyColumns;
@@ -1545,24 +1569,6 @@ export default function AssetListPage({ project }) {
                     >
                       <Plus size={12} /> Subcategory
                     </button>
-                  )}
-                  {!category.container_only && (
-                    <div className="asset-category-kind" aria-label="Asset category type">
-                      {['video', 'static'].map((kind) => {
-                        const active = (category.asset_kind ?? 'video') === kind;
-                        return (
-                          <button
-                            key={kind}
-                            type="button"
-                            className={active ? 'is-active' : ''}
-                            onClick={() => updateCategory(category.id, { asset_kind: kind })}
-                            aria-pressed={active}
-                          >
-                            {kind}
-                          </button>
-                        );
-                      })}
-                    </div>
                   )}
                 </div>
                 <div className="asset-category-body">
@@ -1891,6 +1897,23 @@ export default function AssetListPage({ project }) {
             <strong>{mainAssetRatio || 'Not selected'}</strong>
           </div>
           <p>Selecting a {ratioPanelIsStatic ? 'size' : 'ratio'} creates a numbered row directly below the main asset. Deselecting it removes that row.</p>
+          {ratioPanelIsStatic && (
+            <form
+              className="asset-ratio-drawer-add"
+              onSubmit={(event) => {
+                event.preventDefault();
+                addProjectStaticSize(ratioPanelSource.id);
+              }}
+            >
+              <input
+                value={customStaticSizeDraft}
+                onChange={(event) => setCustomStaticSizeDraft(event.target.value)}
+                placeholder="Add project size, e.g. 400x500"
+                aria-label="Add a project-specific static size"
+              />
+              <button type="submit" disabled={!customStaticSizeDraft.trim()}><Plus size={14} /> Add</button>
+            </form>
+          )}
           <div className="asset-ratio-drawer-options">
             {availableRatioOptions.map((ratio) => {
               const ratioSelected = selectedRatios.includes(ratio);
@@ -1914,6 +1937,30 @@ export default function AssetListPage({ project }) {
           </div>
           <footer>{selectedRatios.length} additional {ratioPanelIsStatic ? (selectedRatios.length === 1 ? 'size' : 'sizes') : (selectedRatios.length === 1 ? 'ratio' : 'ratios')} created</footer>
         </aside>
+      )}
+
+      {categoryKindPromptOpen && (
+        <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={() => setCategoryKindPromptOpen(false)}>
+          <div className="asset-category-kind-popup" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <h2>Create category</h2>
+                <p>Choose which kind of asset list this category uses.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setCategoryKindPromptOpen(false)} aria-label="Close category type chooser"><X size={16} /></button>
+            </header>
+            <div className="asset-category-kind-choices">
+              <button type="button" onClick={() => addCategory('video')}>
+                <strong>Video</strong>
+                <span>Video assets, lengths, ratios and Frame.io links</span>
+              </button>
+              <button type="button" onClick={() => addCategory('static')}>
+                <strong>Static</strong>
+                <span>Static assets, sizes and Frame.io links</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {templatePopupOpen && (

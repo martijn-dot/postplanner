@@ -198,16 +198,6 @@ function defaultAssetColumns() {
   ];
 }
 
-function defaultAssetRows(columns = [], groupId = null) {
-  return Array.from({ length: 8 }, (_, index) => ({
-    id: id(),
-    number: String(index + 1).padStart(2, '0'),
-    group_id: groupId,
-    values: Object.fromEntries(columns.map((column) => [column.id, ''])),
-    sort_order: index,
-  }));
-}
-
 function mergeDefaultAssetLabels(labels) {
   const assetLabelTypes = new Set(DEFAULT_ASSET_LABELS.map((label) => label.column_type));
   const seenGlobalAssetLabels = new Set();
@@ -254,7 +244,6 @@ function mergeGlobalDefaultLabels(labels) {
 
 function createAssetList(projectId, name, sortOrder = 0) {
   const columns = defaultAssetColumns();
-  const group = { id: id(), name: 'Category 1', collapsed: false, sort_order: 0 };
   return {
     id: id(),
     project_id: projectId,
@@ -263,8 +252,8 @@ function createAssetList(projectId, name, sortOrder = 0) {
     global_separator: '_',
     filename_options: { lowercase: false, capitalizeWords: false, hyphenateSpaces: false },
     columns,
-    categories: [group],
-    rows: defaultAssetRows(columns, group.id),
+    categories: [],
+    rows: [],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
