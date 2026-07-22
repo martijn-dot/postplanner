@@ -1255,6 +1255,7 @@ export default function AssetListPage({ project }) {
     onKeyDown: (event) => {
       if (moveCellFocus(event, rowIndex, columnIndex)) return;
       if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (event.target?.closest?.('input:not([readonly]), textarea, [contenteditable="true"]')) return;
         event.preventDefault();
         if (selectedCells.length) clearSelectedCells();
         else clearSingleCell(rowIndex, columnIndex);
