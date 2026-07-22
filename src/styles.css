@@ -346,6 +346,18 @@ nav .tab-active {
   background: transparent;
 }
 
+.asset-list-page .asset-cell.copy-cell-selected,
+.asset-list-page .asset-cell.copy-cell-selected:focus,
+.asset-list-page .asset-cell.copy-cell-selected:focus-within {
+  box-shadow: none;
+}
+
+.asset-list-page .asset-cell.copy-cell-selected:has(input:not([readonly])),
+.asset-list-page .asset-cell.copy-cell-selected:has(textarea:not([readonly])),
+.asset-list-page .asset-cell.copy-cell-selected:has([contenteditable="true"]) {
+  box-shadow: inset 0 0 0 1px #6d5dfc;
+}
+
 .copy-cell-selected:focus {
   box-shadow: inset 0 0 0 1px #6d5dfc;
   --tw-ring-shadow: 0 0 #0000;
@@ -6951,8 +6963,7 @@ body.public-share-body {
   box-shadow: none;
 }
 
-.timeline-line .copy-cell-selected .table-input,
-.timeline-line .copy-cell-selected > .relative > button {
+.timeline-line .copy-cell-selected .table-input {
   border-color: #6d5dfc !important;
   box-shadow: 0 0 0 1px #6d5dfc !important;
 }

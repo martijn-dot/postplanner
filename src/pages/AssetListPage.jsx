@@ -13,14 +13,14 @@ const DEFAULT_PLATFORMS = ['IG', 'FB', 'IG+TB', 'YT', 'TK', 'PIN', 'SPF'];
 const LABEL_TYPE_NAMES = {
   asset_type: 'Asset Type',
   asset_ratio: 'Ratio',
-  asset_unique_ratio: 'Unique/Ratio',
+  asset_unique_ratio: 'Clones',
   asset_platform: 'Platform',
   asset_static_type: 'Static Asset Type',
   asset_static_size: 'Size',
 };
 
 const STANDARD_COLUMNS = [
-  { name: 'Unique/Ratio', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_UNIQUE_RATIO, width: 74 },
+  { name: 'Clones', type: 'dropdown', label_type: 'asset_unique_ratio', options: DEFAULT_UNIQUE_RATIO, width: 74 },
   { name: 'Asset Type', type: 'dropdown', label_type: 'asset_type', options: DEFAULT_ASSET_TYPES, width: 180 },
   { name: 'Name', type: 'text', options: [], width: 240 },
   { name: 'Frame.io', type: 'url', options: [], width: 210, exclude_from_filename: true },
@@ -83,7 +83,7 @@ function isFrameColumn(column) {
 }
 
 function isUniqueRatioColumn(column) {
-  return column?.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column?.name ?? '');
+  return column?.label_type === 'asset_unique_ratio' || /^(unique\s*\/\s*ratio|clones)$/i.test(column?.name ?? '');
 }
 
 function isCustomAssetColumn(column) {
@@ -339,11 +339,13 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
                 {customColumn ? (
                   <>
                     <option value="text">Text</option>
+                    <option value="number">Number</option>
                     <option value="dropdown">Dropdown</option>
                   </>
                 ) : (
                   <>
                     <option value="text">Full text</option>
+                    <option value="number">Number</option>
                     <option value="url">Link</option>
                     <option value="dropdown">Global dropdown</option>
                     <option value="custom-dropdown">Custom dropdown</option>
@@ -367,7 +369,7 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
                 <option value="">Choose label group</option>
                 <option value="asset_type">Asset Type</option>
                 <option value="asset_ratio">Ratio</option>
-                <option value="asset_unique_ratio">Unique/Ratio</option>
+                <option value="asset_unique_ratio">Clones</option>
                 <option value="asset_platform">Platform</option>
               </select>
             </label>
@@ -428,6 +430,7 @@ function SettingsPanel({ column, globalOptions, existingNames = [], onClose, onS
             </label>
           )}
           {type === 'length' && <p className="text-sm text-ink-500">Only numbers are entered in the sheet. The filename shows the value with an s, like 15s.</p>}
+          {type === 'number' && <p className="text-sm text-ink-500">Only numeric values can be entered in this column.</p>}
         </div>
         <div className="mt-5 flex justify-between gap-2">
           <button type="button" onClick={onDelete} className="secondary-button text-red-300"><Trash2 size={16} /> Delete</button>
@@ -779,13 +782,13 @@ export default function AssetListPage({ project }) {
 
   useEffect(() => {
     if (!activeList || !columns.length) return;
-    const names = columns.map((column) => column.name.toLowerCase());
-    const expected = ['unique/ratio', 'asset type', 'name', 'length', 'ratio'];
+    const names = columns.map((column) => isUniqueRatioColumn(column) ? 'clones' : column.name.toLowerCase());
+    const expected = ['clones', 'asset type', 'name', 'length', 'ratio'];
     const hasStandardColumns = expected.every((name) => names.includes(name));
     if (!hasStandardColumns) applyStandardColumns();
     else if (expected.some((name, index) => names.filter((item) => expected.includes(item))[index] !== name)) {
-      const order = { 'unique/ratio': 0, 'asset type': 1, name: 2, 'frame.io': 3, length: 4, ratio: 5 };
-      saveColumns([...columns].sort((a, b) => (order[a.name.toLowerCase()] ?? 99) - (order[b.name.toLowerCase()] ?? 99)));
+      const order = { clones: 0, 'asset type': 1, name: 2, 'frame.io': 3, length: 4, ratio: 5 };
+      saveColumns([...columns].sort((a, b) => (order[isUniqueRatioColumn(a) ? 'clones' : a.name.toLowerCase()] ?? 99) - (order[isUniqueRatioColumn(b) ? 'clones' : b.name.toLowerCase()] ?? 99)));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeList?.id]);
@@ -851,14 +854,17 @@ export default function AssetListPage({ project }) {
   };
 
   const syncRatioGroup = (sourceRowId, nextRatios) => {
-    const uniqueRatioColumn = columns.find((column) => column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? ''));
-    const ratioColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+    const uniqueRatioColumn = columns.find(isUniqueRatioColumn);
     const sourceIndex = rows.findIndex((row) => row.id === sourceRowId);
     const sourceRow = rows[sourceIndex];
-    if (!ratioColumn || !sourceRow) return;
+    const sourceCategory = categories.find((category) => category.id === sourceRow?.group_id);
+    const cloneValueColumn = sourceCategory?.asset_kind === 'static'
+      ? columns.find((column) => column.label_type === 'asset_static_size')
+      : columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+    if (!cloneValueColumn || !sourceRow) return;
 
     const existingChildren = rows.filter((row) => row.ratio_parent_id === sourceRowId);
-    const existingByRatio = new Map(existingChildren.map((row) => [row.ratio_value || row.values?.[ratioColumn.id], row]));
+    const existingByRatio = new Map(existingChildren.map((row) => [row.ratio_value || row.values?.[cloneValueColumn.id], row]));
     const sourceNumber = Number.parseInt(sourceRow.number, 10);
     const numberWidth = Math.max(3, ...rows.map((row) => String(row.number ?? '').length));
     const childIdSet = new Set(existingChildren.map((row) => row.id));
@@ -877,7 +883,7 @@ export default function AssetListPage({ project }) {
         values: {
           ...(existing?.values ?? sourceRow.values ?? {}),
           ...(uniqueRatioColumn ? { [uniqueRatioColumn.id]: '' } : {}),
-          [ratioColumn.id]: ratio,
+          [cloneValueColumn.id]: ratio,
         },
         notes: existing?.notes ?? sourceRow.notes ?? '',
         ratio_parent_id: sourceRow.id,
@@ -892,10 +898,14 @@ export default function AssetListPage({ project }) {
   };
 
   const openRatioPanel = (sourceRowId) => {
-    const ratioColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+    const sourceRow = rows.find((row) => row.id === sourceRowId);
+    const sourceCategory = categories.find((category) => category.id === sourceRow?.group_id);
+    const cloneValueColumn = sourceCategory?.asset_kind === 'static'
+      ? columns.find((column) => column.label_type === 'asset_static_size')
+      : columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
     const createdRatios = rows
       .filter((row) => row.ratio_parent_id === sourceRowId)
-      .map((row) => row.ratio_value || row.values?.[ratioColumn?.id])
+      .map((row) => row.ratio_value || row.values?.[cloneValueColumn?.id])
       .filter(Boolean);
     setSelectedRatios(createdRatios);
     setRatioMenuRowId(sourceRowId);
@@ -910,7 +920,7 @@ export default function AssetListPage({ project }) {
 
   const updateCell = (rowId, columnId, value) => {
     const column = columns.find((item) => item.id === columnId);
-    const keepVariantValue = isUniqueRatioColumn(column) || column?.label_type === 'asset_ratio' || /^ratio$/i.test(column?.name ?? '');
+    const keepVariantValue = isUniqueRatioColumn(column) || ['asset_ratio', 'asset_static_size'].includes(column?.label_type) || /^ratio$/i.test(column?.name ?? '');
     saveList({
       rows: rows.map((row) => {
         if (row.id === rowId) return { ...row, values: { ...(row.values ?? {}), [columnId]: value } };
@@ -1026,10 +1036,14 @@ export default function AssetListPage({ project }) {
   const deleteRow = (rowId) => {
     const target = rows.find((row) => row.id === rowId);
     if (target?.ratio_parent_id) {
-      const ratioColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+      const parentRow = rows.find((row) => row.id === target.ratio_parent_id);
+      const parentCategory = categories.find((category) => category.id === parentRow?.group_id);
+      const cloneValueColumn = parentCategory?.asset_kind === 'static'
+        ? columns.find((column) => column.label_type === 'asset_static_size')
+        : columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
       const remainingRatios = rows
         .filter((row) => row.ratio_parent_id === target.ratio_parent_id && row.id !== rowId)
-        .map((row) => row.ratio_value || row.values?.[ratioColumn?.id])
+        .map((row) => row.ratio_value || row.values?.[cloneValueColumn?.id])
         .filter(Boolean);
       syncRatioGroup(target.ratio_parent_id, remainingRatios);
       if (ratioMenuRowId === target.ratio_parent_id) setSelectedRatios(remainingRatios);
@@ -1325,9 +1339,15 @@ export default function AssetListPage({ project }) {
   const copyColumnIndex = columns.length + COPY_COLUMN_OFFSET;
   const notesColumnIndex = columns.length + NOTES_COLUMN_OFFSET;
   const ratioPanelSource = rows.find((row) => row.id === ratioMenuRowId && !row.ratio_parent_id);
-  const ratioPanelColumn = columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
+  const ratioPanelCategory = categories.find((category) => category.id === ratioPanelSource?.group_id);
+  const ratioPanelIsStatic = ratioPanelCategory?.asset_kind === 'static';
+  const ratioPanelColumn = ratioPanelIsStatic
+    ? columns.find((column) => column.label_type === 'asset_static_size')
+    : columns.find((column) => column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? ''));
   const mainAssetRatio = ratioPanelSource?.values?.[ratioPanelColumn?.id] ?? '';
-  const availableRatioOptions = [...new Set([...QUICK_RATIO_OPTIONS, ...(globalOptions.asset_ratio ?? [])])];
+  const availableRatioOptions = ratioPanelIsStatic
+    ? [...new Set([...STATIC_COLUMNS.find((column) => column.label_type === 'asset_static_size').options, ...staticSizeLabels.map((label) => label.value)])]
+    : [...new Set([...QUICK_RATIO_OPTIONS, ...(globalOptions.asset_ratio ?? [])])];
   const displayedCategories = categories.length
     ? categories
       .filter((category) => !category.parent_id)
@@ -1341,6 +1361,7 @@ export default function AssetListPage({ project }) {
   };
   const fullGridTemplate = `52px 78px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
   const staticVisibleColumns = [
+    columns.find((column) => isUniqueRatioColumn(column)),
     columns.find((column) => column.label_type === 'asset_static_type'),
     columns.find((column) => /^name$/i.test(column.name ?? '')),
     columns.find((column) => column.label_type === 'asset_static_size'),
@@ -1349,6 +1370,45 @@ export default function AssetListPage({ project }) {
   const staticBeforeFilenameColumns = staticVisibleColumns.filter((column) => !isFrameColumn(column));
   const staticAfterCopyColumns = staticVisibleColumns.filter(isFrameColumn);
   const staticGridTemplate = `52px 78px 60px ${staticBeforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${staticAfterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
+  const renderCategoryColumnHeader = (headerBeforeColumns, headerAfterColumns, gridTemplate, isStatic = false) => (
+    <div className="asset-list-row asset-static-header grid" style={{ gridTemplateColumns: gridTemplate }}>
+      <div className="asset-list-header locked" aria-label="Actions" />
+      <div className="asset-list-header locked"><span className="asset-header-label">Status</span></div>
+      <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
+      {headerBeforeColumns.map((column) => (
+        <div key={column.id} className="asset-list-header">
+          {isStatic || !isCustomAssetColumn(column) ? (
+            <span className="asset-header-label">{isStatic && column.label_type === 'asset_static_type' ? 'Asset Type' : isUniqueRatioColumn(column) ? 'CLONES' : column.name}</span>
+          ) : (
+            <button type="button" className="asset-header-settings-name" onClick={() => setSettingsColumnId(column.id)} aria-label={`Open settings for ${column.name}`}>
+              {column.name}
+            </button>
+          )}
+          {!isStatic && (isCustomAssetColumn(column) || (!isUniqueRatioColumn(column) && !isCompactFixedColumn(column))) && (
+            <button type="button" className="asset-column-resize-handle" onPointerDown={(event) => startColumnResize(event, column.id)} aria-label={`Resize ${column.name}`} />
+          )}
+        </div>
+      ))}
+      <div className="asset-list-header locked">
+        <span className="asset-header-label">Filename</span>
+        {!isStatic && <button type="button" className="asset-column-resize-handle" onPointerDown={startFilenameColumnResize} aria-label="Resize Filename column" />}
+      </div>
+      <div className="asset-list-header locked"><span className="asset-header-label">Copy</span></div>
+      {headerAfterColumns.map((column) => (
+        <div key={column.id} className="asset-list-header">
+          {!isStatic && isCustomAssetColumn(column) ? (
+            <button type="button" className="asset-header-settings-name" onClick={() => setSettingsColumnId(column.id)} aria-label={`Open settings for ${column.name}`}>
+              {column.name}
+            </button>
+          ) : (
+            <span className="asset-header-label">{column.name}</span>
+          )}
+          {!isStatic && <button type="button" className="asset-column-resize-handle" onPointerDown={(event) => startColumnResize(event, column.id)} aria-label={`Resize ${column.name}`} />}
+        </div>
+      ))}
+      <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
+    </div>
+  );
 
   return (
     <main className="asset-list-page flex h-[calc(100vh-7rem)] flex-col text-ink-950 dark:text-ink-100">
@@ -1425,87 +1485,6 @@ export default function AssetListPage({ project }) {
 
       <div className="asset-list-scroll flex-1 overflow-auto">
         <div className="min-w-max">
-          {displayedCategories.some((category) => !category.container_only && category.asset_kind !== 'static') && (
-          <div className="asset-list-row sticky top-0 z-20 grid border-b border-black/10 bg-zinc-100 text-xs font-semibold text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ gridTemplateColumns: fullGridTemplate }}>
-            <div className="asset-list-header locked" aria-label="Actions" />
-            <div className="asset-list-header locked"><span className="asset-header-label">Status</span></div>
-            <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
-            {beforeFilenameColumns.map((column) => (
-              <div
-                key={column.id}
-                className="asset-list-header"
-              >
-                {!isCustomAssetColumn(column) ? (
-                  <>
-                    <span className="asset-header-label">{isUniqueRatioColumn(column) ? 'RATIO' : column.name}</span>
-                    {!isUniqueRatioColumn(column) && !isCompactFixedColumn(column) && (
-                      <button
-                        type="button"
-                        className="asset-column-resize-handle"
-                        onPointerDown={(event) => startColumnResize(event, column.id)}
-                        aria-label={`Resize ${column.name}`}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="asset-header-settings-name"
-                      onClick={() => setSettingsColumnId(column.id)}
-                      aria-label={`Open settings for ${column.name}`}
-                    >
-                      {column.name}
-                    </button>
-                    <button
-                      type="button"
-                      className="asset-column-resize-handle"
-                      onPointerDown={(event) => startColumnResize(event, column.id)}
-                      aria-label={`Resize ${column.name}`}
-                    />
-                  </>
-                )}
-              </div>
-            ))}
-            <div className="asset-list-header locked">
-              <span className="asset-header-label">Filename</span>
-              <button
-                type="button"
-                className="asset-column-resize-handle"
-                onPointerDown={startFilenameColumnResize}
-                aria-label="Resize Filename column"
-              />
-            </div>
-            <div className="asset-list-header locked"><span className="asset-header-label">Copy</span></div>
-            {afterCopyColumns.map((column) => (
-              <div
-                key={column.id}
-                className="asset-list-header"
-              >
-                {isCustomAssetColumn(column) ? (
-                  <button
-                    type="button"
-                    className="asset-header-settings-name"
-                    onClick={() => setSettingsColumnId(column.id)}
-                    aria-label={`Open settings for ${column.name}`}
-                  >
-                    {column.name}
-                  </button>
-                ) : (
-                  <span className="asset-header-label">{column.name}</span>
-                )}
-                <button
-                  type="button"
-                  className="asset-column-resize-handle"
-                  onPointerDown={(event) => startColumnResize(event, column.id)}
-                  aria-label={`Resize ${column.name}`}
-                />
-              </div>
-            ))}
-            <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
-          </div>
-          )}
-
           {displayedCategories.map((category) => {
             const parentCategory = category.parent_id ? categories.find((item) => item.id === category.parent_id) : null;
             if (parentCategory?.collapsed) return null;
@@ -1587,18 +1566,7 @@ export default function AssetListPage({ project }) {
                   )}
                 </div>
                 <div className="asset-category-body">
-                {isStaticCategory && !category.collapsed && (
-                  <div className="asset-list-row asset-static-header grid" style={{ gridTemplateColumns: categoryGridTemplate }}>
-                    <div className="asset-list-header locked" />
-                    <div className="asset-list-header locked"><span className="asset-header-label">Status</span></div>
-                    <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
-                    {categoryBeforeColumns.map((column) => <div key={column.id} className="asset-list-header"><span className="asset-header-label">{column.label_type === 'asset_static_type' ? 'Asset Type' : column.name}</span></div>)}
-                    <div className="asset-list-header locked"><span className="asset-header-label">Filename</span></div>
-                    <div className="asset-list-header locked"><span className="asset-header-label">Copy</span></div>
-                    {categoryAfterColumns.map((column) => <div key={column.id} className="asset-list-header"><span className="asset-header-label">{column.name}</span></div>)}
-                    <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
-                  </div>
-                )}
+                {!category.collapsed && !category.container_only && renderCategoryColumnHeader(categoryBeforeColumns, categoryAfterColumns, categoryGridTemplate, isStaticCategory)}
                 {!category.collapsed && groupRows.map((row) => {
                   const absoluteRowIndex = rows.findIndex((item) => item.id === row.id);
                   return (
@@ -1673,7 +1641,7 @@ export default function AssetListPage({ project }) {
                       </div>
                       {categoryBeforeColumns.map((column) => {
                         const columnIndex = columns.findIndex((item) => item.id === column.id);
-                        const isUniqueRatioColumn = column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? '');
+                        const isUniqueRatioColumn = column.label_type === 'asset_unique_ratio' || /^(unique\s*\/\s*ratio|clones)$/i.test(column.name ?? '');
                         const isRatioColumn = column.label_type === 'asset_ratio' || /^ratio$/i.test(column.name ?? '');
                         const isAssetTypeColumn = column.label_type === 'asset_type' || /^asset\s*type$/i.test(column.name ?? '');
                         const isStaticAssetTypeColumn = column.label_type === 'asset_static_type';
@@ -1694,13 +1662,13 @@ export default function AssetListPage({ project }) {
                             }}
                             onPaste={(event) => pasteCells(event, absoluteRowIndex, columnIndex)}
                           >
-                            {column.type === 'text' || column.type === 'length' || column.type === 'url' ? (
+                            {column.type === 'text' || column.type === 'number' || column.type === 'length' || column.type === 'url' ? (
                               <div className="asset-link-cell">
                                 <input
                                   className="table-input"
-                                  inputMode={column.type === 'length' ? 'numeric' : undefined}
+                                  inputMode={column.type === 'length' || column.type === 'number' ? 'decimal' : undefined}
                                   value={value}
-                                  onChange={(event) => updateCell(row.id, column.id, column.type === 'length' ? event.target.value.replace(/[^\d.]/g, '') : event.target.value)}
+                                  onChange={(event) => updateCell(row.id, column.id, column.type === 'length' || column.type === 'number' ? event.target.value.replace(/[^\d.-]/g, '') : event.target.value)}
                                   onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
                                   onKeyDown={(event) => {
                                     if (moveCellFocus(event, absoluteRowIndex, columnIndex)) return;
@@ -1717,7 +1685,7 @@ export default function AssetListPage({ project }) {
                                   </a>
                                 )}
                               </div>
-                            ) : (column.label_type === 'asset_unique_ratio' || /^unique\s*\/\s*ratio$/i.test(column.name ?? '')) ? (
+                            ) : (column.label_type === 'asset_unique_ratio' || /^(unique\s*\/\s*ratio|clones)$/i.test(column.name ?? '')) ? (
                               <div className="asset-unique-ratio-control">
                                 {row.ratio_parent_id ? (
                                   <span className="asset-ratio-child-spacer" aria-hidden="true" />
@@ -1727,7 +1695,7 @@ export default function AssetListPage({ project }) {
                                     className={`asset-ratio-launcher ${ratioMenuRowId === row.id ? 'is-open' : ''}`}
                                     onClick={() => ratioMenuRowId === row.id ? setRatioMenuRowId('') : openRatioPanel(row.id)}
                                     aria-expanded={ratioMenuRowId === row.id}
-                                    aria-label="Manage additional ratios"
+                                    aria-label={isStaticCategory ? 'Manage additional static sizes' : 'Manage additional ratios'}
                                   >
                                     <strong>R</strong><ArrowRight size={13} />
                                   </button>
@@ -1910,19 +1878,19 @@ export default function AssetListPage({ project }) {
       </div>
 
       {ratioPanelSource && (
-        <aside className="asset-ratio-drawer" role="dialog" aria-label="Manage additional ratios">
+        <aside className="asset-ratio-drawer" role="dialog" aria-label={ratioPanelIsStatic ? 'Manage additional static sizes' : 'Manage additional ratios'}>
           <header>
             <div>
-              <span>Additional ratios</span>
+              <span>{ratioPanelIsStatic ? 'Additional static sizes' : 'Additional ratios'}</span>
               <strong>Asset {ratioPanelSource.number}</strong>
             </div>
-            <button type="button" onClick={() => setRatioMenuRowId('')} aria-label="Close ratios panel"><X size={16} /></button>
+            <button type="button" onClick={() => setRatioMenuRowId('')} aria-label={ratioPanelIsStatic ? 'Close static sizes panel' : 'Close ratios panel'}><X size={16} /></button>
           </header>
           <div className="asset-ratio-drawer-summary">
-            <span>Main asset ratio</span>
+            <span>{ratioPanelIsStatic ? 'Main asset size' : 'Main asset ratio'}</span>
             <strong>{mainAssetRatio || 'Not selected'}</strong>
           </div>
-          <p>Selecting a ratio creates a numbered row directly below the main asset. Deselecting it removes that row.</p>
+          <p>Selecting a {ratioPanelIsStatic ? 'size' : 'ratio'} creates a numbered row directly below the main asset. Deselecting it removes that row.</p>
           <div className="asset-ratio-drawer-options">
             {availableRatioOptions.map((ratio) => {
               const ratioSelected = selectedRatios.includes(ratio);
@@ -1944,7 +1912,7 @@ export default function AssetListPage({ project }) {
               );
             })}
           </div>
-          <footer>{selectedRatios.length} additional {selectedRatios.length === 1 ? 'ratio' : 'ratios'} created</footer>
+          <footer>{selectedRatios.length} additional {ratioPanelIsStatic ? (selectedRatios.length === 1 ? 'size' : 'sizes') : (selectedRatios.length === 1 ? 'ratio' : 'ratios')} created</footer>
         </aside>
       )}
 
