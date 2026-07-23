@@ -21,10 +21,12 @@ drop policy if exists "Users can read asset lists for their projects" on public.
 create policy "Users can read asset lists for their projects"
 on public.asset_lists for select
 using (
+  auth.role() = 'authenticated'
+  and
   exists (
     select 1 from public.projects
     where projects.id = asset_lists.project_id
-    and projects.user_id = auth.uid()
+    and (public.is_admin() or coalesce(projects.is_archived, false) = false)
   )
 );
 
@@ -32,10 +34,12 @@ drop policy if exists "Users can insert asset lists for their projects" on publi
 create policy "Users can insert asset lists for their projects"
 on public.asset_lists for insert
 with check (
+  auth.role() = 'authenticated'
+  and
   exists (
     select 1 from public.projects
     where projects.id = asset_lists.project_id
-    and projects.user_id = auth.uid()
+    and (public.is_admin() or coalesce(projects.is_archived, false) = false)
   )
 );
 
@@ -43,17 +47,21 @@ drop policy if exists "Users can update asset lists for their projects" on publi
 create policy "Users can update asset lists for their projects"
 on public.asset_lists for update
 using (
+  auth.role() = 'authenticated'
+  and
   exists (
     select 1 from public.projects
     where projects.id = asset_lists.project_id
-    and projects.user_id = auth.uid()
+    and (public.is_admin() or coalesce(projects.is_archived, false) = false)
   )
 )
 with check (
+  auth.role() = 'authenticated'
+  and
   exists (
     select 1 from public.projects
     where projects.id = asset_lists.project_id
-    and projects.user_id = auth.uid()
+    and (public.is_admin() or coalesce(projects.is_archived, false) = false)
   )
 );
 
@@ -61,10 +69,12 @@ drop policy if exists "Users can delete asset lists for their projects" on publi
 create policy "Users can delete asset lists for their projects"
 on public.asset_lists for delete
 using (
+  auth.role() = 'authenticated'
+  and
   exists (
     select 1 from public.projects
     where projects.id = asset_lists.project_id
-    and projects.user_id = auth.uid()
+    and (public.is_admin() or coalesce(projects.is_archived, false) = false)
   )
 );
 
