@@ -19,10 +19,6 @@ body {
   background: #100e1d;
   color: #f3f0ff;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  min-height: 142.857vh;
-  overflow-x: hidden;
-  width: 142.857%;
-  zoom: 0.7;
 }
 
 body.public-share-body {
