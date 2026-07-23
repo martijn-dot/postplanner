@@ -245,7 +245,12 @@ function SortableLine({
   const duration = block ? Math.max(1, daysBetween(item.start_date, item.end_date) + 1) : 1;
   const whoLabels = item.who?.map((id) => labelsById[id]).filter(Boolean) ?? [];
   const timelineColor = whoLabels[0]?.color ?? '#8b8f9a';
-  const dragOffset = dragPreview?.ids.includes(item.id) ? dragPreview.offsetPx : 0;
+  const activePreview = dragPreview?.ids.includes(item.id) ? dragPreview : null;
+  const dragOffset = activePreview?.mode === 'move' ? activePreview.offsetPx : 0;
+  const resizeOffset = activePreview?.mode === 'start' ? activePreview.offsetPx : 0;
+  const resizeWidthDelta = activePreview?.mode === 'start'
+    ? -activePreview.offsetPx
+    : activePreview?.mode === 'end' ? activePreview.offsetPx : 0;
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -455,8 +460,8 @@ function SortableLine({
             <div
               className="timeline-bar"
               style={{
-                left: startOffset * dayWidth + 4,
-                width: Math.max(34, duration * dayWidth - 8),
+                left: startOffset * dayWidth + 4 + resizeOffset,
+                width: Math.max(34, duration * dayWidth - 8 + resizeWidthDelta),
                 transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
                 borderColor: transparentColor(timelineColor, '80'),
                 '--marker-left': `${Math.max(14, (duration - 0.5) * dayWidth - 4)}px`,
@@ -970,10 +975,11 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
     let currentX = startX;
     let currentY = event.clientY;
     let autoScrollFrame = null;
-    let lastDelta = null;
     let latestDelta = 0;
     const originalStart = parseISO(item.start_date);
     const originalEnd = parseISO(item.end_date);
+    const originalStartOffset = Math.max(0, differenceInCalendarDays(originalStart, timelineStart));
+    const originalDuration = Math.max(1, differenceInCalendarDays(originalEnd, originalStart) + 1);
     const linkedRows = mode === 'move' && selectedIds.includes(item.id)
       ? allRows.filter((row) => selectedIds.includes(row.id) && row.start_date && row.end_date)
       : [];
@@ -1008,22 +1014,21 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
     const updateDrag = () => {
       const scrollDelta = (scrollRef.current?.scrollLeft ?? startScrollLeft) - startScrollLeft;
       const rawDeltaPx = currentX - startX + scrollDelta;
-      const delta = Math.round(rawDeltaPx / dayWidth);
-      latestDelta = delta;
+      const requestedDelta = Math.round(rawDeltaPx / dayWidth);
       if (mode === 'move') {
-        setDragPreview({ ids: previewIds, offsetPx: rawDeltaPx });
+        latestDelta = requestedDelta;
+        setDragPreview({ ids: previewIds, mode, offsetPx: rawDeltaPx });
         return;
       }
-      if (delta === lastDelta) return;
-      lastDelta = delta;
-      if (mode === 'start') {
-        const next = addDays(originalStart, delta);
-        if (next <= originalEnd) updateLineItem(item.id, { start_date: iso(next) });
-      }
-      if (mode === 'end') {
-        const next = addDays(originalEnd, delta);
-        if (next >= originalStart) updateLineItem(item.id, { end_date: iso(next) });
-      }
+      const maxStartDelta = Math.max(0, differenceInCalendarDays(originalEnd, originalStart));
+      const delta = mode === 'start'
+        ? Math.min(requestedDelta, maxStartDelta)
+        : Math.max(requestedDelta, -maxStartDelta);
+      latestDelta = delta;
+      const minOffset = mode === 'start' ? -originalStartOffset * dayWidth : -(originalDuration - 1) * dayWidth;
+      const maxOffset = mode === 'start' ? (originalDuration - 1) * dayWidth : Number.POSITIVE_INFINITY;
+      const previewOffset = Math.max(minOffset, Math.min(maxOffset, rawDeltaPx));
+      setDragPreview({ ids: previewIds, mode, offsetPx: previewOffset });
     };
 
     const autoScroll = () => {
@@ -1085,12 +1090,11 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
           moveLineItemRelative(project.id, item.id, targetId, placement, planningVersion, activePlanningType);
         }
       } else if (latestDelta !== 0) {
-        pushTimelineUndo([{
+        updateLineItemsWithUndo([{
           itemId: item.id,
-          previous: {
-            start_date: iso(originalStart),
-            end_date: iso(originalEnd),
-          },
+          next: mode === 'start'
+            ? { start_date: iso(addDays(originalStart, latestDelta)) }
+            : { end_date: iso(addDays(originalEnd, latestDelta)) },
         }]);
         flashEndMarkers([item.id]);
       }
