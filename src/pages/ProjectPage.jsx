@@ -7,6 +7,7 @@ import TimelineView from './TimelineView.jsx';
 import ClientTableView from './ClientTableView.jsx';
 import AssetListPage from './AssetListPage.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
@@ -25,10 +26,11 @@ function versionsForProject(project, lineItems = [], categories = [], planningTy
 }
 
 export default function ProjectPage() {
+  const { user } = useAuth();
   const { projectId } = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { projects, lineItems, categories, loading, loadProjectData, upsertPresence, clearPresence, markProjectEdited, ensurePlanningModule } = usePlanner();
+  const { projects, lineItems, categories, profiles, presence, loading, loadProjectData, upsertPresence, clearPresence, markProjectEdited, ensurePlanningModule } = usePlanner();
   const [projectDataLoading, setProjectDataLoading] = useState(true);
   const project = projects.find((item) => item.id === projectId);
   const requestedType = safePlanningType(searchParams.get('type'));
@@ -36,6 +38,19 @@ export default function ProjectPage() {
   const requestedVersion = searchParams.get('version');
   const fallbackVersion = requestedType === DEFAULT_PLANNING_TYPE ? project?.preferred_planning_version : null;
   const activeVersion = versions.includes(requestedVersion) ? requestedVersion : (versions.includes(fallbackVersion) ? fallbackVersion : versions[0] ?? 'V1');
+  const pageType = location.pathname.endsWith('/assets') ? 'asset_list' : 'planning';
+  const activeEditors = (presence ?? [])
+    .filter((item) => {
+      if (item.project_id !== projectId || item.user_id === user.id) return false;
+      if (Date.now() - new Date(item.last_seen_at).getTime() >= 90_000) return false;
+      if ((item.page_type ?? 'planning') !== pageType) return false;
+      if (pageType === 'asset_list') return true;
+      return safePlanningType(item.planning_type) === requestedType
+        && (item.planning_version ?? 'V1') === activeVersion;
+    })
+    .map((item) => profiles.find((profile) => profile.id === item.user_id)?.display_name)
+    .filter(Boolean);
+  const pageOccupied = activeEditors.length > 0;
   const actionsRef = useRef({ upsertPresence, clearPresence, markProjectEdited });
 
   useEffect(() => {
@@ -43,9 +58,10 @@ export default function ProjectPage() {
   }, [clearPresence, markProjectEdited, upsertPresence]);
 
   useEffect(() => {
-    if (!projectId) return undefined;
-    actionsRef.current.upsertPresence(projectId);
-    const interval = window.setInterval(() => actionsRef.current.upsertPresence(projectId), 30_000);
+    if (!projectId || pageOccupied) return undefined;
+    const scope = { pageType, planningType: requestedType, planningVersion: activeVersion };
+    actionsRef.current.upsertPresence(projectId, scope);
+    const interval = window.setInterval(() => actionsRef.current.upsertPresence(projectId, scope), 30_000);
     const leave = () => {
       actionsRef.current.markProjectEdited(projectId);
       actionsRef.current.clearPresence(projectId);
@@ -56,7 +72,7 @@ export default function ProjectPage() {
       window.removeEventListener('beforeunload', leave);
       leave();
     };
-  }, [projectId]);
+  }, [activeVersion, pageOccupied, pageType, projectId, requestedType]);
 
   useEffect(() => {
     let alive = true;
@@ -92,6 +108,18 @@ export default function ProjectPage() {
         <Route path="client" element={<ClientTableView key={`${project.id}:${requestedType}:${activeVersion}`} project={project} planningType={requestedType} planningVersion={activeVersion} />} />
         <Route path="assets" element={<AssetListPage project={project} />} />
       </Routes>
+      {pageOccupied && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-500/55 p-6 backdrop-grayscale">
+          <div className="max-w-lg rounded-xl border border-white/20 bg-ink-950/95 px-7 py-6 text-center text-white shadow-2xl">
+            <h2 className="text-xl font-semibold">This page is currently being edited</h2>
+            <p className="mt-2 text-sm text-ink-300">
+              {activeEditors.join(', ')} {activeEditors.length === 1 ? 'is' : 'are'} working in this {pageType === 'asset_list' ? 'asset list' : requestedType === PLANNING_TYPES.production.key ? 'production planning' : 'post-production planning'}.
+            </p>
+            <p className="mt-2 text-xs text-ink-500">The page is read-only until they leave.</p>
+            <button type="button" className="secondary-button mt-5" onClick={() => { window.location.href = '/'; }}>Back to projects</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

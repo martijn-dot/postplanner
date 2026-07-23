@@ -1832,13 +1832,28 @@ export function PlannerProvider({ children }) {
         draft.producers = draft.producers.filter((item) => item.id !== producer.id && item.name !== producer.name);
         if (useSupabase) void saveSupabase('producer delete', supabase.from('producers').delete().eq('name', producer.name));
       }),
-      upsertPresence: (projectId) => {
-        const row = { id: id(), project_id: projectId, user_id: user.id, last_seen_at: new Date().toISOString() };
+      upsertPresence: (projectId, scope = {}) => {
+        const row = {
+          id: id(),
+          project_id: projectId,
+          user_id: user.id,
+          page_type: scope.pageType ?? 'timeline',
+          planning_type: planningType(scope.planningType),
+          planning_version: scope.planningVersion ?? DEFAULT_PLANNING_VERSION,
+          last_seen_at: new Date().toISOString(),
+        };
         mutate((draft) => {
           draft.presence = draft.presence.filter((item) => !(item.project_id === projectId && item.user_id === user.id));
           draft.presence.push(row);
         });
-        if (useSupabase) void saveSupabase('presence', supabase.from('project_presence').upsert({ project_id: projectId, user_id: user.id, last_seen_at: row.last_seen_at }, { onConflict: 'project_id,user_id' }));
+        if (useSupabase) void saveSupabase('presence', supabase.from('project_presence').upsert({
+          project_id: projectId,
+          user_id: user.id,
+          page_type: row.page_type,
+          planning_type: row.planning_type,
+          planning_version: row.planning_version,
+          last_seen_at: row.last_seen_at,
+        }, { onConflict: 'project_id,user_id' }));
       },
       clearPresence: (projectId) => mutate((draft) => {
         draft.presence = draft.presence.filter((item) => !(item.project_id === projectId && item.user_id === user.id));

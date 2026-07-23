@@ -251,6 +251,7 @@ function SortableLine({
   const resizeWidthDelta = activePreview?.mode === 'start'
     ? -activePreview.offsetPx
     : activePreview?.mode === 'end' ? activePreview.offsetPx : 0;
+  const previewDurationPx = Math.max(34, duration * dayWidth - 8 + resizeWidthDelta);
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -462,10 +463,10 @@ function SortableLine({
               className="timeline-bar"
               style={{
                 left: startOffset * dayWidth + 4 + resizeOffset,
-                width: Math.max(34, duration * dayWidth - 8 + resizeWidthDelta),
+                width: previewDurationPx,
                 transform: dragOffset ? `translateX(${dragOffset}px)` : undefined,
                 borderColor: transparentColor(timelineColor, '80'),
-                '--marker-left': `${Math.max(14, (duration - 0.5) * dayWidth - 4)}px`,
+                '--marker-left': `${Math.max(14, previewDurationPx - dayWidth / 2 + 4)}px`,
               }}
               onPointerDown={(event) => { onInteract(item.id); onResizeStart(event, item, 'move'); }}
               onClick={(event) => { event.stopPropagation(); onOpenDetails(item.id); }}

@@ -8,6 +8,9 @@ alter table public.categories add column if not exists updated_at timestamptz no
 alter table public.line_items add column if not exists revision bigint not null default 1;
 alter table public.line_items add column if not exists updated_at timestamptz not null default now();
 alter table public.asset_lists add column if not exists revision bigint not null default 1;
+alter table public.project_presence add column if not exists page_type text not null default 'timeline';
+alter table public.project_presence add column if not exists planning_type text not null default 'post';
+alter table public.project_presence add column if not exists planning_version text not null default 'V1';
 
 create table if not exists public.asset_list_rows (
   id uuid primary key,
@@ -112,6 +115,8 @@ create index if not exists labels_project_type_order_idx
   on public.labels (project_id, column_type, sort_order, id);
 create index if not exists presence_project_seen_idx
   on public.project_presence (project_id, last_seen_at desc);
+create index if not exists presence_project_page_planning_seen_idx
+  on public.project_presence (project_id, page_type, planning_type, planning_version, last_seen_at desc);
 create index if not exists share_links_project_type_version_active_idx
   on public.public_share_links (project_id, planning_type, planning_version)
   where revoked_at is null;

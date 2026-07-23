@@ -209,9 +209,16 @@ create table if not exists public.project_presence (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references public.projects(id) on delete cascade,
   user_id uuid references public.profiles(id) on delete cascade,
+  page_type text not null default 'timeline',
+  planning_type text not null default 'post',
+  planning_version text not null default 'V1',
   last_seen_at timestamptz default now(),
   unique(project_id, user_id)
 );
+
+alter table public.project_presence add column if not exists page_type text not null default 'timeline';
+alter table public.project_presence add column if not exists planning_type text not null default 'post';
+alter table public.project_presence add column if not exists planning_version text not null default 'V1';
 
 create table if not exists public.invitations (
   id uuid primary key default gen_random_uuid(),

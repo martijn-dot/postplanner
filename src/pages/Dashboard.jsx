@@ -137,13 +137,6 @@ export default function Dashboard() {
     .filter((item) => item.project_id === projectId && item.user_id !== user.id && Date.now() - new Date(item.last_seen_at).getTime() < 90_000)
     .map((item) => (profiles ?? []).find((profile) => profile.id === item.user_id)?.display_name)
     .filter(Boolean);
-  const guardProjectOpen = (event, projectId) => {
-    const activeNames = activeNamesForProject(projectId);
-    if (!activeNames.length) return;
-    event.preventDefault();
-    event.stopPropagation();
-    window.alert(`${activeNames.join(', ')} ${activeNames.length === 1 ? 'is' : 'are'} working in this project.`);
-  };
   const resetForm = () => {
     setOpen(false);
     setEditingProject(null);
@@ -290,7 +283,6 @@ export default function Dashboard() {
               const clientLabel = knownClient ? project.client : 'no client';
               const missingClient = clientLabel === 'no client';
               const activeNames = activeNamesForProject(project.id);
-              const locked = activeNames.length > 0;
               const projectAssetLists = assetLists.filter((list) => list.project_id === project.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
               const latestAssetListUpdate = projectAssetLists
                 .map((list) => list.updated_at)
@@ -299,11 +291,6 @@ export default function Dashboard() {
               const openProjectPlanning = (definition, version, exists, event) => {
                 event?.preventDefault();
                 event?.stopPropagation();
-                const currentActiveNames = activeNamesForProject(project.id);
-                if (currentActiveNames.length) {
-                  window.alert(`${currentActiveNames.join(', ')} ${currentActiveNames.length === 1 ? 'is' : 'are'} working in this project.`);
-                  return;
-                }
                 if (!exists) ensurePlanningModule(project.id, definition.key);
                 window.location.href = `/projects/${project.id}?type=${definition.key}&version=${version}`;
               };
@@ -338,7 +325,7 @@ export default function Dashboard() {
                       <div className="project-row-title">
                         <span>{project.name}</span>
                         {clientLabel && <span className={`project-client-badge ${missingClient ? 'is-missing' : ''}`}>{clientLabel}</span>}
-                        {locked && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
+                        {activeNames.length > 0 && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                       </div>
                       </div>
                     </div>
@@ -417,30 +404,13 @@ export default function Dashboard() {
                   </div>
                 </>
               );
-              if (locked) {
-                return (
-                  <div
-                    key={project.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => guardProjectOpen(event, project.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') guardProjectOpen(event, project.id);
-                    }}
-                    className="project-row is-locked cursor-not-allowed opacity-60 grayscale"
-                  >
-                    {rowContent}
-                  </div>
-                );
-              }
               return (
                 <div
                   key={project.id}
                   role="button"
                   tabIndex={0}
                   onClick={(event) => {
-                    guardProjectOpen(event, project.id);
-                    if (!event.defaultPrevented) openProjectPlanning(firstPlanningLink.definition, firstPlanningLink.version, firstPlanningLink.exists, event);
+                    openProjectPlanning(firstPlanningLink.definition, firstPlanningLink.version, firstPlanningLink.exists, event);
                   }}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') openProjectPlanning(firstPlanningLink.definition, firstPlanningLink.version, firstPlanningLink.exists, event);
