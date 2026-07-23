@@ -1,7 +1,7 @@
 import { Camera, ChevronDown, LogOut, Save, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import rovalLogo from '../assets/roval-logo.jpg';
+import rovalLogo from '../assets/roval-logo.png';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';

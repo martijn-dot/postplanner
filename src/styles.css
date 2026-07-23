@@ -138,7 +138,7 @@ code,
 
 .roval-brand-mark {
   align-items: center;
-  background: #f4f4f4;
+  background: #34306c;
   border-radius: 0.45rem;
   display: inline-flex;
   flex: 0 0 auto;
@@ -151,8 +151,7 @@ code,
 .roval-brand-mark img {
   display: block;
   height: 100%;
-  object-fit: cover;
-  transform: scale(1.68);
+  object-fit: contain;
   width: 100%;
 }
 
@@ -6427,17 +6426,6 @@ body.public-share-body {
   margin-left: auto;
 }
 
-.project-asset-panel {
-  align-items: flex-start;
-  border-right: 1px solid rgba(148, 142, 157, 0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  justify-content: center;
-  min-width: 0;
-  padding: 12px 16px;
-}
-
 .project-label-button {
   align-items: center;
   border: 1px solid rgba(86, 101, 140, 0.75);
@@ -6479,28 +6467,20 @@ body.public-share-body {
   border-top: 1px solid rgba(148, 142, 157, 0.12);
   display: grid;
   gap: 0;
-  grid-template-columns: minmax(210px, 0.55fr) repeat(auto-fit, minmax(390px, 1fr));
   margin-top: 0;
 }
 
 .project-planning-row {
-  align-items: stretch;
-  border-right: 1px solid rgba(148, 142, 157, 0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  justify-content: center;
-  min-height: 66px;
-  min-width: 0;
-  padding: 10px 16px 7px;
+  align-items: center;
+  display: grid;
+  gap: 15px;
+  grid-template-columns: minmax(330px, 1fr) minmax(200px, 0.62fr) minmax(180px, 0.55fr) auto;
+  min-height: 50px;
+  padding: 10px 20px;
 }
 
 .project-planning-row + .project-planning-row {
-  border-top: 0;
-}
-
-.project-planning-row:last-child {
-  border-right: 0;
+  border-top: 1px solid rgba(148, 142, 157, 0.12);
 }
 
 .project-planning-row.is-empty {
@@ -6510,16 +6490,8 @@ body.public-share-body {
 .project-planning-row-main {
   align-items: center;
   display: flex;
-  flex: 1 1 auto;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 7px;
-  min-width: 0;
-}
-
-.project-module-toolbar {
-  align-items: center;
-  display: flex;
-  gap: 10px;
   min-width: 0;
 }
 
@@ -6562,7 +6534,7 @@ body.public-share-body {
 
 .project-version-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
@@ -6645,7 +6617,6 @@ body.public-share-body {
   font-weight: 500;
   gap: 7px;
   min-width: 0;
-  white-space: nowrap;
 }
 
 .project-planning-person > span:last-child {
@@ -6666,24 +6637,6 @@ body.public-share-body {
   color: rgba(202, 196, 211, 0.52);
   font-weight: 500;
   margin-top: 2px;
-}
-
-.project-module-edit-line {
-  border-bottom: 1px solid rgba(148, 142, 157, 0.14);
-  color: rgba(148, 163, 184, 0.7);
-  display: block;
-  font-size: 0.55rem;
-  line-height: 1.4;
-  overflow: hidden;
-  padding: 0 5px 3px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  width: 100%;
-}
-
-.project-module-edit-line strong {
-  color: #a69cff;
-  font-weight: 600;
 }
 
 .project-row-edited {
@@ -6795,18 +6748,9 @@ body.public-share-body {
     opacity: 1;
   }
 
-  .project-planning-rows {
-    grid-template-columns: 1fr;
-  }
-
-  .project-asset-panel,
   .project-planning-row {
-    border-bottom: 1px solid rgba(148, 142, 157, 0.1);
-    border-right: 0;
-  }
-
-  .project-module-toolbar {
-    flex-wrap: wrap;
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
 }
 
