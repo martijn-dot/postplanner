@@ -645,6 +645,8 @@ export function PlannerProvider({ children }) {
   const loadedProjectIdsRef = useRef(new Set());
   const projectLoadPromisesRef = useRef(new Map());
   const pendingLineItemWritesRef = useRef(new Map());
+  const lineItemRevisionRef = useRef(new Map());
+  const lineItemWriteChainsRef = useRef(new Map());
   const useSupabase = hasSupabaseConfig && !demoMode;
 
   useEffect(() => {
@@ -676,6 +678,12 @@ export function PlannerProvider({ children }) {
   useEffect(() => {
     dirtyProjectIdsRef.current = dirtyProjectIds;
   }, [dirtyProjectIds]);
+
+  useEffect(() => {
+    data.lineItems.forEach((item) => {
+      if (item.revision != null) lineItemRevisionRef.current.set(item.id, item.revision);
+    });
+  }, [data.lineItems]);
 
   useEffect(() => {
     if (!useSupabase) return undefined;
@@ -713,6 +721,7 @@ export function PlannerProvider({ children }) {
             next = metadata;
           }
           if (table === 'line_items') {
+            if (next.revision != null) lineItemRevisionRef.current.set(next.id, next.revision);
             next = { ...next, ...(pendingLineItemWritesRef.current.get(next.id)?.patch ?? {}) };
           }
           replaceById(draft[collectionName], next);
@@ -797,37 +806,53 @@ export function PlannerProvider({ children }) {
     return saveSupabase(label, Promise.resolve(result), { throwOnError });
   }, [saveSupabase, useSupabase]);
 
-  const saveLineItemUpdate = useCallback(async (label, itemId, patch, { throwOnError = false } = {}) => {
+  const saveLineItemUpdate = useCallback(async (label, itemId, patch, { throwOnError = false, expectedRevision: suppliedRevision } = {}) => {
     if (!useSupabase) return null;
-    const dbPatch = dbLineItemPatch(patch);
-    const buildPayload = () => withoutColumns(dbPatch, unsupportedLineItemColumnsRef.current);
-    let payload = buildPayload();
-    if (!Object.keys(payload).length) return null;
-    const currentItem = data.lineItems.find((item) => item.id === itemId);
-    let request = supabase.from('line_items').update(payload).eq('id', itemId);
-    if (currentItem?.revision != null) request = request.eq('revision', currentItem.revision);
-    let result = await request.select().maybeSingle();
-    const missingColumn = schemaMissingColumn(result?.error);
-    if (missingColumn && OPTIONAL_LINE_ITEM_COLUMNS.has(missingColumn)) {
-      unsupportedLineItemColumnsRef.current.add(missingColumn);
-      payload = buildPayload();
-      result = Object.keys(payload).length
-        ? await supabase.from('line_items').update(payload).eq('id', itemId).select().maybeSingle()
-        : { data: null, error: null };
-    }
-    if (!result.error && !result.data && currentItem?.revision != null) {
-      const conflict = new Error('This row changed in another browser. The latest server version was restored.');
-      const latest = await supabase.from('line_items').select('*').eq('id', itemId).maybeSingle();
-      if (latest.data) setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? latest.data : item) }));
-      setSaveError(conflict.message);
-      if (throwOnError) throw conflict;
-      return { data: null, error: conflict };
-    }
-    if (result.data) {
-      setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? { ...item, ...result.data } : item) }));
-    }
-    return saveSupabase(label, Promise.resolve(result), { throwOnError });
-  }, [data.lineItems, saveSupabase, useSupabase]);
+    const queuedWrite = lineItemWriteChainsRef.current.get(itemId);
+    const previousWrite = queuedWrite ?? Promise.resolve();
+    const capturedRevision = suppliedRevision ?? lineItemRevisionRef.current.get(itemId);
+    const write = previousWrite.catch(() => null).then(async () => {
+      const dbPatch = dbLineItemPatch(patch);
+      const buildPayload = () => withoutColumns(dbPatch, unsupportedLineItemColumnsRef.current);
+      let payload = buildPayload();
+      if (!Object.keys(payload).length) return null;
+      // A write queued behind our own write should use the revision returned by
+      // that write. Otherwise retain the revision from when editing started.
+      const expectedRevision = queuedWrite ? lineItemRevisionRef.current.get(itemId) : capturedRevision;
+      let request = supabase.from('line_items').update(payload).eq('id', itemId);
+      if (expectedRevision != null) request = request.eq('revision', expectedRevision);
+      let result = await request.select().maybeSingle();
+      const missingColumn = schemaMissingColumn(result?.error);
+      if (missingColumn && OPTIONAL_LINE_ITEM_COLUMNS.has(missingColumn)) {
+        unsupportedLineItemColumnsRef.current.add(missingColumn);
+        payload = buildPayload();
+        result = Object.keys(payload).length
+          ? await supabase.from('line_items').update(payload).eq('id', itemId).select().maybeSingle()
+          : { data: null, error: null };
+      }
+      if (!result.error && !result.data && expectedRevision != null) {
+        const conflict = new Error('This row changed in another browser. The latest server version was restored.');
+        const latest = await supabase.from('line_items').select('*').eq('id', itemId).maybeSingle();
+        if (latest.data) {
+          lineItemRevisionRef.current.set(itemId, latest.data.revision);
+          setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? latest.data : item) }));
+        }
+        setSaveError(conflict.message);
+        if (throwOnError) throw conflict;
+        return { data: null, error: conflict };
+      }
+      if (result.data) {
+        if (result.data.revision != null) lineItemRevisionRef.current.set(itemId, result.data.revision);
+        setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? { ...item, ...result.data } : item) }));
+      }
+      return saveSupabase(label, Promise.resolve(result), { throwOnError });
+    });
+    lineItemWriteChainsRef.current.set(itemId, write);
+    void write.finally(() => {
+      if (lineItemWriteChainsRef.current.get(itemId) === write) lineItemWriteChainsRef.current.delete(itemId);
+    });
+    return write;
+  }, [saveSupabase, useSupabase]);
 
   const invokeAdminUserAction = useCallback(async (body) => {
     if (!useSupabase) return null;
@@ -904,7 +929,7 @@ export function PlannerProvider({ children }) {
     if (!pending) return;
     window.clearTimeout(pending.timer);
     pendingLineItemWritesRef.current.delete(itemId);
-    void saveLineItemUpdate('line item changes', itemId, pending.patch);
+    void saveLineItemUpdate('line item changes', itemId, pending.patch, { expectedRevision: pending.expectedRevision });
   }, [saveLineItemUpdate]);
 
   const queueLineItemUpdate = useCallback((itemId, patch) => {
@@ -912,6 +937,7 @@ export function PlannerProvider({ children }) {
     if (existing) window.clearTimeout(existing.timer);
     const next = {
       patch: { ...(existing?.patch ?? {}), ...patch },
+      expectedRevision: existing?.expectedRevision ?? lineItemRevisionRef.current.get(itemId),
       timer: window.setTimeout(() => flushLineItemUpdate(itemId), 500),
     };
     pendingLineItemWritesRef.current.set(itemId, next);
