@@ -5055,7 +5055,7 @@ body.public-share-body {
 .client-planning-admin .client-planning-table tbody tr.bg-zinc-200\/70 > td,
 .client-planning-admin .client-planning-table .date-group-cell.date-weekend-cell {
   background:
-    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.1) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.05) 0 1px, transparent 1px 18px),
     #252a33 !important;
   background-attachment: fixed !important;
 }
@@ -5886,7 +5886,7 @@ body.public-share-body {
 .public-client-page .client-planning-table .date-group-cell.date-weekend-cell,
 .public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > td {
   background:
-    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.1) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.05) 0 1px, transparent 1px 18px),
     #f2f4f6 !important;
   background-attachment: fixed !important;
 }
