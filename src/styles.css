@@ -5055,8 +5055,9 @@ body.public-share-body {
 .client-planning-admin .client-planning-table tbody tr.bg-zinc-200\/70 > td,
 .client-planning-admin .client-planning-table .date-group-cell.date-weekend-cell {
   background:
-    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.2) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.1) 0 6px, transparent 6px 12px),
     #252a33 !important;
+  background-attachment: fixed !important;
 }
 .client-planning-admin .client-edit-button { background: #1e293b; border-color: #334155; border-radius: 4px; color: #fff; font-size: 10px; padding: 4px 8px; }
 .client-planning-admin .client-category-pill { background: rgba(14,165,233,.1) !important; border-color: #0ea5e9 !important; border-radius: 999px; color: #0ea5e9 !important; font-size: 10px; padding: 4px 8px; }
@@ -5885,8 +5886,9 @@ body.public-share-body {
 .public-client-page .client-planning-table .date-group-cell.date-weekend-cell,
 .public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > td {
   background:
-    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.2) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.1) 0 6px, transparent 6px 12px),
     #f2f4f6 !important;
+  background-attachment: fixed !important;
 }
 
 .public-client-page .client-planning-table .week-divider > td {
