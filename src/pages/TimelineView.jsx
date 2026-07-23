@@ -402,8 +402,8 @@ function SortableLine({
               <div
                 className="timeline-labels-underlay"
                 style={{
-                  left: startOffset * dayWidth + 4,
-                  width: Math.max(34, duration * dayWidth - 8),
+                  left: startOffset * dayWidth + 4 + resizeOffset,
+                  width: Math.max(34, duration * dayWidth - 8 + resizeWidthDelta),
                   transform: dragOffset ? `translate(${dragOffset}px, -50%)` : undefined,
                 }}
                 aria-hidden="true"
@@ -412,10 +412,11 @@ function SortableLine({
               </div>
             )}
             <div
-              className="timeline-labels"
-              style={{
-                left: startOffset * dayWidth + duration * dayWidth + 8,
-                transform: dragOffset ? `translate(${dragOffset}px, -50%)` : undefined,
+                className="timeline-labels"
+                style={{
+                  left: startOffset * dayWidth + duration * dayWidth + 8
+                    + (activePreview?.mode === 'end' ? activePreview.offsetPx : 0),
+                  transform: dragOffset ? `translate(${dragOffset}px, -50%)` : undefined,
               }}
             >
                 {showWhatSelector && (
