@@ -654,6 +654,10 @@ export function PlannerProvider({ children }) {
     setLoading(true);
     const load = async () => {
       const next = useSupabase ? await withTimeout(loadSupabaseData(), PLANNER_LOAD_TIMEOUT_MS, 'Planner data load') : readLocal(user);
+      const signedInProfile = next.profiles?.find((profile) => profile.id === user.id);
+      if (signedInProfile && user.user_metadata?.preferences) {
+        signedInProfile.preferences = user.user_metadata.preferences;
+      }
       if (alive) {
         setData(next);
         setLoading(false);
@@ -1793,10 +1797,15 @@ export function PlannerProvider({ children }) {
         const cleanPatch = {
           display_name: patch.display_name?.trim() || profile.display_name,
           avatar_url: patch.avatar_url ?? profile.avatar_url ?? '',
-          preferences: patch.preferences ?? profile.preferences ?? {},
         };
         Object.assign(profile, cleanPatch);
+        if (patch.preferences) profile.preferences = patch.preferences;
         if (useSupabase) void saveSupabase('profile', supabase.from('profiles').update(cleanPatch).eq('id', user.id));
+        if (useSupabase && patch.preferences) {
+          void saveSupabase('user preferences', supabase.auth.updateUser({
+            data: { preferences: patch.preferences },
+          }));
+        }
       }),
       addClient: (name, abbreviation = '') => {
         const trimmed = name.trim();

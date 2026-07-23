@@ -6,14 +6,12 @@ create table if not exists public.profiles (
   display_name text not null,
   avatar_url text,
   role text not null default 'user' check (role in ('admin', 'user')),
-  preferences jsonb not null default '{}'::jsonb,
   created_at timestamptz default now(),
   invited_by uuid references public.profiles(id),
   is_active boolean not null default true
 );
 
 alter table public.profiles add column if not exists avatar_url text;
-alter table public.profiles add column if not exists preferences jsonb not null default '{}'::jsonb;
 
 create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
