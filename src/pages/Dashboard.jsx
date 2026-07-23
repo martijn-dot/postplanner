@@ -344,22 +344,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="project-planning-rows">
-                    <div className="project-asset-panel">
-                      <div className="project-assetlist-stack">
-                        <button
-                          type="button"
-                          onClick={openAssetListAction}
-                          className="project-label-button"
-                          aria-label="Open assetlist"
-                          title="Open assetlist"
-                        >
-                          <FileSpreadsheet size={14} /> ASSETLIST
-                        </button>
-                        <span className="project-asset-updated">
-                          {latestAssetListUpdate ? `Updated ${formatDistanceToNow(new Date(latestAssetListUpdate), { addSuffix: true })}` : 'No updates yet'}
-                        </span>
-                      </div>
-                    </div>
                     <div className="project-planning-list">
                       {visibleModuleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions, shareLink }) => {
                       const ownerName = definition.key === PLANNING_TYPES.production.key ? productionProducerName : postProducerName;
@@ -413,6 +397,22 @@ export default function Dashboard() {
                         </div>
                       );
                       })}
+                    </div>
+                    <div className="project-asset-panel">
+                      <div className="project-assetlist-stack">
+                        <button
+                          type="button"
+                          onClick={openAssetListAction}
+                          className="project-label-button"
+                          aria-label="Open assetlist"
+                          title="Open assetlist"
+                        >
+                          <FileSpreadsheet size={14} /> ASSETLIST
+                        </button>
+                        <span className="project-asset-updated">
+                          {latestAssetListUpdate ? `Updated ${formatDistanceToNow(new Date(latestAssetListUpdate), { addSuffix: true })}` : 'No updates yet'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </>

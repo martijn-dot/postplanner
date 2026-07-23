@@ -6467,24 +6467,25 @@ body.public-share-body {
   border-top: 1px solid rgba(148, 142, 157, 0.12);
   display: grid;
   gap: 0;
-  grid-template-columns: 170px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 170px;
   margin-top: 0;
 }
 
 .project-asset-panel {
   align-items: flex-start;
-  border-right: 1px solid rgba(148, 142, 157, 0.12);
+  border-left: 1px solid rgba(148, 142, 157, 0.12);
   display: flex;
-  padding: 12px 18px;
+  justify-content: center;
+  padding: 12px 14px;
 }
 
 .project-asset-panel .project-assetlist-stack {
-  align-items: flex-start;
+  align-items: center;
   margin-left: 0;
 }
 
 .project-asset-panel .project-asset-updated {
-  text-align: left;
+  text-align: center;
 }
 
 .project-planning-list {
@@ -6788,7 +6789,17 @@ body.public-share-body {
 
   .project-asset-panel {
     border-bottom: 1px solid rgba(148, 142, 157, 0.12);
-    border-right: 0;
+    border-left: 0;
+    grid-row: 1;
+    justify-content: flex-start;
+  }
+
+  .project-asset-panel .project-assetlist-stack {
+    align-items: flex-start;
+  }
+
+  .project-asset-panel .project-asset-updated {
+    text-align: left;
   }
 
   .project-planning-row {
