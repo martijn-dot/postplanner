@@ -856,8 +856,24 @@ export function PlannerProvider({ children }) {
 
   const invokeAdminUserAction = useCallback(async (body) => {
     if (!useSupabase) return null;
+    let { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    let activeSession = sessionData?.session;
+    const expiresSoon = activeSession?.expires_at && activeSession.expires_at * 1000 < Date.now() + 60_000;
+    if (!activeSession || expiresSoon) {
+      const refreshed = await supabase.auth.refreshSession();
+      sessionError = refreshed.error;
+      activeSession = refreshed.data?.session;
+    }
+    if (sessionError || !activeSession?.access_token) {
+      const error = new Error('Your session has expired. Sign in again and retry the admin action.');
+      setSaveError(`Admin action failed: ${error.message}`);
+      throw error;
+    }
     const result = await supabase.functions.invoke('admin-user-email', {
       body,
+      headers: {
+        Authorization: `Bearer ${activeSession.access_token}`,
+      },
     });
     if (result.error) {
       let message = result.error.message;

@@ -30,22 +30,19 @@ Deno.serve(async (request) => {
   try {
     console.log('admin-user-email request received');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       throw new Error('Supabase function environment is not configured.');
     }
 
     const authorization = request.headers.get('Authorization');
     if (!authorization) throw new Error('Missing authorization header.');
-
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authorization } },
-    });
+    const accessToken = authorization.replace(/^Bearer\s+/i, '').trim();
+    if (!accessToken) throw new Error('Missing access token.');
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: authUser, error: authError } = await userClient.auth.getUser();
+    const { data: authUser, error: authError } = await adminClient.auth.getUser(accessToken);
     if (authError || !authUser.user) throw new Error('Not authenticated.');
     console.log(`admin-user-email authenticated user: ${authUser.user.id}`);
 
