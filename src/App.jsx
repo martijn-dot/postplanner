@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import LoadingScreen from './components/LoadingScreen.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { PlannerProvider, usePlanner } from './context/PlannerContext.jsx';
 import AuthPage from './pages/AuthPage.jsx';
@@ -20,7 +21,7 @@ function PlannerRoutes() {
   const profile = profiles.find((item) => item.id === user.id);
 
   if (loading) {
-    return <div className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">Loading planner...</div>;
+    return <LoadingScreen message="Loading planner..." />;
   }
 
   if (!demoMode && needsOnboarding(profile)) {
@@ -41,7 +42,7 @@ function ProtectedRoutes() {
   const { session, loading, demoMode } = useAuth();
 
   if (loading) {
-    return <div className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">Loading planner...</div>;
+    return <LoadingScreen message="Loading planner..." />;
   }
 
   if (!session && !demoMode) {

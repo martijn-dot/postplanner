@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import TopBar from '../components/TopBar.jsx';
+import LoadingScreen from '../components/LoadingScreen.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import TimelineView from './TimelineView.jsx';
 import ClientTableView from './ClientTableView.jsx';
@@ -61,7 +62,7 @@ export default function ProjectPage() {
     ensurePlanningModule(project.id, requestedType);
   }, [ensurePlanningModule, project, requestedType, versions.length]);
 
-  if (loading) return <div className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">Loading project...</div>;
+  if (loading) return <LoadingScreen message="Loading project..." />;
   if (!project) return <Navigate to="/" replace />;
 
   return (

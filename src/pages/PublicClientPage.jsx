@@ -6,6 +6,7 @@ import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import Pill from '../components/Pill.jsx';
+import LoadingScreen from '../components/LoadingScreen.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
@@ -392,7 +393,7 @@ export default function PublicClientPage() {
   }, [token]);
 
   if (loading) {
-    return <div className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">Loading client planning...</div>;
+    return <LoadingScreen message="Loading client planning..." />;
   }
 
   if (error) {
