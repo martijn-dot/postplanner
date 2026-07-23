@@ -342,7 +342,9 @@ export default function Dashboard() {
                       </div>
                       </div>
                     </div>
-                    <div className="project-header-actions">
+                  </div>
+                  <div className="project-planning-rows">
+                    <div className="project-asset-panel">
                       <div className="project-assetlist-stack">
                         <button
                           type="button"
@@ -358,9 +360,8 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </div>
-                  </div>
-                  <div className="project-planning-rows">
-                    {visibleModuleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions, shareLink }) => {
+                    <div className="project-planning-list">
+                      {visibleModuleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions, shareLink }) => {
                       const ownerName = definition.key === PLANNING_TYPES.production.key ? productionProducerName : postProducerName;
                       const ownerProfile = profileByName[ownerName] ?? createdBy;
                       const ownerInitials = ownerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
@@ -395,7 +396,10 @@ export default function Dashboard() {
                             <span className="project-avatar">
                               {ownerProfile?.avatar_url ? <img src={ownerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : ownerInitials || '?'}
                             </span>
-                            <span>{ownerName}</span>
+                            <span className="project-planning-person-copy">
+                              <small>{definition.key === PLANNING_TYPES.production.key ? 'Producer' : 'Post-producer'}</small>
+                              <span>{ownerName}</span>
+                            </span>
                           </div>
                           <div className="project-row-change-block">
                             <span>changed {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'}</span>
@@ -408,7 +412,8 @@ export default function Dashboard() {
                           </div>
                         </div>
                       );
-                    })}
+                      })}
+                    </div>
                   </div>
                 </>
               );
