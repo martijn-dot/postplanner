@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Trash2, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Send, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -240,7 +240,7 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">Columns</h2>
-            <p className="mt-1 text-sm text-ink-500">Drag the custom columns into the order you want.</p>
+            <p className="mt-1 text-sm text-ink-500">Set the internal visibility and choose which columns publish to clients.</p>
           </div>
           <button type="button" onClick={onClose} className="secondary-button !px-3 !py-2">Close</button>
         </div>
@@ -265,6 +265,16 @@ function ColumnOrderPopup({ columns, onClose, onReorder }) {
               >
                 {column.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
                 {column.hidden ? 'Show' : 'Hide'}
+              </button>
+              <button
+                type="button"
+                className={`asset-column-order-publish ${column.publish_to_client === false ? 'is-private' : ''}`}
+                onClick={() => setDraftColumns((current) => current.map((item) => item.id === column.id ? { ...item, publish_to_client: item.publish_to_client === false } : item))}
+                aria-label={`${column.publish_to_client === false ? 'Publish' : 'Do not publish'} ${column.name} to the client page`}
+                aria-pressed={column.publish_to_client !== false}
+              >
+                <Send size={14} />
+                {column.publish_to_client === false ? 'Private' : 'Publish'}
               </button>
             </div>
           ))}

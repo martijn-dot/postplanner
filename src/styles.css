@@ -2034,7 +2034,29 @@ nav .tab-active {
   padding: 5px 8px;
 }
 
-.asset-column-order-visibility:hover {
+.asset-column-order-publish {
+  align-items: center;
+  background: #7567f8;
+  border: 1px solid #7567f8;
+  border-radius: 7px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.7rem;
+  font-weight: 800;
+  gap: 5px;
+  min-width: 78px;
+  padding: 5px 8px;
+}
+
+.asset-column-order-publish.is-private {
+  background: transparent;
+  border-color: #45506b;
+  color: #8e98b2;
+}
+
+.asset-column-order-visibility:hover,
+.asset-column-order-publish:hover {
   background: rgba(109, 93, 252, 0.2);
   border-color: rgba(109, 93, 252, 0.68);
 }

@@ -84,21 +84,6 @@ function assetLabelStyle(value, column, labels = []) {
   };
 }
 
-function projectClientCode(project, clients = []) {
-  const client = clients.find((item) => item.name?.trim().toLowerCase() === project.client?.trim().toLowerCase());
-  const abbreviation = client?.abbreviation?.trim().toUpperCase();
-  return abbreviation?.length === 2 ? abbreviation : project.client;
-}
-
-function assetFilename(project, list, row, clients = []) {
-  const columns = assetColumns(list);
-  const filenameColumns = columns.filter((column) => column.label_type !== 'asset_unique_ratio' && !/^unique\b/i.test(column.name ?? ''));
-  const parts = [project.project_number, projectClientCode(project, clients), project.name, row.number, ...filenameColumns.map((column) => assetValue(row.values?.[column.id], column))]
-    .map((part) => String(part ?? '').trim())
-    .filter(Boolean);
-  return parts.join(list.global_separator ?? '_');
-}
-
 function frameIoValue(row, columns) {
   const column = columns.find((item) => /frame\.?io/i.test(item.name ?? '') || /frame\.?io/i.test(item.key ?? ''));
   return column ? String(row.values?.[column.id] ?? '').trim() : '';
@@ -161,7 +146,7 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
   };
 }
 
-function PublicAssetList({ project, assetLists = [], clients = [], labels = [] }) {
+function PublicAssetList({ assetLists = [], labels = [] }) {
   const [activeId, setActiveId] = useState(assetLists[0]?.id ?? '');
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
@@ -176,7 +161,10 @@ function PublicAssetList({ project, assetLists = [], clients = [], labels = [] }
   if (!assetLists.length) return <div className="rounded-lg border border-black/10 bg-white px-4 py-10 text-center text-ink-500 dark:border-white/10 dark:bg-ink-900">No asset list published yet.</div>;
 
   const columns = assetColumns(activeList);
-  const visibleColumns = columns.filter((column) => !/frame\.?io/i.test(column.name ?? ''));
+  const publishedColumns = columns.filter((column) => column.publish_to_client !== false);
+  const visibleColumns = publishedColumns.filter((column) => !/frame\.?io/i.test(column.name ?? ''));
+  const publishedFrameColumn = publishedColumns.find((column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? ''));
+  const showFrameColumn = Boolean(publishedFrameColumn);
   const rows = assetRows(activeList);
   const groups = assetCategories(activeList);
   const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -185,14 +173,13 @@ function PublicAssetList({ project, assetLists = [], clients = [], labels = [] }
     const haystack = [
       row.number,
       row.notes,
-      assetFilename(project, activeList, row, clients),
-      ...columns.map((column) => assetValue(row.values?.[column.id], column)),
+      ...publishedColumns.map((column) => assetValue(row.values?.[column.id], column)),
     ].join(' ').toLowerCase();
     return haystack.includes(normalizedSearch);
   };
   const visibleRows = rows.filter(rowMatchesSearch);
   const groupRows = (group) => (groups.length ? visibleRows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === group.id) : visibleRows);
-  const assetColSpan = visibleColumns.length + 3;
+  const assetColSpan = visibleColumns.length + 2 + (showFrameColumn ? 1 : 0);
   const toggleGroup = (groupId) => {
     setCollapsedGroups((current) => {
       const next = new Set(current);
@@ -237,7 +224,7 @@ function PublicAssetList({ project, assetLists = [], clients = [], labels = [] }
               <th>Number</th>
               {visibleColumns.map((column) => <th key={column.id}>{column.name}</th>)}
               <th>Notes</th>
-              <th>Frame.io</th>
+              {showFrameColumn && <th>Frame.io</th>}
             </tr>
           </thead>
           <tbody>
@@ -273,11 +260,13 @@ function PublicAssetList({ project, assetLists = [], clients = [], labels = [] }
                           </span>
                         ) : null}
                       </td>
-                      <td>
-                        {frameIoValue(row, columns)
-                          ? <a className="public-asset-frame-button is-active" href={frameIoValue(row, columns)} target="_blank" rel="noreferrer">View</a>
-                          : <span className="public-asset-frame-button">View</span>}
-                      </td>
+                      {showFrameColumn && (
+                        <td>
+                          {frameIoValue(row, [publishedFrameColumn])
+                            ? <a className="public-asset-frame-button is-active" href={frameIoValue(row, [publishedFrameColumn])} target="_blank" rel="noreferrer">View</a>
+                            : <span className="public-asset-frame-button">View</span>}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </Fragment>
