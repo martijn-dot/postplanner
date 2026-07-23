@@ -237,7 +237,7 @@ function SortableLine({
   onUpdateLineItem,
   endMarkerAnimating,
 }) {
-  const { deleteLineItem, addLabel, deleteLabel } = usePlanner();
+  const { deleteLineItem, addLabel, deleteLabel, flushLineItemUpdate } = usePlanner();
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
   const [openBlockMenu, setOpenBlockMenu] = useState(null);
   const block = hasBlock(item);
@@ -372,7 +372,7 @@ function SortableLine({
           <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
           {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color, { planningType: planningDefinition.key })} onDeleteLabel={deleteLabel} /></div>}
-          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder={assetColumnLabel} />{fillHandle('asset')}</div>}
+          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }} onBlur={() => flushLineItemUpdate(item.id)} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder={assetColumnLabel} />{fillHandle('asset')}</div>}
           {optionsVisible && (
             <div className="timeline-option-cluster">
               <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button" aria-label="Focus booking on timeline">F</button>
@@ -700,7 +700,7 @@ function CategoryBlock({
 }
 
 export default function TimelineView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem } = usePlanner();
+  const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem, flushLineItemUpdate } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
   const [zoom, setZoom] = useState('month');
@@ -1548,6 +1548,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                   id={`booking-time-${detailsItem.id}`}
                   value={detailsItem.time ?? ''}
                   onChange={(event) => updateLineItemWithUndo(detailsItem.id, { time: normalizeTimeInput(event.target.value) })}
+                  onBlur={() => flushLineItemUpdate(detailsItem.id)}
                   className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
                   inputMode="numeric"
                   pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
@@ -1563,6 +1564,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
               <textarea
                 value={detailsItem.notes ?? ''}
                 onChange={(event) => updateLineItemWithUndo(detailsItem.id, { notes: event.target.value })}
+                onBlur={() => flushLineItemUpdate(detailsItem.id)}
                 className="mt-2 min-h-28 w-full resize-y rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
                 placeholder="Add notes for the client planning..."
               />

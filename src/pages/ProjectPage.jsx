@@ -1,5 +1,5 @@
 import { NavLink, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import TopBar from '../components/TopBar.jsx';
 import LoadingScreen from '../components/LoadingScreen.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -28,7 +28,8 @@ export default function ProjectPage() {
   const { projectId } = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { projects, lineItems, categories, loading, upsertPresence, clearPresence, markProjectEdited, ensurePlanningModule } = usePlanner();
+  const { projects, lineItems, categories, loading, loadProjectData, upsertPresence, clearPresence, markProjectEdited, ensurePlanningModule } = usePlanner();
+  const [projectDataLoading, setProjectDataLoading] = useState(true);
   const project = projects.find((item) => item.id === projectId);
   const requestedType = safePlanningType(searchParams.get('type'));
   const versions = versionsForProject(project, lineItems, categories, requestedType);
@@ -58,11 +59,24 @@ export default function ProjectPage() {
   }, [projectId]);
 
   useEffect(() => {
-    if (!project || versions.length) return;
-    ensurePlanningModule(project.id, requestedType);
-  }, [ensurePlanningModule, project, requestedType, versions.length]);
+    let alive = true;
+    setProjectDataLoading(true);
+    Promise.resolve(loadProjectData(projectId))
+      .catch((error) => console.error('Could not load project data', error))
+      .finally(() => {
+        if (alive) setProjectDataLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [loadProjectData, projectId]);
 
-  if (loading) return <LoadingScreen message="Loading project..." />;
+  useEffect(() => {
+    if (projectDataLoading || !project || versions.length) return;
+    ensurePlanningModule(project.id, requestedType);
+  }, [ensurePlanningModule, project, projectDataLoading, requestedType, versions.length]);
+
+  if (loading || projectDataLoading) return <LoadingScreen message="Loading project..." />;
   if (!project) return <Navigate to="/" replace />;
 
   return (

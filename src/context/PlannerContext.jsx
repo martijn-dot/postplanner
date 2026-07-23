@@ -18,6 +18,7 @@ const PlannerContext = createContext(null);
 const STORAGE_KEY = 'post-production-planner:v1';
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
 const PLANNER_LOAD_TIMEOUT_MS = 12000;
+const PROJECT_PAGE_SIZE = 50;
 const DEFAULT_APP_SETTINGS = {
   defaultPlanning: DEFAULT_PLANNING_WHAT_LABELS,
   assetListTemplates: [],
@@ -269,10 +270,51 @@ function dbAssetList(list) {
     filename_options: list.filename_options ?? {},
     columns: list.columns ?? [],
     categories: list.categories ?? [],
-    rows: list.rows ?? [],
+    // Rows are persisted individually in asset_list_rows.
+    rows: [],
     created_at: list.created_at,
     updated_at: list.updated_at ?? new Date().toISOString(),
   };
+}
+
+function dbAssetListRow(list, row) {
+  const knownKeys = new Set(['id', 'number', 'group_id', 'values', 'notes', 'ratio_parent_id', 'ratio_value', 'sort_order', 'revision', 'created_at', 'updated_at']);
+  return {
+    id: row.id,
+    asset_list_id: list.id,
+    project_id: list.project_id,
+    number: row.number ?? '',
+    group_id: row.group_id || null,
+    values: row.values ?? {},
+    notes: row.notes ?? '',
+    ratio_parent_id: row.ratio_parent_id || null,
+    ratio_value: row.ratio_value ?? null,
+    sort_order: row.sort_order ?? 0,
+    data: Object.fromEntries(Object.entries(row).filter(([key]) => !knownKeys.has(key))),
+    revision: row.revision ?? 1,
+  };
+}
+
+function fromDbAssetListRow(row) {
+  return {
+    ...(row.data ?? {}),
+    id: row.id,
+    number: row.number ?? '',
+    group_id: row.group_id ?? null,
+    values: row.values ?? {},
+    notes: row.notes ?? '',
+    ratio_parent_id: row.ratio_parent_id ?? undefined,
+    ratio_value: row.ratio_value ?? undefined,
+    sort_order: row.sort_order ?? 0,
+    revision: row.revision ?? 1,
+    updated_at: row.updated_at,
+  };
+}
+
+function replaceById(rows, next) {
+  const index = rows.findIndex((item) => item.id === next.id);
+  if (index < 0) rows.push(next);
+  else rows[index] = { ...rows[index], ...next };
 }
 
 function localShareLinks() {
@@ -488,17 +530,17 @@ function readLocal(user) {
 
 async function loadSupabaseData() {
   const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers, appSettings, assetLists, shareLinks] = await Promise.all([
-    supabase.from('projects').select('*').order('created_at', { ascending: false }),
-    supabase.from('categories').select('*').order('sort_order'),
-    supabase.from('line_items').select('*').order('sort_order'),
-    supabase.from('labels').select('*'),
+    supabase.from('projects').select('*').order('last_edited_at', { ascending: false }).range(0, 49),
+    supabase.from('categories').select('id,project_id,planning_type,planning_version,name,sort_order,revision,updated_at').order('sort_order'),
+    Promise.resolve({ data: [], error: null }),
+    supabase.from('labels').select('*').is('project_id', null),
     supabase.from('profiles').select('*'),
     supabase.from('project_presence').select('*'),
     supabase.from('invitations').select('*').order('created_at', { ascending: false }),
     supabase.from('clients').select('*').order('name'),
     supabase.from('producers').select('*').order('name'),
     supabase.from('app_settings').select('*').in('key', ['default_planning', 'asset_list_templates']),
-    supabase.from('asset_lists').select('*').order('sort_order'),
+    supabase.from('asset_lists').select('id,project_id,name,sort_order,global_separator,filename_options,created_at,updated_at,revision').order('sort_order'),
     supabase.from('public_share_links').select('*').is('revoked_at', null),
   ]);
   for (const result of [projects, categories, lineItems, labels, profiles, presence]) {
@@ -552,15 +594,57 @@ async function loadSupabaseData() {
   };
 }
 
+async function loadSupabaseProjectData(projectId) {
+  const [categories, lineItems, labels, assetLists, assetRows] = await Promise.all([
+    supabase.from('categories').select('*').eq('project_id', projectId).order('sort_order'),
+    supabase.from('line_items').select('*').eq('project_id', projectId).order('sort_order'),
+    supabase.from('labels').select('*').eq('project_id', projectId),
+    supabase.from('asset_lists').select('*').eq('project_id', projectId).order('sort_order'),
+    supabase.from('asset_list_rows').select('*').eq('project_id', projectId).order('sort_order'),
+  ]);
+  for (const result of [categories, lineItems, labels, assetLists]) {
+    if (result.error) throw result.error;
+  }
+  const normalizedLists = (assetLists.data ?? []).map((list) => ({
+    ...list,
+    columns: list.columns ?? [],
+    categories: list.categories ?? [],
+    filename_options: list.filename_options ?? {},
+    global_separator: list.global_separator ?? '_',
+    rows: [],
+  }));
+  if (!assetRows.error) {
+    const listById = Object.fromEntries(normalizedLists.map((list) => [list.id, list]));
+    (assetRows.data ?? []).forEach((row) => listById[row.asset_list_id]?.rows.push(fromDbAssetListRow(row)));
+  } else if (!['42P01', 'PGRST205'].includes(assetRows.error.code)) {
+    throw assetRows.error;
+  } else {
+    normalizedLists.forEach((list) => {
+      const legacy = (assetLists.data ?? []).find((item) => item.id === list.id);
+      list.rows = legacy?.rows ?? [];
+    });
+  }
+  return {
+    categories: categories.data ?? [],
+    lineItems: lineItems.data ?? [],
+    labels: (labels.data ?? []).map(applyDefaultLabelColor),
+    assetLists: normalizedLists,
+  };
+}
+
 export function PlannerProvider({ children }) {
   const { user, demoMode, hasSupabaseConfig } = useAuth();
   const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [], assetLists: [], shareLinks: [], appSettings: DEFAULT_APP_SETTINGS });
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
   const [dirtyProjectIds, setDirtyProjectIds] = useState([]);
+  const [hasMoreProjects, setHasMoreProjects] = useState(true);
   const dirtyProjectIdsRef = useRef([]);
   const unsupportedLineItemColumnsRef = useRef(new Set());
   const unsupportedCategoryColumnsRef = useRef(new Set());
+  const loadedProjectIdsRef = useRef(new Set());
+  const projectLoadPromisesRef = useRef(new Map());
+  const pendingLineItemWritesRef = useRef(new Map());
   const useSupabase = hasSupabaseConfig && !demoMode;
 
   useEffect(() => {
@@ -592,6 +676,59 @@ export function PlannerProvider({ children }) {
   useEffect(() => {
     dirtyProjectIdsRef.current = dirtyProjectIds;
   }, [dirtyProjectIds]);
+
+  useEffect(() => {
+    if (!useSupabase) return undefined;
+    const applyChange = (table, payload) => {
+      const row = payload.new?.id ? payload.new : payload.old;
+      if (!row?.id) return;
+      if (!['projects', 'project_presence'].includes(table)
+        && row.project_id
+        && !loadedProjectIdsRef.current.has(row.project_id)) return;
+      setData((current) => {
+        const draft = structuredClone(current);
+        const collectionByTable = {
+          projects: 'projects',
+          categories: 'categories',
+          line_items: 'lineItems',
+          labels: 'labels',
+          project_presence: 'presence',
+          asset_lists: 'assetLists',
+        };
+        if (table === 'asset_list_rows') {
+          const list = draft.assetLists.find((item) => item.id === row.asset_list_id);
+          if (!list) return current;
+          if (payload.eventType === 'DELETE') list.rows = (list.rows ?? []).filter((item) => item.id !== row.id);
+          else replaceById(list.rows, fromDbAssetListRow(payload.new));
+          return draft;
+        }
+        const collectionName = collectionByTable[table];
+        if (!collectionName) return current;
+        if (payload.eventType === 'DELETE') {
+          draft[collectionName] = draft[collectionName].filter((item) => item.id !== row.id);
+        } else {
+          let next = table === 'labels' ? applyDefaultLabelColor(payload.new) : payload.new;
+          if (table === 'asset_lists') {
+            const { rows: _legacyRows, ...metadata } = next;
+            next = metadata;
+          }
+          if (table === 'line_items') {
+            next = { ...next, ...(pendingLineItemWritesRef.current.get(next.id)?.patch ?? {}) };
+          }
+          replaceById(draft[collectionName], next);
+        }
+        return draft;
+      });
+    };
+    const channel = supabase.channel('planner-collaboration');
+    ['projects', 'categories', 'line_items', 'labels', 'project_presence', 'asset_lists', 'asset_list_rows'].forEach((table) => {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => applyChange(table, payload));
+    });
+    channel.subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [useSupabase]);
 
   const mutate = useCallback((recipe) => {
     let result;
@@ -666,17 +803,31 @@ export function PlannerProvider({ children }) {
     const buildPayload = () => withoutColumns(dbPatch, unsupportedLineItemColumnsRef.current);
     let payload = buildPayload();
     if (!Object.keys(payload).length) return null;
-    let result = await supabase.from('line_items').update(payload).eq('id', itemId);
+    const currentItem = data.lineItems.find((item) => item.id === itemId);
+    let request = supabase.from('line_items').update(payload).eq('id', itemId);
+    if (currentItem?.revision != null) request = request.eq('revision', currentItem.revision);
+    let result = await request.select().maybeSingle();
     const missingColumn = schemaMissingColumn(result?.error);
     if (missingColumn && OPTIONAL_LINE_ITEM_COLUMNS.has(missingColumn)) {
       unsupportedLineItemColumnsRef.current.add(missingColumn);
       payload = buildPayload();
       result = Object.keys(payload).length
-        ? await supabase.from('line_items').update(payload).eq('id', itemId)
+        ? await supabase.from('line_items').update(payload).eq('id', itemId).select().maybeSingle()
         : { data: null, error: null };
     }
+    if (!result.error && !result.data && currentItem?.revision != null) {
+      const conflict = new Error('This row changed in another browser. The latest server version was restored.');
+      const latest = await supabase.from('line_items').select('*').eq('id', itemId).maybeSingle();
+      if (latest.data) setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? latest.data : item) }));
+      setSaveError(conflict.message);
+      if (throwOnError) throw conflict;
+      return { data: null, error: conflict };
+    }
+    if (result.data) {
+      setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? { ...item, ...result.data } : item) }));
+    }
     return saveSupabase(label, Promise.resolve(result), { throwOnError });
-  }, [saveSupabase, useSupabase]);
+  }, [data.lineItems, saveSupabase, useSupabase]);
 
   const invokeAdminUserAction = useCallback(async (body) => {
     if (!useSupabase) return null;
@@ -703,12 +854,129 @@ export function PlannerProvider({ children }) {
     return result.data;
   }, [useSupabase]);
 
+  const loadProjectData = useCallback(async (projectId) => {
+    if (!useSupabase || loadedProjectIdsRef.current.has(projectId)) return;
+    if (projectLoadPromisesRef.current.has(projectId)) return projectLoadPromisesRef.current.get(projectId);
+    const promise = loadSupabaseProjectData(projectId)
+      .then((projectData) => {
+        setData((current) => ({
+          ...current,
+          categories: [...current.categories.filter((item) => item.project_id !== projectId), ...projectData.categories],
+          lineItems: [...current.lineItems.filter((item) => item.project_id !== projectId), ...projectData.lineItems],
+          labels: [...current.labels.filter((item) => item.project_id !== projectId), ...projectData.labels],
+          assetLists: [...current.assetLists.filter((item) => item.project_id !== projectId), ...projectData.assetLists],
+        }));
+        loadedProjectIdsRef.current.add(projectId);
+      })
+      .finally(() => projectLoadPromisesRef.current.delete(projectId));
+    projectLoadPromisesRef.current.set(projectId, promise);
+    return promise;
+  }, [useSupabase]);
+
+  const loadMoreProjects = useCallback(async () => {
+    if (!useSupabase || !hasMoreProjects) return;
+    const offset = data.projects.length;
+    const projectsResult = await supabase
+      .from('projects')
+      .select('*')
+      .order('last_edited_at', { ascending: false })
+      .range(offset, offset + PROJECT_PAGE_SIZE - 1);
+    if (projectsResult.error) {
+      setSaveError(`More projects could not be loaded: ${projectsResult.error.message}`);
+      return;
+    }
+    const nextProjects = projectsResult.data ?? [];
+    const projectIds = nextProjects.map((project) => project.id);
+    const categoriesResult = projectIds.length
+      ? await supabase.from('categories').select('id,project_id,planning_type,planning_version,name,sort_order,revision,updated_at').in('project_id', projectIds)
+      : { data: [], error: null };
+    setData((current) => {
+      const draft = structuredClone(current);
+      nextProjects.forEach((project) => replaceById(draft.projects, project));
+      (categoriesResult.data ?? []).forEach((category) => replaceById(draft.categories, category));
+      return draft;
+    });
+    setHasMoreProjects(nextProjects.length === PROJECT_PAGE_SIZE);
+  }, [data.projects.length, hasMoreProjects, useSupabase]);
+
+  const flushLineItemUpdate = useCallback((itemId) => {
+    const pending = pendingLineItemWritesRef.current.get(itemId);
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingLineItemWritesRef.current.delete(itemId);
+    void saveLineItemUpdate('line item changes', itemId, pending.patch);
+  }, [saveLineItemUpdate]);
+
+  const queueLineItemUpdate = useCallback((itemId, patch) => {
+    const existing = pendingLineItemWritesRef.current.get(itemId);
+    if (existing) window.clearTimeout(existing.timer);
+    const next = {
+      patch: { ...(existing?.patch ?? {}), ...patch },
+      timer: window.setTimeout(() => flushLineItemUpdate(itemId), 500),
+    };
+    pendingLineItemWritesRef.current.set(itemId, next);
+  }, [flushLineItemUpdate]);
+
+  const saveAssetRows = useCallback(async (list, previousRows, nextRows) => {
+    if (!useSupabase) return;
+    const previousById = new Map((previousRows ?? []).map((row) => [row.id, row]));
+    const nextIds = new Set((nextRows ?? []).map((row) => row.id));
+    const removedIds = (previousRows ?? []).filter((row) => !nextIds.has(row.id)).map((row) => row.id);
+    let changedRows = (nextRows ?? []).filter((row) => {
+      const previous = previousById.get(row.id);
+      return !previous || JSON.stringify(previous) !== JSON.stringify(row);
+    });
+    const withoutOrder = (row) => Object.fromEntries(Object.entries(row ?? {}).filter(([key]) => key !== 'sort_order'));
+    const orderOnly = !removedIds.length
+      && changedRows.length > 1
+      && changedRows.every((row) => {
+        const previous = previousById.get(row.id);
+        return previous && JSON.stringify(withoutOrder(previous)) === JSON.stringify(withoutOrder(row));
+      });
+    if (orderOnly) {
+      await saveSupabase('asset row order', supabase.rpc('reorder_asset_list_rows', {
+        target_asset_list_id: list.id,
+        ordered_ids: [...nextRows].sort((a, b) => a.sort_order - b.sort_order).map((row) => row.id),
+      }));
+      changedRows = [];
+    }
+    if (removedIds.length) {
+      await saveSupabase('asset rows delete', supabase.from('asset_list_rows').delete().in('id', removedIds));
+    }
+    await Promise.all(changedRows.map(async (row) => {
+      const previous = previousById.get(row.id);
+      const payload = dbAssetListRow(list, row);
+      if (!previous) {
+        await saveSupabase('asset row', supabase.from('asset_list_rows').insert(payload));
+        return;
+      }
+      const { id: _id, revision: _revision, ...changes } = payload;
+      let request = supabase.from('asset_list_rows').update(changes).eq('id', row.id);
+      if (previous.revision != null) request = request.eq('revision', previous.revision);
+      const result = await request.select().maybeSingle();
+      if (!result.error && !result.data && previous.revision != null) {
+        setSaveError('An asset row changed in another browser. Refresh before editing it again.');
+        return;
+      }
+      await saveSupabase('asset row', Promise.resolve(result));
+    }));
+  }, [saveSupabase, useSupabase]);
+
+  useEffect(() => () => {
+    pendingLineItemWritesRef.current.forEach((pending) => window.clearTimeout(pending.timer));
+    pendingLineItemWritesRef.current.clear();
+  }, []);
+
   const api = useMemo(
     () => ({
       ...data,
       loading,
       saveError,
       clearSaveError: () => setSaveError(''),
+      loadProjectData,
+      loadMoreProjects,
+      hasMoreProjects,
+      flushLineItemUpdate,
       createProject: async ({ projectNumber, name, client, postProducer, producer, planningType: initialPlanningType = DEFAULT_PLANNING_TYPE }) => {
         const now = new Date().toISOString();
         const safePlanningType = planningType(initialPlanningType);
@@ -832,10 +1100,15 @@ export function PlannerProvider({ children }) {
       updateAssetList: (listId, patch) => mutate((draft) => {
         const list = draft.assetLists.find((item) => item.id === listId);
         if (!list) return;
+        const previousRows = list.rows ?? [];
         const nextPatch = { ...patch, updated_at: new Date().toISOString() };
         Object.assign(list, nextPatch);
         markDirty(list.project_id);
-        if (useSupabase) void saveSupabase('asset list changes', supabase.from('asset_lists').update(nextPatch).eq('id', listId));
+        if (useSupabase) {
+          if (Object.hasOwn(nextPatch, 'rows')) void saveAssetRows(list, previousRows, nextPatch.rows);
+          const metadataPatch = Object.fromEntries(Object.entries(nextPatch).filter(([key]) => key !== 'rows'));
+          if (Object.keys(metadataPatch).length) void saveSupabase('asset list changes', supabase.from('asset_lists').update(metadataPatch).eq('id', listId));
+        }
       }),
       deleteAssetListTab: (listId) => mutate((draft) => {
         const list = draft.assetLists.find((item) => item.id === listId);
@@ -1053,9 +1326,12 @@ export function PlannerProvider({ children }) {
         });
         markDirty(projectId);
         if (useSupabase) {
-          rows.forEach((item, index) => {
-            void saveSupabase('category order', supabase.from('categories').update({ sort_order: index }).eq('id', item.id));
-          });
+          void saveSupabase('category order', supabase.rpc('reorder_categories', {
+            target_project_id: projectId,
+            target_planning_type: safeType,
+            target_planning_version: version,
+            ordered_ids: rows.map((item) => item.id),
+          }));
         }
       }),
       deleteCategory: (categoryId) => mutate((draft) => {
@@ -1261,10 +1537,17 @@ export function PlannerProvider({ children }) {
       }),
       updateLineItem: (itemId, patch) => mutate((draft) => {
         const item = draft.lineItems.find((lineItem) => lineItem.id === itemId);
+        if (!item) return;
         Object.assign(item, patch);
         markDirty(item?.project_id);
         if (useSupabase) {
-          void saveLineItemUpdate('line item changes', itemId, patch);
+          const debounceFields = new Set(['asset', 'time', 'notes']);
+          const shouldDebounce = Object.keys(patch).length > 0 && Object.keys(patch).every((key) => debounceFields.has(key));
+          if (shouldDebounce) queueLineItemUpdate(itemId, patch);
+          else {
+            flushLineItemUpdate(itemId);
+            void saveLineItemUpdate('line item changes', itemId, patch);
+          }
         }
       }),
       deleteLineItem: (itemId) => mutate((draft) => {
@@ -1287,9 +1570,12 @@ export function PlannerProvider({ children }) {
         });
         markDirty(projectId);
         if (useSupabase) {
-          rows.forEach((item, index) => {
-            void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: index }).eq('id', item.id));
-          });
+          void saveSupabase('line item order', supabase.rpc('reorder_line_items', {
+            target_project_id: projectId,
+            target_planning_type: safeType,
+            target_planning_version: version,
+            ordered_ids: rows.map((item) => item.id),
+          }));
         }
       }),
       moveLineItemRelative: (projectId, activeId, targetId, placement, version = DEFAULT_PLANNING_VERSION, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
@@ -1308,9 +1594,12 @@ export function PlannerProvider({ children }) {
         });
         markDirty(projectId);
         if (useSupabase) {
-          rows.forEach((item, index) => {
-            void saveSupabase('line item order', supabase.from('line_items').update({ sort_order: index }).eq('id', item.id));
-          });
+          void saveSupabase('line item order', supabase.rpc('reorder_line_items', {
+            target_project_id: projectId,
+            target_planning_type: safeType,
+            target_planning_version: version,
+            ordered_ids: rows.map((item) => item.id),
+          }));
         }
       }),
       addLabel: (projectId, columnType, value, color, options = {}) => {
@@ -1615,7 +1904,7 @@ export function PlannerProvider({ children }) {
         });
       },
     }),
-    [data, invokeAdminUserAction, loading, markDirty, mutate, saveCategoryInsert, saveCategoryUpsert, saveError, saveLineItemUpdate, saveLineItemUpsert, saveSupabase, useSupabase, user.id],
+    [data, flushLineItemUpdate, hasMoreProjects, invokeAdminUserAction, loadMoreProjects, loadProjectData, loading, markDirty, mutate, queueLineItemUpdate, saveAssetRows, saveCategoryInsert, saveCategoryUpsert, saveError, saveLineItemUpdate, saveLineItemUpsert, saveSupabase, useSupabase, user.id],
   );
 
   return <PlannerContext.Provider value={api}>{children}</PlannerContext.Provider>;

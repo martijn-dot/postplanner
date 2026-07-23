@@ -348,7 +348,7 @@ function OverflowNote({ note, onOpen }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE }) {
   const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
@@ -641,6 +641,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   <input
                     value={editingItem.asset ?? ''}
                     onChange={(event) => onUpdateLineItem(editingItem.id, { asset: event.target.value })}
+                    onBlur={() => onFlushLineItem?.(editingItem.id)}
                     className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
                     placeholder="What"
                   />
@@ -657,6 +658,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                 <input
                   value={editingItem.time === 'EOD' ? '' : editingItem.time ?? ''}
                   onChange={(event) => onUpdateLineItem(editingItem.id, { time: normalizeTimeInput(event.target.value) })}
+                  onBlur={() => onFlushLineItem?.(editingItem.id)}
                   className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 font-mono text-sm text-ink-100 outline-none focus:border-accent-400"
                   placeholder="HH:MM"
                   inputMode="numeric"
@@ -668,6 +670,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
               <textarea
                 value={editingItem.notes ?? ''}
                 onChange={(event) => onUpdateLineItem(editingItem.id, { notes: event.target.value })}
+                onBlur={() => onFlushLineItem?.(editingItem.id)}
                 className="min-h-36 w-full resize-y rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
                 placeholder="Add notes for this client planning row..."
               />
@@ -815,7 +818,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
 }
 
 export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, addLabel } = usePlanner();
+  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
   const activeShare = shareLinks.find((share) => share.project_id === project.id && share.page_type === 'client_planning' && safePlanningType(share.planning_type) === activePlanningType && (share.planning_version ?? 'V1') === planningVersion && !share.revoked_at);
@@ -1095,6 +1098,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     showEmptyDates={showEmptyDates}
                     dateWindow={dateWindow}
                     onUpdateLineItem={updateLineItem}
+                    onFlushLineItem={flushLineItemUpdate}
                     onAddLabel={addLabel}
                     uncategorizedName={uncategorizedName}
                     columnPrefs={columnPrefs}

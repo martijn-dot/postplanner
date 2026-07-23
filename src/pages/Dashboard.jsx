@@ -104,7 +104,7 @@ const DASHBOARD_PLANNING_ORDER = [PLANNING_TYPES.production, PLANNING_TYPES.post
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, categories, assetLists = [], shareLinks = [], createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, deletePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, categories, assetLists = [], shareLinks = [], createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, deletePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loadMoreProjects, hasMoreProjects, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
@@ -452,6 +452,11 @@ export default function Dashboard() {
               );
             })}
             {!visibleProjects.length && <p className="px-4 py-10 text-center text-ink-500">No projects match these filters.</p>}
+            {hasMoreProjects && !search && !userFilter && !clientFilter && (
+              <div className="flex justify-center p-5">
+                <button type="button" className="secondary-button" onClick={loadMoreProjects}>Load more projects</button>
+              </div>
+            )}
           </div>
         )}
       </main>
