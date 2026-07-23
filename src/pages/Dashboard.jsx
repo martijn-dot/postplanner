@@ -1,5 +1,5 @@
 import { ChevronDown, Copy, FileSpreadsheet, Plus, Search, Settings, Trash2 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { useState } from 'react';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -342,24 +342,23 @@ export default function Dashboard() {
                       </div>
                       </div>
                     </div>
-                    <div className="project-header-actions">
-                      <div className="project-assetlist-stack">
-                        <button
-                          type="button"
-                          onClick={openAssetListAction}
-                          className="project-label-button"
-                          aria-label="Open assetlist"
-                          title="Open assetlist"
-                        >
-                          <FileSpreadsheet size={14} /> ASSETLIST
-                        </button>
-                        <span className="project-asset-updated">
-                          {latestAssetListUpdate ? `Updated ${formatDistanceToNow(new Date(latestAssetListUpdate), { addSuffix: true })}` : 'No updates yet'}
-                        </span>
-                      </div>
-                    </div>
                   </div>
                   <div className="project-planning-rows">
+                    <div className="project-asset-panel">
+                      <button
+                        type="button"
+                        onClick={openAssetListAction}
+                        className="project-label-button"
+                        aria-label="Open assetlist"
+                        title="Open assetlist"
+                      >
+                        <FileSpreadsheet size={14} /> ASSETLIST
+                      </button>
+                      <span className="project-module-edit-line">
+                        last edit: {latestAssetListUpdate ? formatDistanceToNowStrict(new Date(latestAssetListUpdate), { addSuffix: true }) : '-'} by{' '}
+                        <strong>{editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</strong>
+                      </span>
+                    </div>
                     {visibleModuleLinks.map(({ definition, exists, version: moduleVersion, versions: moduleVersions, shareLink }) => {
                       const ownerName = definition.key === PLANNING_TYPES.production.key ? productionProducerName : postProducerName;
                       const ownerProfile = profileByName[ownerName] ?? createdBy;
@@ -367,84 +366,52 @@ export default function Dashboard() {
                       const publishUrl = shareLink ? `/share/${slugifyProjectName(project.name)}-${shareLink.token}` : '';
                       return (
                         <div key={definition.key} className={`project-planning-row is-${definition.key} ${exists ? '' : 'is-empty'}`}>
-                          <div className="project-planning-row-main">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                if (exists) openProjectPlanning(definition, moduleVersion, true, event);
-                              }}
-                              disabled={!exists}
-                              className={`project-planning-button is-${definition.key}`}
-                            >
-                              {definition.label}
-                            </button>
-                            <div className="project-version-row">
-                              {(exists ? moduleVersions : []).map((version) => (
-                                <button
-                                  key={version}
-                                  type="button"
-                                  onClick={(event) => openProjectPlanning(definition, version, true, event)}
-                                  className="project-version-button"
-                                >
-                                  {version}
-                                </button>
-                              ))}
-                              {shareLink ? (
-                                <a
-                                  href={publishUrl}
-                                  onClick={(event) => event.stopPropagation()}
-                                  className="project-publish-badge is-published"
-                                >
-                                  Published
-                                </a>
-                              ) : (
-                                <span className="project-publish-badge is-unpublished">Not published</span>
-                              )}
+                          <div className="project-module-toolbar">
+                            <div className="project-planning-row-main">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  if (exists) openProjectPlanning(definition, moduleVersion, true, event);
+                                }}
+                                disabled={!exists}
+                                className={`project-planning-button is-${definition.key}`}
+                              >
+                                {definition.label}
+                              </button>
+                              <div className="project-version-row">
+                                {(exists ? moduleVersions : []).map((version) => (
+                                  <button
+                                    key={version}
+                                    type="button"
+                                    onClick={(event) => openProjectPlanning(definition, version, true, event)}
+                                    className="project-version-button"
+                                  >
+                                    {version}
+                                  </button>
+                                ))}
+                                {shareLink ? (
+                                  <a href={publishUrl} onClick={(event) => event.stopPropagation()} className="project-publish-badge is-published">Published</a>
+                                ) : (
+                                  <span className="project-publish-badge is-unpublished">Not published</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="project-planning-person">
+                              <span className="project-avatar">
+                                {ownerProfile?.avatar_url ? <img src={ownerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : ownerInitials || '?'}
+                              </span>
+                              <span>{ownerName}</span>
+                            </div>
+                            <div className="project-row-actions">
+                              <button type="button" onClick={openProjectSettingsAction} className="project-action-button" aria-label={`${definition.label} settings`}><Settings size={17} /></button>
+                              <button type="button" onClick={(event) => openVersionMenuAction(definition, event)} disabled={!exists} className="project-action-button" aria-label={`${definition.label} versions and duplication`} title={`${definition.label} versions and duplication`}><Copy size={16} /></button>
+                              <button type="button" onClick={openArchiveAction} className="project-action-button" aria-label={`Remove ${project.name} from projects`} title="Remove project from overview"><Trash2 size={17} /></button>
                             </div>
                           </div>
-                          <div className="project-planning-person">
-                            <span className="project-avatar">
-                              {ownerProfile?.avatar_url ? (
-                                <img src={ownerProfile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
-                              ) : (
-                                ownerInitials || '?'
-                              )}
-                            </span>
-                            <span>{ownerName}</span>
-                          </div>
-                          <div className="project-row-change-block">
-                            <span>changed {project.last_edited_at ? formatDistanceToNow(new Date(project.last_edited_at), { addSuffix: true }) : '-'}</span>
-                            <span>by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</span>
-                          </div>
-                          <div className="project-row-actions">
-                            <button
-                              type="button"
-                              onClick={openProjectSettingsAction}
-                              className="project-action-button"
-                              aria-label={`${definition.label} settings`}
-                            >
-                              <Settings size={17} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => openVersionMenuAction(definition, event)}
-                              disabled={!exists}
-                              className="project-action-button"
-                              aria-label={`${definition.label} versions and duplication`}
-                              title={`${definition.label} versions and duplication`}
-                            >
-                              <Copy size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={openArchiveAction}
-                              className="project-action-button"
-                              aria-label={`Remove ${project.name} from projects`}
-                              title="Remove project from overview"
-                            >
-                              <Trash2 size={17} />
-                            </button>
-                          </div>
+                          <span className="project-module-edit-line">
+                            last edit: {project.last_edited_at ? formatDistanceToNowStrict(new Date(project.last_edited_at), { addSuffix: true }) : '-'} by{' '}
+                            <strong>{editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</strong>
+                          </span>
                         </div>
                       );
                     })}
