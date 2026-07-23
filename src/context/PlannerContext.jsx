@@ -634,6 +634,9 @@ async function loadSupabaseProjectData(projectId) {
 
 export function PlannerProvider({ children }) {
   const { user, demoMode, hasSupabaseConfig } = useAuth();
+  const authUserRef = useRef(user);
+  authUserRef.current = user;
+  const authUserId = user.id;
   const [data, setData] = useState({ projects: [], categories: [], lineItems: [], labels: [], profiles: [], clients: [], producers: [], presence: [], invitations: [], assetLists: [], shareLinks: [], appSettings: DEFAULT_APP_SETTINGS });
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
@@ -651,12 +654,19 @@ export function PlannerProvider({ children }) {
 
   useEffect(() => {
     let alive = true;
+    const activeUser = authUserRef.current;
+    loadedProjectIdsRef.current.clear();
+    projectLoadPromisesRef.current.clear();
+    pendingLineItemWritesRef.current.forEach((pending) => window.clearTimeout(pending.timer));
+    pendingLineItemWritesRef.current.clear();
+    lineItemRevisionRef.current.clear();
+    lineItemWriteChainsRef.current.clear();
     setLoading(true);
     const load = async () => {
-      const next = useSupabase ? await withTimeout(loadSupabaseData(), PLANNER_LOAD_TIMEOUT_MS, 'Planner data load') : readLocal(user);
-      const signedInProfile = next.profiles?.find((profile) => profile.id === user.id);
-      if (signedInProfile && user.user_metadata?.preferences) {
-        signedInProfile.preferences = user.user_metadata.preferences;
+      const next = useSupabase ? await withTimeout(loadSupabaseData(), PLANNER_LOAD_TIMEOUT_MS, 'Planner data load') : readLocal(activeUser);
+      const signedInProfile = next.profiles?.find((profile) => profile.id === activeUser.id);
+      if (signedInProfile && activeUser.user_metadata?.preferences) {
+        signedInProfile.preferences = activeUser.user_metadata.preferences;
       }
       if (alive) {
         setData(next);
@@ -666,14 +676,14 @@ export function PlannerProvider({ children }) {
     load().catch((error) => {
       console.error(error);
       if (alive) {
-        setData(readLocal(user));
+        setData(readLocal(activeUser));
         setLoading(false);
       }
     });
     return () => {
       alive = false;
     };
-  }, [useSupabase, user]);
+  }, [authUserId, useSupabase]);
 
   useEffect(() => {
     if (!loading && !useSupabase) localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -961,6 +971,18 @@ export function PlannerProvider({ children }) {
       timer: window.setTimeout(() => flushLineItemUpdate(itemId), 500),
     };
     pendingLineItemWritesRef.current.set(itemId, next);
+  }, [flushLineItemUpdate]);
+
+  useEffect(() => {
+    const flushPendingLineItems = () => {
+      [...pendingLineItemWritesRef.current.keys()].forEach((itemId) => flushLineItemUpdate(itemId));
+    };
+    document.addEventListener('visibilitychange', flushPendingLineItems);
+    window.addEventListener('pagehide', flushPendingLineItems);
+    return () => {
+      document.removeEventListener('visibilitychange', flushPendingLineItems);
+      window.removeEventListener('pagehide', flushPendingLineItems);
+    };
   }, [flushLineItemUpdate]);
 
   const saveAssetRows = useCallback(async (list, previousRows, nextRows) => {
