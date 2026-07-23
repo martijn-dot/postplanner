@@ -1,4 +1,4 @@
-import { ChevronDown, Copy, FileSpreadsheet, Plus, Search, Settings, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, FileSpreadsheet, Plus, Search, Settings, Star, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import TopBar from '../components/TopBar.jsx';
@@ -104,7 +104,7 @@ const DASHBOARD_PLANNING_ORDER = [PLANNING_TYPES.production, PLANNING_TYPES.post
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, categories, assetLists = [], shareLinks = [], createProject, updateProject, archiveProject, addClient, addProducer, ensurePlanningModule, deletePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loadMoreProjects, hasMoreProjects, loading } = usePlanner();
+  const { projects, profiles, clients: savedClients, producers: savedProducers, presence, lineItems, categories, assetLists = [], shareLinks = [], createProject, updateProject, updateProfile, archiveProject, addClient, addProducer, ensurePlanningModule, deletePlanningModule, duplicateProjectPlanning, deleteProjectPlanningVersion, keepProjectPlanningVersion, loadMoreProjects, hasMoreProjects, loading } = usePlanner();
   const [open, setOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
@@ -113,10 +113,15 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [projectNumber, setProjectNumber] = useState('');
   const [name, setName] = useState('');
   const [client, setClient] = useState('');
   const currentProfile = (profiles ?? []).find((profile) => profile.id === user.id);
+  const favoriteProjectIds = Array.isArray(currentProfile?.preferences?.favorite_project_ids)
+    ? currentProfile.preferences.favorite_project_ids
+    : [];
+  const favoriteProjectIdSet = new Set(favoriteProjectIds);
   const currentUserName = currentProfile?.display_name ?? user.email?.split('@')[0] ?? '';
   const [postProducer, setPostProducer] = useState(currentUserName);
   const [producer, setProducer] = useState('');
@@ -225,7 +230,8 @@ export default function Dashboard() {
       const createdBy = profiles.find((profile) => profile.id === project.created_by);
       const matchesUser = !userFilter || project.post_producer === userFilter || project.producer === userFilter || createdBy?.display_name === userFilter;
       const matchesClient = !clientFilter || project.client === clientFilter;
-      return matchesSearch && matchesUser && matchesClient;
+      const matchesFavorites = !favoritesOnly || favoriteProjectIdSet.has(project.id);
+      return matchesSearch && matchesUser && matchesClient && matchesFavorites;
     });
   const versionMenuProject = projects.find((project) => project.id === versionMenuProjectId);
   const [versionMenuType, setVersionMenuType] = useState(DEFAULT_PLANNING_TYPE);
@@ -253,6 +259,14 @@ export default function Dashboard() {
               <option value="">All Clients</option>
               {activeClientOptions.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((value) => !value)}
+              className={`dashboard-favorites-filter ${favoritesOnly ? 'is-active' : ''}`}
+              aria-pressed={favoritesOnly}
+            >
+              <Star size={16} fill={favoritesOnly ? 'currentColor' : 'none'} /> Favorites
+            </button>
             <button type="button" onClick={openNewProject} className="primary-button dashboard-new-project">
               <Plus size={17} /> New Project
             </button>
@@ -288,6 +302,20 @@ export default function Dashboard() {
                 .map((list) => list.updated_at)
                 .filter(Boolean)
                 .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+              const isFavorite = favoriteProjectIdSet.has(project.id);
+              const toggleFavoriteAction = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const nextFavoriteIds = isFavorite
+                  ? favoriteProjectIds.filter((projectId) => projectId !== project.id)
+                  : [...favoriteProjectIds, project.id];
+                updateProfile({
+                  preferences: {
+                    ...(currentProfile?.preferences ?? {}),
+                    favorite_project_ids: nextFavoriteIds,
+                  },
+                });
+              };
               const openProjectPlanning = (definition, version, exists, event) => {
                 event?.preventDefault();
                 event?.stopPropagation();
@@ -320,11 +348,21 @@ export default function Dashboard() {
                 <>
                   <div className="project-row-header">
                     <div className="project-row-heading-group">
-                      <div className="project-row-number">{project.project_number ? `#${project.project_number}` : '-'}</div>
                       <div className="project-row-main min-w-0">
                       <div className="project-row-title">
                         <span>{project.name}</span>
                         {clientLabel && <span className={`project-client-badge ${missingClient ? 'is-missing' : ''}`}>{clientLabel}</span>}
+                        <span className="project-row-number">{project.project_number ? `#${project.project_number}` : '-'}</span>
+                        <button
+                          type="button"
+                          onClick={toggleFavoriteAction}
+                          className={`project-favorite-button ${isFavorite ? 'is-active' : ''}`}
+                          aria-label={isFavorite ? `Remove ${project.name} from favorites` : `Add ${project.name} to favorites`}
+                          aria-pressed={isFavorite}
+                          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+                        </button>
                         {activeNames.length > 0 && <span className="project-lock-note">{activeNames.join(', ')} {activeNames.length === 1 ? 'is' : 'are'} working here</span>}
                       </div>
                       </div>

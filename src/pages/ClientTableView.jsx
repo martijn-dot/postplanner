@@ -1,6 +1,6 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
 import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -323,28 +323,12 @@ function measureTextWidth(text, min, max, charWidth = 8.2) {
 }
 
 function OverflowNote({ note, onOpen }) {
-  const textRef = useRef(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-
-  useLayoutEffect(() => {
-    const text = textRef.current;
-    if (!text) return undefined;
-    const measure = () => setIsOverflowing(text.scrollWidth > text.clientWidth + 1);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(text);
-    return () => observer.disconnect();
-  }, [note]);
-
   return (
-    <span className="client-note-overflow">
-      <span ref={textRef}>{note}</span>
-      {isOverflowing && (
-        <button type="button" onClick={onOpen} aria-label="Open full note" title="Open full note">
-          <FileText size={14} />
-        </button>
-      )}
-    </span>
+    <button type="button" className="client-note-overflow note-preview" onClick={onOpen} aria-label="Open full note">
+      <FileText className="client-note-icon" size={14} aria-hidden="true" />
+      <span className="client-note-text">{note}</span>
+      <span className="note-tooltip">{note}</span>
+    </button>
   );
 }
 
@@ -499,11 +483,14 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     <>
       <div className="client-table-shell overflow-hidden rounded-xl border shadow-2xl">
         <div className="client-table-scroll max-h-[calc(100vh-15rem)] overflow-auto">
-          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: (showWeekColumn ? 58 : 0) + 116 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0) }}>
+          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: (showWeekColumn ? 58 : 0) + 116 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0), tableLayout: 'fixed' }}>
             <colgroup>
               {showWeekColumn && <col className="w-[58px]" />}
               <col className="w-[116px]" />
-              {orderedColumns.map((column) => <col key={column.key} style={{ width: widthForColumn(column) }} />)}
+              {orderedColumns.map((column) => {
+                const width = widthForColumn(column);
+                return <col key={column.key} style={column.key === 'notes' ? { width, minWidth: width, maxWidth: width } : { width }} />;
+              })}
             </colgroup>
             <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
@@ -602,7 +589,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (isProduction ? <span className="font-semibold">{row.What || '-'}</span> : <Pill label={labelsById[row._item.what]} />) : null}</td>;
                       if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
                       if (column.key === 'notes') return (
-                        <td key={column.key} className="min-w-0 overflow-hidden px-4 py-3">
+                        <td key={column.key} className="client-notes-cell min-w-0 px-4 py-3" style={{ width: widthForColumn(column), maxWidth: widthForColumn(column) }}>
                           {row._item?.notes ? <OverflowNote note={row._item.notes} onOpen={() => setEditingItemId(row._item.id)} /> : null}
                         </td>
                       );

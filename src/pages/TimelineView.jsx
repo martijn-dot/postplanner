@@ -23,6 +23,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { buildTimelineDays, daysBetween, isToday, iso, monthSegments } from '../lib/dates.js';
 import { DEFAULT_PLANNING_TYPE, DEFAULT_PLANNING_WHAT_LABELS, PLANNING_TYPES, PRODUCTION_WHAT_LABELS } from '../lib/defaults.js';
@@ -32,6 +33,7 @@ import { buildProjectSummary } from '../lib/projectSummary.js';
 const DAY_WIDTH = { day: 128, week: 72, month: 52 };
 const ROW_HEIGHT = 36;
 const COLUMN_STORAGE_KEY = 'post-production-planner:timeline-columns';
+const OPTIONS_VISIBILITY_STORAGE_KEY = 'post-production-planner:timeline-options-visible';
 const DEFAULT_COLUMNS = {
   select: 34,
   duplicate: 34,
@@ -707,6 +709,7 @@ function CategoryBlock({
 }
 
 export default function TimelineView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
+  const { user } = useAuth();
   const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem, flushLineItemUpdate } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
@@ -719,7 +722,8 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   const [selectedIds, setSelectedIds] = useState([]);
   const [duplicatedIds, setDuplicatedIds] = useState([]);
   const [visibleMonth, setVisibleMonth] = useState('');
-  const [optionsVisible, setOptionsVisible] = useState(true);
+  const optionsVisibilityStorageKey = `${OPTIONS_VISIBILITY_STORAGE_KEY}:${user.id}`;
+  const [optionsVisible, setOptionsVisible] = useState(() => localStorage.getItem(optionsVisibilityStorageKey) === 'true');
   const [infoVisible, setInfoVisible] = useState(false);
   const [showMetaLabels, setShowMetaLabels] = useState(true);
   const [showAssetLabels, setShowAssetLabels] = useState(false);
@@ -796,6 +800,10 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   useEffect(() => {
     localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(columns));
   }, [columns]);
+
+  useEffect(() => {
+    localStorage.setItem(optionsVisibilityStorageKey, String(optionsVisible));
+  }, [optionsVisibilityStorageKey, optionsVisible]);
 
   useEffect(() => {
     localStorage.setItem(UNCATEGORIZED_NAME_STORAGE_KEY, JSON.stringify(uncategorizedNames));

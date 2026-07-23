@@ -8,6 +8,7 @@ import ClientTableView from './ClientTableView.jsx';
 import AssetListPage from './AssetListPage.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { CalendarRange, Eye, FileSpreadsheet } from 'lucide-react';
 
 function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
@@ -98,10 +99,19 @@ export default function ProjectPage() {
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar project={project} planningType={requestedType} planningVersion={activeVersion} planningVersions={versions} currentPath={location.pathname} />
-      <nav className="flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
-        <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Timeline</NavLink>
-        <NavLink to={`/projects/${projectId}/client?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Client View</NavLink>
-        <NavLink to={`/projects/${projectId}/assets?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>Asset List</NavLink>
+      <nav className="project-page-tabs flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
+        <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
+          <span className="project-tab-icon"><CalendarRange size={16} strokeWidth={2.1} /></span>
+          <span>Timeline</span>
+        </NavLink>
+        <NavLink to={`/projects/${projectId}/client?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
+          <span className="project-tab-icon"><Eye size={16} strokeWidth={2.1} /></span>
+          <span>Client View</span>
+        </NavLink>
+        <NavLink to={`/projects/${projectId}/assets?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
+          <span className="project-tab-icon"><FileSpreadsheet size={16} strokeWidth={2.1} /></span>
+          <span>Asset List</span>
+        </NavLink>
       </nav>
       <Routes>
         <Route index element={<TimelineView project={project} planningType={requestedType} planningVersion={activeVersion} />} />

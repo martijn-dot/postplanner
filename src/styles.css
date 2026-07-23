@@ -253,6 +253,33 @@ nav .tab-active {
   color: #f3f0ff !important;
 }
 
+.project-page-tabs .tab {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.project-tab-icon {
+  align-items: center;
+  background: rgba(143, 154, 182, 0.1);
+  border: 1px solid rgba(143, 154, 182, 0.18);
+  border-radius: 8px;
+  color: #8f9ab6;
+  display: inline-flex;
+  height: 25px;
+  justify-content: center;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+  width: 25px;
+}
+
+.project-page-tabs .tab:hover .project-tab-icon,
+.project-page-tabs .tab-active .project-tab-icon {
+  background: rgba(109, 93, 252, 0.2);
+  border-color: rgba(128, 131, 255, 0.55);
+  color: #c7c0ff;
+  transform: translateY(-1px);
+}
+
 .timeline-scroll {
   flex: 1;
   overflow: auto;
@@ -2222,6 +2249,7 @@ nav .tab-active {
   grid-template-columns: 34px 44px;
   justify-content: end;
   padding-right: 0;
+  transform: translateX(-10px);
 }
 
 .timeline-option-cluster-header {
@@ -3866,36 +3894,39 @@ body.public-share-body {
 
 .client-note-overflow {
   align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
   display: flex;
   gap: 6px;
   min-width: 0;
+  padding: 0;
+  position: relative;
+  text-align: left;
   width: 100%;
 }
 
-.client-note-overflow > span {
+.client-note-overflow .client-note-text {
   display: block;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.client-note-overflow button {
-  align-items: center;
-  background: rgba(124, 77, 255, 0.14);
-  border: 1px solid rgba(124, 77, 255, 0.38);
-  border-radius: 5px;
-  color: #c7c0ff;
-  display: inline-flex;
+.client-note-overflow .client-note-icon {
+  color: #8b879c;
   flex: 0 0 auto;
-  height: 24px;
-  justify-content: center;
-  width: 24px;
 }
 
-.client-note-overflow button:hover {
-  background: #7c4dff;
-  color: #fff;
+.client-note-overflow:hover .client-note-icon {
+  color: #c7c0ff;
+}
+
+.client-notes-cell {
+  overflow: visible;
 }
 
 .client-column-header {
@@ -5021,6 +5052,12 @@ body.public-share-body {
 .client-planning-admin .client-planning-table .date-today-tag { color: #ef4444; font-size: 9px; margin: 0; }
 .client-planning-admin .client-planning-table .date-today-cell { background: transparent !important; box-shadow: inset 4px 0 0 #ef4444; }
 .client-planning-admin .client-planning-table .date-today-cell .combined-date-chip { color: inherit; }
+.client-planning-admin .client-planning-table tbody tr.bg-zinc-200\/70 > td,
+.client-planning-admin .client-planning-table .date-group-cell.date-weekend-cell {
+  background:
+    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.2) 0 6px, transparent 6px 12px),
+    #252a33 !important;
+}
 .client-planning-admin .client-edit-button { background: #1e293b; border-color: #334155; border-radius: 4px; color: #fff; font-size: 10px; padding: 4px 8px; }
 .client-planning-admin .client-category-pill { background: rgba(14,165,233,.1) !important; border-color: #0ea5e9 !important; border-radius: 999px; color: #0ea5e9 !important; font-size: 10px; padding: 4px 8px; }
 .client-planning-admin .client-row-color-select { gap: 6px; }
@@ -5848,7 +5885,7 @@ body.public-share-body {
 .public-client-page .client-planning-table .date-group-cell.date-weekend-cell,
 .public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > td {
   background:
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.2) 0 6px, transparent 6px 12px),
     #f2f4f6 !important;
 }
 
@@ -6308,6 +6345,28 @@ body.public-share-body {
   white-space: nowrap;
 }
 
+.dashboard-favorites-filter {
+  align-items: center;
+  border: 1px solid rgba(148, 142, 157, 0.24);
+  border-radius: 8px;
+  color: rgba(242, 238, 252, 0.72);
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  white-space: nowrap;
+}
+
+.dashboard-favorites-filter:hover,
+.dashboard-favorites-filter.is-active {
+  background: rgba(125, 113, 255, 0.14);
+  border-color: rgba(125, 113, 255, 0.72);
+  color: #cdbdff;
+}
+
 .dashboard-project-list {
   display: grid;
   gap: 12px;
@@ -6383,6 +6442,26 @@ body.public-share-body {
 .project-client-badge.is-missing {
   background: rgba(255, 94, 132, 0.16);
   color: #ffb3c2;
+}
+
+.project-favorite-button {
+  align-items: center;
+  border-radius: 5px;
+  color: rgba(148, 163, 184, 0.58);
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  transition: background 0.16s ease, color 0.16s ease;
+  width: 24px;
+}
+
+.project-favorite-button:hover {
+  background: rgba(125, 113, 255, 0.12);
+  color: #cdbdff;
+}
+
+.project-favorite-button.is-active {
+  color: #8d79ff;
 }
 
 .project-lock-note {
@@ -6816,8 +6895,13 @@ body.public-share-body {
   .dashboard-projects-actions,
   .dashboard-project-search,
   .dashboard-project-filter,
+  .dashboard-favorites-filter,
   .dashboard-new-project {
     width: 100%;
+  }
+
+  .dashboard-favorites-filter {
+    justify-content: center;
   }
 
   .project-row-header {

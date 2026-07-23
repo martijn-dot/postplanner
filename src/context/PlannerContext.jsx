@@ -1793,6 +1793,7 @@ export function PlannerProvider({ children }) {
         const cleanPatch = {
           display_name: patch.display_name?.trim() || profile.display_name,
           avatar_url: patch.avatar_url ?? profile.avatar_url ?? '',
+          preferences: patch.preferences ?? profile.preferences ?? {},
         };
         Object.assign(profile, cleanPatch);
         if (useSupabase) void saveSupabase('profile', supabase.from('profiles').update(cleanPatch).eq('id', user.id));
