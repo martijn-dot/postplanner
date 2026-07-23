@@ -1,6 +1,7 @@
 import { Camera, ChevronDown, LogOut, Save, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import rovalLogo from '../assets/roval-logo.jpg';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
@@ -8,12 +9,7 @@ import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 export function RovalLogo() {
   return (
     <span className="roval-brand-mark" aria-hidden="true">
-      <span className="roval-brand-r">R</span>
-      <span className="roval-brand-lines">
-        <span />
-        <span />
-        <span />
-      </span>
+      <img src={rovalLogo} alt="" />
     </span>
   );
 }

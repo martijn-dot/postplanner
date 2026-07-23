@@ -138,36 +138,22 @@ code,
 
 .roval-brand-mark {
   align-items: center;
-  background: #6d5dfc;
+  background: #f4f4f4;
   border-radius: 0.45rem;
-  box-shadow: 0 0 22px rgba(109, 93, 252, 0.36);
-  color: white;
   display: inline-flex;
-  gap: 0.18rem;
-  height: 1.65rem;
+  flex: 0 0 auto;
+  height: 2.15rem;
   justify-content: center;
-  letter-spacing: 0;
-  padding: 0 0.38rem;
+  overflow: hidden;
   width: 2.15rem;
 }
 
-.roval-brand-r {
-  font-size: 0.8rem;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.roval-brand-lines {
-  display: grid;
-  gap: 0.14rem;
-  width: 0.62rem;
-}
-
-.roval-brand-lines span {
-  background: currentColor;
-  border-radius: 999px;
+.roval-brand-mark img {
   display: block;
-  height: 0.12rem;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.68);
+  width: 100%;
 }
 
 .project-topbar-title {
