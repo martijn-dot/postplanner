@@ -87,7 +87,15 @@ function assetLabelStyle(value, column, labels = []) {
 function frameIoValue(row, columns) {
   const column = columns.find((item) => /frame\.?io/i.test(item.name ?? '') || /frame\.?io/i.test(item.key ?? ''));
   const value = column ? String(row.values?.[column.id] ?? '').trim() : '';
-  return value.toLowerCase().startsWith('https://f.io/') ? value : '';
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    const isFrameIoHost = hostname === 'f.io' || hostname === 'frame.io' || hostname.endsWith('.frame.io');
+    return url.protocol === 'https:' && isFrameIoHost ? value : '';
+  } catch {
+    return '';
+  }
 }
 
 function formatPublicDate(value) {
