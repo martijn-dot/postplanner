@@ -3284,6 +3284,47 @@ body.public-share-body {
   }
 }
 
+.public-calendar-week {
+  align-items: stretch;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.public-calendar-week-dates {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.public-calendar-week-cell {
+  align-items: center;
+  background: linear-gradient(180deg, #1e1b4b 0%, #4c1d95 100%);
+  border-radius: 12px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  justify-content: flex-start;
+  min-height: 118px;
+  padding: 22px 10px;
+  text-align: center;
+}
+
+.public-calendar-week-cell span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+.public-calendar-week-cell strong {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 /* Reference-matched public calendar structure. */
 .public-client-header,
 .dark .public-client-header {
@@ -7743,4 +7784,105 @@ body.public-share-body {
   border-right: 1px solid #d8e2ff;
   box-shadow: inset 3px 0 0 #4648d4;
   vertical-align: middle;
+}
+
+.public-asset-status {
+  background: #eff4ff;
+  border-radius: 999px;
+  color: #45464d;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+.public-asset-status.is-approved {
+  background: #d9f7e9;
+  color: #176b4b;
+}
+
+.public-asset-status.is-delivered {
+  background: #d8e2ff;
+  color: #004395;
+}
+
+.public-asset-status.is-in-progress {
+  background: #fff1c7;
+  color: #7b5200;
+}
+
+.public-roval-logo {
+  border-radius: 8px;
+  flex: 0 0 auto;
+  height: 34px;
+  margin-right: -24px;
+  object-fit: contain;
+  width: 34px;
+}
+
+.public-asset-title .public-asset-tabs {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  overflow: visible;
+  padding: 0 !important;
+}
+
+.public-client-footer {
+  align-items: stretch;
+  display: grid;
+  gap: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.public-client-footer-row {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.public-client-footer p {
+  color: #76777d;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  margin: 0;
+  max-width: 820px;
+}
+
+.public-footer-brand {
+  align-items: center;
+  color: #45464d;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.public-footer-brand img {
+  border-radius: 4px;
+  height: 20px;
+  object-fit: contain;
+  width: 20px;
+}
+
+@media (max-width: 720px) {
+  .public-roval-logo {
+    height: 30px;
+    margin-right: -4px;
+    width: 30px;
+  }
+
+  .public-client-footer-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
 }

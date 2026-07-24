@@ -1774,7 +1774,7 @@ export default function AssetListPage({ project }) {
                       <button type="button" onClick={() => addColumn(category.id)} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
                       <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Asset</button>
                       <button type="button" onClick={() => { setOrderCategoryId(category.id); setOrderPopupOpen(true); }} className="asset-list-tool"><Menu size={12} /> Columns</button>
-                      {isAdmin && <button type="button" onClick={() => saveCategoryAsTemplate(category.id)} className="asset-list-tool asset-save-category-template"><Plus size={12} /> Save category template</button>}
+                      {isAdmin && <button type="button" onClick={() => saveCategoryAsTemplate(category.id)} className="asset-list-tool asset-save-category-template"><Plus size={12} /> Save as template</button>}
                     </div>
                   </div>
                 )}

@@ -410,7 +410,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   };
 
   if (publicCardLayout) {
-    const gridColumns = `110px ${orderedColumns.map((column) => `minmax(${Math.min(widthForColumn(column), 110)}px, ${column.key === 'asset' || column.key === 'notes' ? '1.4fr' : '1fr'})`).join(' ')}`;
+    const gridColumns = `88px 110px ${orderedColumns.map((column) => `minmax(${Math.min(widthForColumn(column), 110)}px, ${column.key === 'asset' || column.key === 'notes' ? '1.4fr' : '1fr'})`).join(' ')}`;
     const weeks = rows.reduce((groups, row) => {
       let week = groups.at(-1);
       if (!week || week.number !== row.Week) {
@@ -442,6 +442,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     return (
       <section className="public-calendar-cards">
         <div className="public-calendar-column-head" style={{ gridTemplateColumns: gridColumns }}>
+          <span>Week</span>
           <span>Date</span>
           {orderedColumns.map((column) => {
             const ColumnIcon = CLIENT_COLUMN_ICONS[column.key];
@@ -455,7 +456,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
         </div>
         {weeks.map((week) => (
           <section className="public-calendar-week" key={week.number}>
-            <div className="public-calendar-week-band"><CalendarDays size={21} /><strong>Week {week.number}</strong></div>
+            <div className="public-calendar-week-cell"><CalendarDays size={20} /><span>Week</span><strong>{week.number}</strong></div>
+            <div className="public-calendar-week-dates">
             {week.dates.map((date) => {
               const firstRow = date.rows[0];
               const [dayNumber, month] = firstRow.Date.split(' ');
@@ -477,6 +479,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                 </article>
               );
             })}
+            </div>
           </section>
         ))}
         {!rows.length && <div className="public-calendar-no-results">No milestones yet.</div>}

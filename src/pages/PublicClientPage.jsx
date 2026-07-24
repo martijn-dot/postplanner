@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Flag, Search, Send, Users } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Search } from 'lucide-react';
 import { ClientGanttChart, ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
-import Pill from '../components/Pill.jsx';
 import LoadingScreen from '../components/LoadingScreen.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
+import rovalLogo from '../assets/roval-logo.png';
 
 const SHARE_STORAGE_KEY = 'post-production-planner:public-shares:v1';
 const PLANNER_STORAGE_KEY = 'post-production-planner:v1';
@@ -95,56 +95,6 @@ function formatPublicDate(value) {
   const parsed = String(value).includes('T') ? new Date(value) : new Date(`${value}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return '-';
   return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(parsed);
-}
-
-function formatShortPublicDate(value) {
-  const formatted = formatPublicDate(value);
-  return formatted === '-' ? formatted : formatted.replace(/\s\d{4}$/, '');
-}
-
-function formatPublicWeekday(value) {
-  if (!value) return '-';
-  const parsed = String(value).includes('T') ? new Date(value) : new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return '-';
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'long' }).format(parsed);
-}
-
-function publicPlanningStats(project, lineItems = [], labels = [], categories = []) {
-  const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
-  const categoriesById = Object.fromEntries(categories.map((category) => [category.id, category]));
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const dates = lineItems.flatMap((item) => [item.start_date, item.end_date]).filter(Boolean).sort();
-  const runtimeWeeks = dates.length ? Math.max(1, Math.ceil((new Date(`${dates.at(-1)}T00:00:00`) - new Date(`${dates[0]}T00:00:00`)) / (1000 * 60 * 60 * 24 * 7))) : 0;
-  const weeksLeft = dates.length ? Math.max(0, Math.ceil((new Date(`${dates.at(-1)}T00:00:00`) - new Date(`${todayKey}T00:00:00`)) / (1000 * 60 * 60 * 24 * 7))) : 0;
-  const finalDeliveries = lineItems
-    .filter((item) => (labelsById[item.what]?.value ?? '').toLowerCase().includes('final delivery'))
-    .sort((a, b) => (a.end_date ?? '').localeCompare(b.end_date ?? ''))
-    .map((item) => ({ category: categoriesById[item.category_id]?.name ?? 'Planning', date: formatShortPublicDate(item.end_date) }));
-  const milestoneForWho = (whoValue) => {
-    const item = lineItems
-      .filter((candidate) => candidate.end_date && candidate.end_date >= todayKey && candidate.who?.some((id) => (labelsById[id]?.value ?? '').toLowerCase() === whoValue))
-      .sort((a, b) => a.end_date.localeCompare(b.end_date))[0];
-    return item ? {
-      asset: item.asset ?? '-',
-      date: formatShortPublicDate(item.end_date),
-      day: formatPublicWeekday(item.end_date),
-      whatLabel: labelsById[item.what] ?? null,
-      todoLabel: labelsById[item.todo] ?? null,
-      who: item.who.map((id) => labelsById[id]?.value).filter(Boolean).join(', ') || whoValue,
-      whoLabels: item.who.map((id) => labelsById[id]).filter(Boolean),
-    } : null;
-  };
-  return {
-    producer: project.producer || '-',
-    postProducer: project.post_producer || '-',
-    runtimeWeeks: runtimeWeeks ? `${runtimeWeeks} ${runtimeWeeks === 1 ? 'week' : 'weeks'}` : '-',
-    weeksLeft: dates.length ? `${weeksLeft} ${weeksLeft === 1 ? 'week' : 'weeks'} left` : '-',
-    finalDeliveries,
-    milestones: [
-      { key: 'wenneker', title: 'Next Wenneker milestone', milestone: milestoneForWho('wenneker') },
-      { key: 'client', title: 'Next Client milestone', milestone: milestoneForWho('client') },
-    ],
-  };
 }
 
 function PublicAssetList({ assetLists = [], labels = [] }) {
@@ -264,9 +214,11 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
             && sourceRows.some((row) => hasMeaningfulValue(assetValue(row.values?.[column.id], column)))
           ));
           const publishedFrameColumn = publishedColumns.find((column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? ''));
-          const showFrameColumn = Boolean(publishedFrameColumn && sourceRows.some((row) => hasMeaningfulValue(frameIoValue(row, [publishedFrameColumn]))));
+          const rootGroup = groups.find((item) => item.id === (group?.parent_id ?? group?.id)) ?? group;
+          const isStaticGroup = (group?.asset_kind ?? rootGroup?.asset_kind) === 'static';
+          const showFrameColumn = Boolean(!isStaticGroup && publishedFrameColumn && sourceRows.some((row) => hasMeaningfulValue(frameIoValue(row, [publishedFrameColumn]))));
           const showNotesColumn = sourceRows.some((row) => hasMeaningfulValue(row.notes));
-          const assetColSpan = 1 + visibleColumns.length + (showFrameColumn ? 1 : 0) + (showNotesColumn ? 1 : 0);
+          const assetColSpan = 2 + visibleColumns.length + (showFrameColumn ? 1 : 0) + (showNotesColumn ? 1 : 0);
           const displayedRows = groupRows(group);
           return displayedRows.length ? (
             <table id={`public-asset-category-${group.id ?? 'asset-list'}`} key={group.id ?? 'asset-list'} className="public-asset-table public-asset-category-target">
@@ -282,6 +234,7 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                   {!collapsedGroups.has(group.id ?? 'asset-list') && (
                     <tr className="public-asset-column-header">
                       <th>Number</th>
+                      <th>Status</th>
                       {visibleColumns.map((column) => <th key={column.id}>{column.name}</th>)}
                       {showFrameColumn && <th>Frame.io</th>}
                       {showNotesColumn && <th>Notes</th>}
@@ -292,6 +245,11 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                     return (
                     <tr key={row.id}>
                       {numberMeta.render && <td rowSpan={numberMeta.rowSpan} className={numberMeta.rowSpan > 1 ? 'public-asset-number public-asset-grouped-cell' : 'public-asset-number'}>{numberMeta.sourceRow.number}</td>}
+                      <td>
+                        {hasMeaningfulValue(row.asset_status)
+                          ? <span className={`public-asset-status is-${row.asset_status.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>{row.asset_status}</span>
+                          : '-'}
+                      </td>
                       {visibleColumns.map((column) => {
                         const cellMeta = groupedCellMeta(row, column.id, displayedRows);
                         if (!cellMeta.render) return null;
@@ -355,7 +313,6 @@ export default function PublicClientPage() {
   const [showClientBookings, setShowClientBookings] = useState(true);
   const [planningView, setPlanningView] = useState('calendar');
   const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
-  const [showInfo, setShowInfo] = useState(false);
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
   const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
@@ -373,7 +330,6 @@ export default function PublicClientPage() {
     });
     return [...groups.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }, [payload?.categories, payload?.lineItems, payload?.project, uncategorizedName]);
-  const stats = useMemo(() => (payload?.project ? publicPlanningStats(payload.project, payload.lineItems ?? [], payload.labels ?? [], payload.categories ?? []) : { producer: '-', postProducer: '-', runtimeWeeks: '-', weeksLeft: '-', finalDeliveries: [], milestones: [] }), [payload]);
   const planningVersion = payload?.share?.planning_version
     ?? payload?.lineItems?.find((item) => item.planning_version)?.planning_version
     ?? payload?.project?.preferred_planning_version
@@ -463,13 +419,14 @@ export default function PublicClientPage() {
             <header className="public-client-header">
               <div className="public-header-inner">
                 <div className="public-brand-block">
+                  <img className="public-roval-logo" src={rovalLogo} alt="Roval" />
                   <div className="public-project-heading">
                     <div className="public-project-title-row">
                       <h1>{payload.project.name}</h1>
-                      <span className="public-version-label">{planningVersion}</span>
+                      {tab === 'planning' && <span className="public-version-label">{planningVersion}</span>}
                     </div>
                     <div className="public-publish-line">
-                      <span>Planning Created: <strong>{publishedDate}</strong></span>
+                      <span>Client Portal Created: <strong>{publishedDate}</strong></span>
                     </div>
                   </div>
                   <div className="public-client-tabs">
@@ -478,13 +435,6 @@ export default function PublicClientPage() {
                   </div>
                 </div>
                 <div className="public-header-actions">
-                  <button
-                    type="button"
-                    onClick={() => setShowInfo((next) => !next)}
-                    className="public-info-button"
-                  >
-                    {showInfo ? 'Hide Info' : 'Show Info'}
-                  </button>
                   <button
                     type="button"
                     onClick={() => downloadPlanningExcel(
@@ -498,73 +448,6 @@ export default function PublicClientPage() {
                 </div>
               </div>
             </header>
-
-            {showInfo && (
-              <section className="public-summary-grid" aria-label="Planning summary">
-                <article>
-                  <div className="public-card-heading">
-                    <Users size={17} />
-                    <span>Production</span>
-                  </div>
-                  <strong className="public-card-lines">
-                    <em><b>Producer:</b><i>{stats.producer}</i></em>
-                    <small>producer@example.com • +31 6 12345678</small>
-                    <em><b>Post Producer:</b><i>{stats.postProducer}</i></em>
-                    <small>postproducer@example.com • +31 6 87654321</small>
-                  </strong>
-                </article>
-                <article>
-                  <div className="public-card-heading">
-                    <Send size={17} />
-                    <span>Next milestones</span>
-                  </div>
-                  <strong className="public-milestone-card">
-                    {stats.milestones?.some((item) => item.milestone) ? stats.milestones.map(({ key, milestone }) => (
-                      milestone ? (
-                        <span className="public-milestone-entry" key={key}>
-                          <span className="public-milestone-title">
-                            {milestone.whoLabels.length
-                              ? milestone.whoLabels.map((label) => <Pill key={label.id} label={label} />)
-                              : <span className="public-muted-label">{milestone.who}</span>}
-                          </span>
-                          <span className="public-milestone-layout">
-                            <span className="public-milestone-date">
-                              <em>{milestone.day}</em>
-                              <b>{milestone.date}</b>
-                            </span>
-                            <span className="public-milestone-details">
-                              <span className="public-milestone-asset">{milestone.asset}</span>
-                              <span className="public-milestone-label-row">
-                                {milestone.whatLabel ? <Pill label={milestone.whatLabel} /> : null}
-                                {milestone.todoLabel ? <Pill label={milestone.todoLabel} subtle /> : null}
-                              </span>
-                            </span>
-                          </span>
-                        </span>
-                      ) : null
-                    )) : '-'}
-                  </strong>
-                </article>
-                <article className="public-delivery-runtime-card">
-                  <div className="public-card-heading">
-                    <Flag size={17} />
-                    <span>Final deliveries / Runtime</span>
-                  </div>
-                  <strong className="public-card-lines">
-                    {stats.finalDeliveries.length ? stats.finalDeliveries.map((item, index) => (
-                      <em className="public-delivery-line" key={`${item.category}-${item.date}-${index}`}>
-                        <b>{item.category}</b>
-                        <Pill label={{ id: `${item.category}-${item.date}`, value: item.date, color: '#46d39b' }} />
-                      </em>
-                    )) : <em>-</em>}
-                    <span className="public-runtime-row">
-                      <em><b>Running time</b><i>{stats.runtimeWeeks}</i></em>
-                      <em><b>Weeks left</b><i>{stats.weeksLeft}</i></em>
-                    </span>
-                  </strong>
-                </article>
-              </section>
-            )}
 
             {tab === 'planning' ? (
               <>
@@ -634,8 +517,12 @@ export default function PublicClientPage() {
               <PublicAssetList project={payload.project} assetLists={assetLists} clients={clients} labels={payload.labels ?? []} />
             )}
             <footer className="public-client-footer">
-              <span>{new Date().getFullYear()} · {payload.project.name}</span>
-              <span>Published planning</span>
+              <div className="public-client-footer-row">
+                <span>{new Date().getFullYear()} · {payload.project.name}</span>
+                <span>Published planning</span>
+                <span className="public-footer-brand"><img src={rovalLogo} alt="" />The production manager</span>
+              </div>
+              <p>This planning tool is tailor-made for Wenneker.Amsterdam to serve our clients in the best way. If you have any suggestions, please feel free to reach out to our producers with your ideas.</p>
             </footer>
           </div>
         </div>
