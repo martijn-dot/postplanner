@@ -114,6 +114,12 @@ function normalizedName(value) {
   return value?.trim().toLowerCase() ?? '';
 }
 
+function rememberLatestRevision(revisionMap, rowId, revision) {
+  if (revision == null) return;
+  const current = revisionMap.get(rowId);
+  if (current == null || Number(revision) > Number(current)) revisionMap.set(rowId, revision);
+}
+
 function labelKey(label) {
   return `${label.project_id ?? 'global'}:${label.column_type}:${normalizedName(label.value)}`;
 }
@@ -705,7 +711,7 @@ export function PlannerProvider({ children }) {
 
   useEffect(() => {
     data.lineItems.forEach((item) => {
-      if (item.revision != null) lineItemRevisionRef.current.set(item.id, item.revision);
+      rememberLatestRevision(lineItemRevisionRef.current, item.id, item.revision);
     });
   }, [data.lineItems]);
 
@@ -751,7 +757,7 @@ export function PlannerProvider({ children }) {
             next = { ...(currentList ?? {}), ...metadata, rows: currentList?.rows ?? [] };
           }
           if (table === 'line_items') {
-            if (next.revision != null) lineItemRevisionRef.current.set(next.id, next.revision);
+            rememberLatestRevision(lineItemRevisionRef.current, next.id, next.revision);
             next = { ...next, ...(pendingLineItemWritesRef.current.get(next.id)?.patch ?? {}) };
           }
           replaceById(draft[collectionName], next);
@@ -864,7 +870,7 @@ export function PlannerProvider({ children }) {
         const conflict = new Error('This row changed in another browser. The latest server version was restored.');
         const latest = await supabase.from('line_items').select('*').eq('id', itemId).maybeSingle();
         if (latest.data) {
-          lineItemRevisionRef.current.set(itemId, latest.data.revision);
+          rememberLatestRevision(lineItemRevisionRef.current, itemId, latest.data.revision);
           setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? latest.data : item) }));
         }
         setSaveError(conflict.message);
@@ -872,7 +878,7 @@ export function PlannerProvider({ children }) {
         return { data: null, error: conflict };
       }
       if (result.data) {
-        if (result.data.revision != null) lineItemRevisionRef.current.set(itemId, result.data.revision);
+        rememberLatestRevision(lineItemRevisionRef.current, itemId, result.data.revision);
         setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? { ...item, ...result.data } : item) }));
       }
       return saveSupabase(label, Promise.resolve(result), { throwOnError });
