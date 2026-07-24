@@ -86,7 +86,8 @@ function assetLabelStyle(value, column, labels = []) {
 
 function frameIoValue(row, columns) {
   const column = columns.find((item) => /frame\.?io/i.test(item.name ?? '') || /frame\.?io/i.test(item.key ?? ''));
-  return column ? String(row.values?.[column.id] ?? '').trim() : '';
+  const value = column ? String(row.values?.[column.id] ?? '').trim() : '';
+  return value.toLowerCase().includes('https://f.io') ? value : '';
 }
 
 function formatPublicDate(value) {

@@ -178,6 +178,10 @@ function linkHref(value) {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+function isValidFramePreviewLink(value) {
+  return String(value ?? '').trim().toLowerCase().includes('https://f.io');
+}
+
 function updateRowsForColumn(rows, columnId, fallback = '') {
   return rows.map((row) => ({
     ...row,
@@ -630,7 +634,9 @@ export default function AssetListPage({ project }) {
 
   const saveFrameLink = () => {
     if (!frameLinkPopup) return;
-    updateCell(frameLinkPopup.rowId, frameLinkPopup.columnId, frameLinkDraft.trim());
+    const nextLink = frameLinkDraft.trim();
+    if (!isValidFramePreviewLink(nextLink)) return;
+    updateCell(frameLinkPopup.rowId, frameLinkPopup.columnId, nextLink);
     setFrameLinkPopup(null);
   };
 
@@ -1967,9 +1973,15 @@ export default function AssetListPage({ project }) {
                             <div className="asset-frame-link-actions">
                               {value ? (
                                 <>
-                                  <a className="asset-frame-link-main is-preview" href={linkHref(value)} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
-                                    Preview
-                                  </a>
+                                  {isValidFramePreviewLink(value) ? (
+                                    <a className="asset-frame-link-main is-preview" href={linkHref(value)} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+                                      Preview
+                                    </a>
+                                  ) : (
+                                    <button type="button" className="asset-frame-link-main is-invalid" onClick={(event) => { event.stopPropagation(); openFrameLinkPopup(row.id, column.id, value); }}>
+                                      Invalid preview link
+                                    </button>
+                                  )}
                                   <button type="button" className="asset-frame-link-mini" onClick={(event) => { event.stopPropagation(); openFrameLinkPopup(row.id, column.id, value); }} aria-label="Update Frame.io link" title="Update link">U</button>
                                   <button type="button" className="asset-frame-link-mini" onClick={(event) => { event.stopPropagation(); navigator.clipboard?.writeText(value); }} aria-label="Copy Frame.io link" title="Copy link">C</button>
                                 </>
@@ -2222,10 +2234,13 @@ export default function AssetListPage({ project }) {
                 placeholder="https://frame.io/..."
                 autoFocus
               />
+              {frameLinkDraft.trim() && !isValidFramePreviewLink(frameLinkDraft) && (
+                <small className="asset-frame-link-error">Not a valid Frame.io preview link. The URL must contain https://f.io</small>
+              )}
             </label>
             <footer>
               <button type="button" className="secondary-button" onClick={() => setFrameLinkPopup(null)}>Cancel</button>
-              <button type="button" className="primary-button" onClick={saveFrameLink}>Save link</button>
+              <button type="button" className="primary-button" disabled={!isValidFramePreviewLink(frameLinkDraft)} onClick={saveFrameLink}>Save link</button>
             </footer>
           </div>
         </div>

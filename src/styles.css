@@ -2017,16 +2017,17 @@ nav .tab-active {
   border-color: #3c465e;
   border-radius: 7px;
   color: #dae2fd;
-  font-size: 0.5rem;
-  gap: 4px;
+  font-size: 0.375rem;
+  gap: 3px;
+  height: 18px;
   letter-spacing: 0.045em;
-  padding: 0 8px;
+  padding: 0 6px;
   text-transform: uppercase;
 }
 
 .asset-frame-link-main.is-add svg {
-  height: 11px;
-  width: 11px;
+  height: 8px;
+  width: 8px;
 }
 
 .asset-frame-link-main.is-add:hover {
@@ -2045,6 +2046,18 @@ nav .tab-active {
   background: rgba(245, 158, 11, 0.34);
   border-color: #fbbf24;
   color: #fff4d6;
+}
+
+.asset-frame-link-main.is-invalid {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.62);
+  color: #fca5a5;
+}
+
+.asset-frame-link-error {
+  color: #fca5a5;
+  font-size: 0.68rem;
+  line-height: 1.4;
 }
 
 .asset-frame-link-mini {
