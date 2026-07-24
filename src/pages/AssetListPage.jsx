@@ -1787,6 +1787,7 @@ export default function AssetListPage({ project }) {
                         const isStaticAssetTypeColumn = column.label_type === 'asset_static_type';
                         const isStaticSizeColumn = column.label_type === 'asset_static_size';
                         const isBranchColumn = isAssetTypeColumn || isStaticAssetTypeColumn;
+                        const isNameColumn = /^name$/i.test(column.name ?? '');
                         const isRatioSharedColumn = !isUniqueRatioColumn && !isRatioColumn;
                         const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
                         const value = row.values?.[column.id] ?? '';
@@ -1808,8 +1809,17 @@ export default function AssetListPage({ project }) {
                                 <input
                                   className="table-input"
                                   inputMode={column.type === 'length' || column.type === 'number' ? 'decimal' : undefined}
-                                  value={value}
-                                  onChange={(event) => updateCell(row.id, column.id, column.type === 'length' || column.type === 'number' ? event.target.value.replace(/[^\d.-]/g, '') : event.target.value)}
+                                  value={isNameColumn ? undefined : value}
+                                  defaultValue={isNameColumn ? value : undefined}
+                                  onChange={(event) => {
+                                    if (isNameColumn) return;
+                                    updateCell(row.id, column.id, column.type === 'length' || column.type === 'number' ? event.target.value.replace(/[^\d.-]/g, '') : event.target.value);
+                                  }}
+                                  onBlur={(event) => {
+                                    if (isNameColumn && event.currentTarget.value !== value) {
+                                      updateCell(row.id, column.id, event.currentTarget.value);
+                                    }
+                                  }}
                                   onFocus={() => setSelectedCell({ rowId: row.id, columnId: column.id })}
                                   onKeyDown={(event) => {
                                     if (moveCellFocus(event, absoluteRowIndex, columnIndex)) return;
