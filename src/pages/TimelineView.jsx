@@ -10,6 +10,7 @@ import {
   Eye,
   FileText,
   GripVertical,
+  Globe2,
   ListPlus,
   Link2,
   Link2Off,
@@ -545,6 +546,9 @@ function CategoryBlock({
   const [draftName, setDraftName] = useState(category.name);
   const isUncategorized = category.id === 'uncategorized';
   const editable = Boolean(category.id);
+  const showClientReviewAction = planningDefinition.key !== PLANNING_TYPES.production.key;
+  const visibleCategoryActionCount = 2 + (categoryCount > 1 ? 1 : 0) + (showClientReviewAction ? 1 : 0);
+  const categoryActionSpacerCount = Math.max(0, 4 - visibleCategoryActionCount);
 
   useEffect(() => {
     setDraftName(category.name);
@@ -607,8 +611,8 @@ function CategoryBlock({
               <GripVertical size={15} />
             </button>
             {categoryNameInput()}
-            {!isUncategorized && categoryCount <= 1 && <span aria-hidden="true" />}
-            {!isUncategorized && (
+            {!isUncategorized && Array.from({ length: categoryActionSpacerCount }, (_, index) => <span key={`action-spacer-${index}`} aria-hidden="true" />)}
+            {!isUncategorized && showClientReviewAction && (
               <button type="button" onClick={() => onAddLineItem(projectId, category.id)} className="icon-button category-action-button mx-auto" aria-label="Add row" data-tooltip="add row"><Plus size={16} /></button>
             )}
             {!isUncategorized && categoryCount > 1 && (
@@ -710,7 +714,7 @@ function CategoryBlock({
 
 export default function TimelineView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
   const { user } = useAuth();
-  const { categories, lineItems, labels, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem, flushLineItemUpdate } = usePlanner();
+  const { categories, lineItems, labels, shareLinks, appSettings, addCategory, addLineItem, addLabel, addClientReviews, removeClientReviews, duplicateLineItem, reorderLineItems, reorderCategories, moveLineItemRelative, updateLineItem, flushLineItemUpdate, createShareLink, revokeShareLink } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
   const [zoom, setZoom] = useState('month');
@@ -734,6 +738,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   const [detailsItemId, setDetailsItemId] = useState(null);
   const [openTableMenu, setOpenTableMenu] = useState(null);
   const [monthMenuOpen, setMonthMenuOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [endMarkerIds, setEndMarkerIds] = useState([]);
   const scrollRef = useRef(null);
   const monthMenuRef = useRef(null);
@@ -743,6 +748,11 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   const timelineUndoRef = useRef([]);
 
   const allRows = useMemo(() => lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [activePlanningType, lineItems, planningVersion, project.id]);
+  const activeShare = shareLinks.find((share) => share.project_id === project.id
+    && share.page_type === 'client_planning'
+    && safePlanningType(share.planning_type) === activePlanningType
+    && (share.planning_version ?? 'V1') === planningVersion
+    && !share.revoked_at);
   const projectCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion).sort((a, b) => a.sort_order - b.sort_order), [activePlanningType, categories, planningVersion, project.id]);
   const projectLabels = useMemo(() => labels.filter((label) => {
     const belongsToProject = !label.project_id || label.project_id === project.id;
@@ -1318,6 +1328,35 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
     if (suppressDetailsOpen.current) return;
     setDetailsItemId(itemId);
   };
+  const togglePublishedPlanning = async () => {
+    if (publishing) return;
+    if (activeShare && !window.confirm(`Unpublish this ${planningDefinition.label.toLowerCase()} planning from the client portal?`)) return;
+    if (!activeShare) {
+      const incompleteCount = allRows.filter((item) => (
+        !Array.isArray(item.who) || !item.who.length
+        || !String(item.asset ?? '').trim()
+        || (activePlanningType !== 'production' && !item.what)
+        || !item.todo
+        || !String(item.time ?? '').trim()
+      )).length;
+      if (incompleteCount) {
+        window.alert(`${incompleteCount} planning ${incompleteCount === 1 ? 'row is' : 'rows are'} incomplete. Open Client View to review the missing fields before publishing.`);
+        return;
+      }
+    }
+    setPublishing(true);
+    try {
+      if (activeShare) {
+        await revokeShareLink(project.id, activePlanningType, planningVersion);
+      } else {
+        const token = await createShareLink(project.id, activePlanningType, planningVersion);
+        const slug = String(project.name ?? 'project').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
+        await navigator.clipboard?.writeText(`${window.location.origin}/share/${slug}-${token}`);
+      }
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   return (
     <main className="timeline-planner h-[calc(100vh-10.5rem)] overflow-hidden">
@@ -1327,6 +1366,9 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
             <Link to={`/projects/${project.id}/client?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button">
               <Eye size={16} /> Client View
             </Link>
+            <button type="button" onClick={togglePublishedPlanning} className={`client-header-action ${activeShare ? 'is-published' : ''}`} disabled={publishing}>
+              <Globe2 size={16} /> {publishing ? 'Publishing...' : activeShare ? 'Published' : 'Publish'}
+            </button>
             <button type="button" onClick={() => setTableVisible((next) => !next)} className="secondary-button">
               {tableVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               {tableVisible ? 'Hide table' : 'Show table'}

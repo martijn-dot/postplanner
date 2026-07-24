@@ -8,39 +8,68 @@ stable
 security definer
 set search_path = public
 as $$
-  with share as (
+  with portal_share as (
     select project_id, planning_type, planning_version, created_at
     from public.public_share_links
     where token = share_token
       and page_type = 'client_planning'
       and revoked_at is null
     limit 1
+  ),
+  published_plannings as (
+    select link.project_id, link.planning_type, link.planning_version, link.created_at
+    from public.public_share_links link
+    join portal_share portal on portal.project_id = link.project_id
+    where link.page_type = 'client_planning'
+      and link.revoked_at is null
   )
   select jsonb_build_object(
     'project', (
       select to_jsonb(p)
       from public.projects p
-      join share s on s.project_id = p.id
+      join portal_share s on s.project_id = p.id
     ),
-    'share', (select to_jsonb(s) from share s),
+    'share', (
+      select jsonb_build_object(
+        'project_id', s.project_id,
+        'planning_type', s.planning_type,
+        'planning_version', s.planning_version,
+        'created_at', coalesce((select min(created_at) from published_plannings), s.created_at)
+      )
+      from portal_share s
+    ),
+    'publishedPlannings', coalesce((
+      select jsonb_agg(to_jsonb(published) order by published.planning_type, published.planning_version)
+      from published_plannings published
+    ), '[]'::jsonb),
     'categories', coalesce((
       select jsonb_agg(to_jsonb(c) order by c.sort_order)
       from public.categories c
-      join share s on s.project_id = c.project_id
-      where c.planning_type = s.planning_type
-        and c.planning_version = s.planning_version
+      join portal_share s on s.project_id = c.project_id
+      where exists (
+        select 1
+        from published_plannings published
+        where published.project_id = c.project_id
+          and published.planning_type = c.planning_type
+          and published.planning_version = c.planning_version
+      )
     ), '[]'::jsonb),
     'lineItems', coalesce((
       select jsonb_agg(to_jsonb(li) order by li.sort_order)
       from public.line_items li
-      join share s on s.project_id = li.project_id
-      where li.planning_type = s.planning_type
-        and li.planning_version = s.planning_version
+      join portal_share s on s.project_id = li.project_id
+      where exists (
+        select 1
+        from published_plannings published
+        where published.project_id = li.project_id
+          and published.planning_type = li.planning_type
+          and published.planning_version = li.planning_version
+      )
     ), '[]'::jsonb),
     'labels', coalesce((
       select jsonb_agg(to_jsonb(l) order by l.column_type, l.value)
       from public.labels l
-      join share s on l.project_id is null or l.project_id = s.project_id
+      join portal_share s on l.project_id is null or l.project_id = s.project_id
     ), '[]'::jsonb),
     'assetLists', coalesce((
       select jsonb_agg(
@@ -71,14 +100,14 @@ as $$
         order by al.sort_order
       )
       from public.asset_lists al
-      join share s on s.project_id = al.project_id
+      join portal_share s on s.project_id = al.project_id
     ), '[]'::jsonb),
     'clients', coalesce((
       select jsonb_agg(to_jsonb(cl) order by cl.name)
       from public.clients cl
     ), '[]'::jsonb)
   )
-  from share;
+  from portal_share;
 $$;
 
 grant execute on function public.get_public_client_planning(text) to anon, authenticated;

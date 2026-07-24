@@ -49,8 +49,6 @@ export default function ProjectPage() {
   const activeVersion = versions.includes(requestedVersion) ? requestedVersion : (versions.includes(fallbackVersion) ? fallbackVersion : versions[0] ?? 'V1');
   const activeClientPortal = shareLinks.find((share) => share.project_id === projectId
     && share.page_type === 'client_planning'
-    && safePlanningType(share.planning_type) === requestedType
-    && (share.planning_version ?? 'V1') === activeVersion
     && !share.revoked_at);
   const clientPortalUrl = activeClientPortal && project
     ? `/share/${slugifyProjectName(project.name)}-${activeClientPortal.token}`

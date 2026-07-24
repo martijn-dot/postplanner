@@ -20,6 +20,10 @@ function tokenFromSlug(value) {
   return String(value ?? '').split('-').at(-1) ?? value;
 }
 
+function publicPlanningKey(item) {
+  return `${safePlanningType(item?.planning_type)}:${item?.planning_version ?? 'V1'}`;
+}
+
 function readLocalShare(token) {
   const shares = JSON.parse(localStorage.getItem(SHARE_STORAGE_KEY) ?? '{}');
   const share = shares[token] ?? null;
@@ -27,11 +31,24 @@ function readLocalShare(token) {
   const planner = JSON.parse(localStorage.getItem(PLANNER_STORAGE_KEY) ?? '{}');
   const planningType = safePlanningType(share.planningType);
   const planningVersion = share.planningVersion ?? 'V1';
+  const publishedPlannings = Object.values(shares)
+    .filter((item) => item.projectId === share.projectId)
+    .map((item) => ({
+      project_id: item.projectId,
+      planning_type: safePlanningType(item.planningType),
+      planning_version: item.planningVersion ?? 'V1',
+      created_at: item.createdAt ?? item.created_at,
+    }));
+  const isPublishedPlanning = (item) => publishedPlannings.some((published) => (
+    safePlanningType(item.planning_type) === published.planning_type
+    && (item.planning_version ?? 'V1') === published.planning_version
+  ));
   return {
     project: planner.projects?.find((project) => project.id === share.projectId),
     share: { planning_type: planningType, planning_version: planningVersion, created_at: share.createdAt ?? share.created_at },
-    categories: planner.categories?.filter((category) => category.project_id === share.projectId && safePlanningType(category.planning_type) === planningType && (category.planning_version ?? 'V1') === planningVersion) ?? [],
-    lineItems: planner.lineItems?.filter((item) => item.project_id === share.projectId && safePlanningType(item.planning_type) === planningType && (item.planning_version ?? 'V1') === planningVersion) ?? [],
+    publishedPlannings,
+    categories: planner.categories?.filter((category) => category.project_id === share.projectId && isPublishedPlanning(category)) ?? [],
+    lineItems: planner.lineItems?.filter((item) => item.project_id === share.projectId && isPublishedPlanning(item)) ?? [],
     labels: planner.labels?.filter((label) => !label.project_id || label.project_id === share.projectId) ?? [],
     assetLists: planner.assetLists?.filter((list) => list.project_id === share.projectId) ?? [],
     clients: planner.clients ?? [],
@@ -305,6 +322,7 @@ export default function PublicClientPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('planning');
+  const [activePlanningKey, setActivePlanningKey] = useState('');
   const [showEmptyDates, setShowEmptyDates] = useState(true);
   const [showWennekerBookings, setShowWennekerBookings] = useState(true);
   const [showClientBookings, setShowClientBookings] = useState(true);
@@ -312,26 +330,34 @@ export default function PublicClientPage() {
   const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState([]);
   const uncategorizedNames = readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {});
   const uncategorizedName = payload?.project ? uncategorizedNames[payload.project.id] || 'Uncategorized' : 'Uncategorized';
-  const assetLists = useMemo(() => payload?.assetLists ?? [], [payload?.assetLists]);
+  const publishedPlannings = useMemo(() => {
+    const items = payload?.publishedPlannings?.length ? payload.publishedPlannings : (payload?.share ? [payload.share] : []);
+    return items
+      .filter((item) => item.planning_type)
+      .map((item) => ({ ...item, planning_type: safePlanningType(item.planning_type), planning_version: item.planning_version ?? 'V1' }))
+      .sort((a, b) => (a.planning_type === 'production' ? -1 : 1) - (b.planning_type === 'production' ? -1 : 1)
+        || a.planning_version.localeCompare(b.planning_version));
+  }, [payload?.publishedPlannings, payload?.share]);
+  const activePlanning = publishedPlannings.find((item) => publicPlanningKey(item) === activePlanningKey) ?? publishedPlannings[0] ?? null;
+  const activePlanningType = activePlanning?.planning_type ?? DEFAULT_PLANNING_TYPE;
+  const planningVersion = activePlanning?.planning_version ?? 'V1';
+  const assetLists = useMemo(() => (payload?.assetLists ?? []).filter((list) => Boolean(list.filename_options?.asset_published_at)), [payload?.assetLists]);
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
-  const categoryCount = useMemo(() => new Set((payload?.lineItems ?? []).map((item) => item.category_id).filter(Boolean)).size || (payload?.categories ?? []).length, [payload?.categories, payload?.lineItems]);
+  const planningCategories = useMemo(() => (payload?.categories ?? []).filter((category) => safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion), [activePlanningType, payload?.categories, planningVersion]);
+  const planningLineItems = useMemo(() => (payload?.lineItems ?? []).filter((item) => safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion), [activePlanningType, payload?.lineItems, planningVersion]);
+  const categoryCount = useMemo(() => new Set(planningLineItems.map((item) => item.category_id).filter(Boolean)).size || planningCategories.length, [planningCategories.length, planningLineItems]);
   const categoryFilterGroups = useMemo(() => {
     if (!payload?.project) return [];
-    const categoriesById = Object.fromEntries((payload.categories ?? []).map((category) => [category.id, category]));
+    const categoriesById = Object.fromEntries(planningCategories.map((category) => [category.id, category]));
     const groups = new Map();
-    (payload.lineItems ?? []).forEach((item) => {
+    planningLineItems.forEach((item) => {
       const key = item.category_id ?? 'uncategorized';
       const category = item.category_id ? categoriesById[item.category_id] : null;
       const name = category?.name ?? uncategorizedName;
       if (!groups.has(key)) groups.set(key, { key, name, sortOrder: category?.sort_order ?? 99999 });
     });
     return [...groups.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-  }, [payload?.categories, payload?.lineItems, payload?.project, uncategorizedName]);
-  const planningVersion = payload?.share?.planning_version
-    ?? payload?.lineItems?.find((item) => item.planning_version)?.planning_version
-    ?? payload?.project?.preferred_planning_version
-    ?? payload?.project?.planning_version
-    ?? 'V1';
+  }, [payload?.project, planningCategories, planningLineItems, uncategorizedName]);
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
   const lastEditedDate = formatPublicDate(payload?.project?.last_edited_at ?? payload?.project?.updated_at ?? payload?.project?.created_at);
   const whoFilterIds = useMemo(() => ({
@@ -342,7 +368,7 @@ export default function PublicClientPage() {
     !showWennekerBookings ? whoFilterIds.wenneker : null,
     !showClientBookings ? whoFilterIds.client : null,
   ].filter(Boolean), [showClientBookings, showWennekerBookings, whoFilterIds.client, whoFilterIds.wenneker]);
-  const visibleLineItems = useMemo(() => (payload?.lineItems ?? []).filter((item) => !hiddenCategoryKeys.includes(item.category_id ?? 'uncategorized')), [hiddenCategoryKeys, payload?.lineItems]);
+  const visibleLineItems = useMemo(() => planningLineItems.filter((item) => !hiddenCategoryKeys.includes(item.category_id ?? 'uncategorized')), [hiddenCategoryKeys, planningLineItems]);
   const calendarLineItems = useMemo(() => visibleLineItems, [visibleLineItems]);
   const ganttLineItems = useMemo(() => visibleLineItems.filter((item) => {
     if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
@@ -352,6 +378,22 @@ export default function PublicClientPage() {
   const toggleHiddenCategory = (key) => {
     setHiddenCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
+
+  useEffect(() => {
+    if (!payload) return;
+    const requestedKey = payload.share ? `${safePlanningType(payload.share.planning_type)}:${payload.share.planning_version ?? 'V1'}` : '';
+    const nextPlanning = publishedPlannings.find((item) => publicPlanningKey(item) === requestedKey) ?? publishedPlannings[0];
+    if (nextPlanning) {
+      setActivePlanningKey(publicPlanningKey(nextPlanning));
+      setTab('planning');
+    } else if (assetLists.length) {
+      setTab('assets');
+    }
+  }, [assetLists.length, payload, publishedPlannings]);
+
+  useEffect(() => {
+    setHiddenCategoryKeys([]);
+  }, [activePlanningKey]);
 
   useEffect(() => {
     const storedTheme = localStorage.theme;
@@ -428,8 +470,22 @@ export default function PublicClientPage() {
                     </div>
                   </div>
                   <div className="public-client-tabs">
-                    <button type="button" onClick={() => setTab('planning')} className={`tab ${tab === 'planning' ? 'tab-active' : ''}`}>Planning</button>
-                    <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>
+                    {publishedPlannings.map((planning) => {
+                      const key = publicPlanningKey(planning);
+                      const sameTypeCount = publishedPlannings.filter((item) => item.planning_type === planning.planning_type).length;
+                      const label = planning.planning_type === 'production' ? 'Production' : 'Post Production';
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => { setActivePlanningKey(key); setTab('planning'); }}
+                          className={`tab ${tab === 'planning' && activePlanningKey === key ? 'tab-active' : ''}`}
+                        >
+                          {label}{sameTypeCount > 1 ? ` ${planning.planning_version}` : ''}
+                        </button>
+                      );
+                    })}
+                    {assetLists.length > 0 && <button type="button" onClick={() => setTab('assets')} className={`tab ${tab === 'assets' ? 'tab-active' : ''}`}>Asset List</button>}
                   </div>
                 </div>
                 <div className="public-header-actions">
@@ -437,7 +493,7 @@ export default function PublicClientPage() {
                     type="button"
                     onClick={() => downloadPlanningExcel(
                       payload.project,
-                      clientPlanningExportRows(payload.project, payload.lineItems ?? [], payload.labels, payload.categories, showEmptyDates, uncategorizedName, 'full', payload.share?.planning_type),
+                      clientPlanningExportRows(payload.project, planningLineItems, payload.labels, planningCategories, showEmptyDates, uncategorizedName, 'full', activePlanningType),
                     )}
                     className="public-download-button"
                   >
@@ -487,7 +543,7 @@ export default function PublicClientPage() {
                     project={payload.project}
                     lineItems={calendarLineItems}
                     labels={payload.labels}
-                    categories={payload.categories}
+                    categories={planningCategories}
                     showEmptyDates={showEmptyDates}
                     uncategorizedName={uncategorizedName}
                     forceHideCategoryColumn
@@ -496,18 +552,18 @@ export default function PublicClientPage() {
                     publicCardLayout
                     columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'calendar'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, notes: false, rowColor: false, edit: false } }}
                     showWeekColumn={false}
-                    planningType={payload.share?.planning_type}
+                    planningType={activePlanningType}
                   />
                 ) : (
                   <ClientGanttChart
                     project={payload.project}
                     lineItems={ganttLineItems}
                     labels={payload.labels}
-                    categories={payload.categories}
+                    categories={planningCategories}
                     uncategorizedName={uncategorizedName}
                     categoryMode={categoryCount > 1 ? 'sections' : 'column'}
                     dateWindow="full"
-                    planningType={payload.share?.planning_type}
+                    planningType={activePlanningType}
                   />
                 )}
               </>
