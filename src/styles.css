@@ -7357,6 +7357,7 @@ body.public-share-body {
   color: #e1e1ef;
   font-size: 1.25rem;
   font-weight: 850;
+  text-transform: uppercase;
 }
 
 .timeline-day {

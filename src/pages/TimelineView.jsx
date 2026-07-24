@@ -560,7 +560,7 @@ function CategoryBlock({
   }, [openCategoryMenu]);
 
   const commitName = () => {
-    const nextName = draftName.trim() || category.name;
+    const nextName = (draftName.trim() || category.name).toUpperCase();
     setDraftName(nextName);
     if (!editable || nextName === category.name) return;
     if (isUncategorized) {
@@ -573,7 +573,7 @@ function CategoryBlock({
   const categoryNameInput = (className = '') => (
     <input
       value={draftName}
-      onChange={(event) => editable && setDraftName(event.target.value)}
+      onChange={(event) => editable && setDraftName(event.target.value.toUpperCase())}
       onBlur={commitName}
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.currentTarget.blur();
@@ -915,11 +915,19 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   };
 
   const addItemAtVisibleStart = (projectId, categoryId) => {
-    const firstVisibleDayIndex = Math.min(
+    const scroller = scrollRef.current;
+    const tableRight = tableVisible
+      ? scroller?.querySelector('.timeline-table-panel')?.getBoundingClientRect().right
+      : scroller?.getBoundingClientRect().left;
+    const firstVisibleDay = [...(scroller?.querySelectorAll('[data-timeline-date]') ?? [])]
+      .find((element) => element.getBoundingClientRect().right > (tableRight ?? 0) + 0.5);
+    const fallbackDayIndex = Math.min(
       timelineDays.length - 1,
-      Math.max(0, Math.floor((scrollRef.current?.scrollLeft ?? 0) / dayWidth)),
+      Math.max(0, Math.floor((scroller?.scrollLeft ?? 0) / dayWidth)),
     );
-    const firstVisibleDate = timelineDays[firstVisibleDayIndex] ?? new Date();
+    const firstVisibleDate = firstVisibleDay?.dataset.timelineDate
+      ? parseISO(firstVisibleDay.dataset.timelineDate)
+      : (timelineDays[fallbackDayIndex] ?? new Date());
     addLineItem(projectId, categoryId, iso(firstVisibleDate), {
       what: '',
       todo: '',
@@ -1424,7 +1432,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                 </div>
                 <div className="flex h-9 border-b border-black/10 text-center font-mono text-xs text-ink-500 dark:border-white/10">
                   {timelineDays.map((day) => (
-                    <div key={day.toISOString()} className={`grid place-items-center border-r border-black/5 py-2 dark:border-white/5 ${isWeekend(day) ? 'bg-black/[0.04] dark:bg-white/[0.055]' : ''}`} style={{ width: dayWidth }}>
+                    <div key={day.toISOString()} data-timeline-date={iso(day)} className={`grid place-items-center border-r border-black/5 py-2 dark:border-white/5 ${isWeekend(day) ? 'bg-black/[0.04] dark:bg-white/[0.055]' : ''}`} style={{ width: dayWidth }}>
                       {format(day, 'd')}
                     </div>
                   ))}
