@@ -1771,21 +1771,6 @@ nav .tab-active {
   min-height: 23px;
 }
 
-.asset-category-menu-row {
-  align-items: center;
-  background: #11182a;
-  border-bottom: 1px solid #2c3755;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  min-height: 34px;
-  padding: 4px 7px;
-}
-
-.asset-category-menu-row.is-tools-only {
-  justify-content: flex-start;
-}
-
 .asset-subcategory-action-row {
   align-items: center;
   background: #0e1628;
@@ -1793,6 +1778,20 @@ nav .tab-active {
   display: flex;
   min-height: 36px;
   padding: 5px 8px;
+}
+
+.asset-main-category-footer {
+  align-items: flex-start;
+  background: #0e1628;
+  border-bottom: 1px dotted rgba(203, 213, 225, 0.62);
+  display: flex;
+  min-height: 65px;
+  padding: 6px 8px 30px;
+}
+
+.asset-category-container.is-subcategory .asset-main-category-footer {
+  margin-left: -14px;
+  width: calc(100% + 14px);
 }
 
 .asset-add-subcategory:hover {

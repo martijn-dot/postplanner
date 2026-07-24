@@ -1502,17 +1502,14 @@ export default function AssetListPage({ project }) {
             const categoryBeforeColumns = isStaticCategory ? staticBeforeFilenameColumns : beforeFilenameColumns;
             const categoryAfterColumns = isStaticCategory ? staticAfterCopyColumns : afterCopyColumns;
             const categoryGridTemplate = isStaticCategory ? staticGridTemplate : fullGridTemplate;
+            const mainCategoryId = category.parent_id ?? category.id;
+            const mainCategory = category.parent_id ? parentCategory : category;
+            const mainSubcategories = categories.filter((item) => item.parent_id === mainCategoryId);
+            const isMainCategoryEnd = category.parent_id
+              ? mainSubcategories.at(-1)?.id === category.id
+              : mainCategory?.collapsed || mainSubcategories.length === 0;
             return (
               <div key={category.id} className={`asset-category-container ${category.parent_id ? 'is-subcategory' : ''}`}>
-                {!category.parent_id && (
-                  <div className="asset-category-menu-row is-tools-only">
-                    <div className="asset-category-header-tools">
-                      <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
-                      <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Row</button>
-                      <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={12} /> Columns</button>
-                    </div>
-                  </div>
-                )}
                 <div
                   className={`asset-category-bar ${category.parent_id ? 'is-subcategory' : ''} ${dragTargetCategoryId === category.id ? 'is-category-drop-target' : ''}`}
                   onDragOver={(event) => {
@@ -1565,13 +1562,11 @@ export default function AssetListPage({ project }) {
                 </div>
                 {!category.parent_id && (
                   <div className="asset-subcategory-action-row">
-                    <button
-                      type="button"
-                      onClick={() => addSubcategory(category.id)}
-                      className="asset-add-subcategory"
-                    >
-                      <Plus size={12} /> Subcategory
-                    </button>
+                    <div className="asset-category-header-tools">
+                      <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
+                      <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Row</button>
+                      <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={12} /> Columns</button>
+                    </div>
                   </div>
                 )}
                 <div className="asset-category-body">
@@ -1880,6 +1875,17 @@ export default function AssetListPage({ project }) {
                   </div>
                 )}
                 </div>
+                {isMainCategoryEnd && (
+                  <div className="asset-main-category-footer">
+                    <button
+                      type="button"
+                      onClick={() => addSubcategory(mainCategoryId)}
+                      className="asset-add-subcategory"
+                    >
+                      <Plus size={12} /> Subcategory
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

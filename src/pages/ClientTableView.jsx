@@ -332,12 +332,17 @@ function OverflowNote({ note, onOpen }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onUpdateCategory, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE }) {
   const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
   const editingItem = editingItemId ? lineItems.find((item) => item.id === editingItemId) : null;
+  const editingCategory = editingItem?.category_id ? categories.find((category) => category.id === editingItem.category_id) : null;
+  useEffect(() => {
+    setEditingCategoryName(editingCategory?.name ?? uncategorizedName);
+  }, [editingCategory?.id, editingCategory?.name, editingItemId, uncategorizedName]);
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const labelsByType = useMemo(() => ({
     who: labels.filter((label) => label.column_type === 'who'),
@@ -619,23 +624,39 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
             </div>
             <div className="space-y-4">
               <label className="block space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Category</span>
+                <input
+                  value={editingCategoryName}
+                  onChange={(event) => setEditingCategoryName(event.target.value)}
+                  onBlur={() => {
+                    const nextName = editingCategoryName.trim();
+                    if (editingCategory && onUpdateCategory && nextName && nextName !== editingCategory.name) onUpdateCategory(editingCategory.id, { name: nextName });
+                    if (!nextName) setEditingCategoryName(editingCategory?.name ?? uncategorizedName);
+                  }}
+                  disabled={!editingCategory || !onUpdateCategory}
+                  className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Category name"
+                />
+                <span className="block text-[0.68rem] text-ink-500">Changing this name updates every row in this category.</span>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Asset name</span>
+                <input
+                  value={editingItem.asset ?? ''}
+                  onChange={(event) => onUpdateLineItem(editingItem.id, { asset: event.target.value })}
+                  onBlur={() => onFlushLineItem?.(editingItem.id)}
+                  className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
+                  placeholder="Asset name"
+                />
+              </label>
+              <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Who</span>
                 <LabelSelect labels={labelsByType.who} value={editingItem.who ?? []} multiple multipleModeToggle placeholder="Who" onChange={(who) => onUpdateLineItem(editingItem.id, { who })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color)} />
               </label>
-              <label className="block space-y-1">
+              {!isProduction && <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">What</span>
-                {isProduction ? (
-                  <input
-                    value={editingItem.asset ?? ''}
-                    onChange={(event) => onUpdateLineItem(editingItem.id, { asset: event.target.value })}
-                    onBlur={() => onFlushLineItem?.(editingItem.id)}
-                    className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
-                    placeholder="What"
-                  />
-                ) : (
-                  <LabelSelect labels={labelsByType.what} value={editingItem.what} placeholder="What" onChange={(what) => onUpdateLineItem(editingItem.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} />
-                )}
-              </label>
+                <LabelSelect labels={labelsByType.what} value={editingItem.what} placeholder="What" onChange={(what) => onUpdateLineItem(editingItem.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} />
+              </label>}
               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Todo</span>
                 <LabelSelect labels={labelsByType.todo} value={editingItem.todo} placeholder="Todo" onChange={(todo) => onUpdateLineItem(editingItem.id, { todo })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'todo', value, color)} />
@@ -805,7 +826,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
 }
 
 export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, addLabel } = usePlanner();
+  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, updateCategory, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
   const activeShare = shareLinks.find((share) => share.project_id === project.id && share.page_type === 'client_planning' && safePlanningType(share.planning_type) === activePlanningType && (share.planning_version ?? 'V1') === planningVersion && !share.revoked_at);
@@ -1086,6 +1107,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     dateWindow={dateWindow}
                     onUpdateLineItem={updateLineItem}
                     onFlushLineItem={flushLineItemUpdate}
+                    onUpdateCategory={updateCategory}
                     onAddLabel={addLabel}
                     uncategorizedName={uncategorizedName}
                     columnPrefs={columnPrefs}
