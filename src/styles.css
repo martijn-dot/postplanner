@@ -3456,7 +3456,8 @@ body.public-share-body {
   border-radius: 14px;
   display: grid;
   grid-template-columns: 126px minmax(0, 1fr);
-  min-height: 118px;
+  /* Keep the date typography intact, while making each planning row 20% denser. */
+  min-height: 94px;
   overflow: hidden;
 }
 
@@ -3465,7 +3466,7 @@ body.public-share-body {
   align-self: center;
   border-right: 1px solid #c6c6cd;
   display: grid;
-  margin: 22px 0;
+  margin: 11px 0;
   min-height: 72px;
   padding: 0 20px;
 }
@@ -3501,9 +3502,9 @@ body.public-share-body {
 .public-calendar-event-row {
   align-items: center;
   display: grid;
-  gap: 16px;
-  min-height: 78px;
-  padding: 14px 18px;
+  gap: 13px;
+  min-height: 62px;
+  padding: 11px 14px;
 }
 
 .public-calendar-event-row + .public-calendar-event-row {
@@ -3512,16 +3513,18 @@ body.public-share-body {
 
 .public-calendar-event-row > div {
   min-width: 0;
+  transform: scale(.8);
+  transform-origin: left center;
 }
 
 .public-calendar-empty {
   align-items: center;
   color: rgba(69, 70, 77, .42);
   display: flex;
-  font-size: 14px;
+  font-size: 11px;
   font-style: italic;
   justify-content: center;
-  min-height: 116px;
+  min-height: 94px;
 }
 
 .public-calendar-no-results {
