@@ -102,7 +102,7 @@ export default function ProjectPage() {
       <nav className="project-page-tabs flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
         <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
           <span className="project-tab-icon"><CalendarRange size={16} strokeWidth={2.1} /></span>
-          <span>Timeline</span>
+          <span>Planning</span>
         </NavLink>
         <NavLink to={`/projects/${projectId}/client?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
           <span className="project-tab-icon"><Eye size={16} strokeWidth={2.1} /></span>

@@ -392,6 +392,8 @@ nav .tab-active {
 
 .asset-list-scroll {
   background: #f7f6fb;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
 }
 
 /* Asset list workspace: content below the shared application header. */
@@ -1256,6 +1258,78 @@ nav .tab-active {
   pointer-events: none;
 }
 
+.asset-list-page .asset-cell.is-cell-group-start,
+.asset-list-page .asset-cell.is-cell-group-middle,
+.asset-list-page .asset-cell.is-cell-group-end {
+  background: #111b2e !important;
+  border-left: 1px solid rgba(128, 131, 255, 0.48);
+  border-right: 1px solid rgba(128, 131, 255, 0.48);
+  z-index: 2;
+}
+
+.asset-list-page .asset-cell.is-cell-group-start {
+  border-radius: 6px 6px 0 0;
+  border-top: 1px solid rgba(128, 131, 255, 0.48);
+}
+
+.asset-list-page .asset-cell.is-cell-group-middle::before,
+.asset-list-page .asset-cell.is-cell-group-end::before {
+  background: #111b2e;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: -1px;
+}
+
+.asset-list-page .asset-cell.is-cell-group-middle > *,
+.asset-list-page .asset-cell.is-cell-group-end > * {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.asset-list-page .asset-cell.is-cell-group-end {
+  border-bottom: 1px solid rgba(128, 131, 255, 0.48);
+  border-radius: 0 0 6px 6px;
+}
+
+.asset-cell-group-popup {
+  background: #11182a;
+  border: 1px solid #35405a;
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
+  color: #dae2fd;
+  padding: 18px;
+  width: min(480px, 100%);
+}
+
+.asset-cell-group-popup header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.asset-cell-group-popup h2 {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.asset-cell-group-popup header p {
+  color: #8f99b2;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.asset-cell-group-popup footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
 .asset-list-page .asset-cell.is-ratio-branch-cell {
   justify-content: center;
   opacity: 1;
@@ -1783,8 +1857,9 @@ nav .tab-active {
 .asset-main-category-footer {
   align-items: flex-start;
   background: #0e1628;
-  border-bottom: 1px dotted rgba(203, 213, 225, 0.62);
+  border-bottom: 1px dotted rgba(203, 213, 225, 0.2);
   display: flex;
+  margin-bottom: 20px;
   min-height: 65px;
   padding: 6px 8px 30px;
 }

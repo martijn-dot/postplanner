@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Flag, Search, Send, Users } from 'lucide-react';
 import { ClientGanttChart, ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
@@ -161,25 +161,46 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
   if (!assetLists.length) return <div className="rounded-lg border border-black/10 bg-white px-4 py-10 text-center text-ink-500 dark:border-white/10 dark:bg-ink-900">No asset list published yet.</div>;
 
   const columns = assetColumns(activeList);
-  const publishedColumns = columns.filter((column) => column.publish_to_client !== false);
-  const visibleColumns = publishedColumns.filter((column) => !/frame\.?io/i.test(column.name ?? ''));
-  const publishedFrameColumn = publishedColumns.find((column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? ''));
-  const showFrameColumn = Boolean(publishedFrameColumn);
   const rows = assetRows(activeList);
   const groups = assetCategories(activeList);
+  const columnsForGroup = (group) => {
+    const rootId = group?.parent_id ?? group?.id;
+    const rootGroup = groups.find((item) => item.id === rootId) ?? group;
+    const settings = rootGroup?.column_settings ?? {};
+    const orderIndex = new Map((rootGroup?.column_order ?? []).map((columnId, index) => [columnId, index]));
+    const isStatic = group?.asset_kind === 'static';
+    return columns
+      .filter((column) => !column.category_id || !rootId || column.category_id === rootId)
+      .map((column) => ({ ...column, ...(settings[column.id] ?? {}) }))
+      .filter((column) => {
+        if (column.publish_to_client === false) return false;
+        if (!isStatic) return !['asset_static_type', 'asset_static_size'].includes(column.label_type);
+        return column.label_type === 'asset_unique_ratio'
+          || column.label_type === 'asset_static_type'
+          || column.label_type === 'asset_static_size'
+          || /^name$/i.test(column.name ?? '')
+          || /frame\.?io/i.test(column.name ?? '')
+          || column.is_custom;
+      })
+      .sort((a, b) => {
+        const aIndex = orderIndex.has(a.id) ? orderIndex.get(a.id) : Number.MAX_SAFE_INTEGER;
+        const bIndex = orderIndex.has(b.id) ? orderIndex.get(b.id) : Number.MAX_SAFE_INTEGER;
+        return aIndex - bIndex || (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      });
+  };
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const rowMatchesSearch = (row) => {
     if (!normalizedSearch) return true;
+    const group = groups.find((item) => item.id === row.group_id);
     const haystack = [
       row.number,
       row.notes,
-      ...publishedColumns.map((column) => assetValue(row.values?.[column.id], column)),
+      ...columnsForGroup(group).map((column) => assetValue(row.values?.[column.id], column)),
     ].join(' ').toLowerCase();
     return haystack.includes(normalizedSearch);
   };
   const visibleRows = rows.filter(rowMatchesSearch);
   const groupRows = (group) => (groups.length ? visibleRows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === group.id) : visibleRows);
-  const assetColSpan = visibleColumns.length + 2 + (showFrameColumn ? 1 : 0);
   const toggleGroup = (groupId) => {
     setCollapsedGroups((current) => {
       const next = new Set(current);
@@ -218,19 +239,15 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
         </div>
       </div>
       <div className="public-asset-table-wrap">
-        <table className="public-asset-table">
-          <thead>
-            <tr>
-              <th>Number</th>
-              {visibleColumns.map((column) => <th key={column.id}>{column.name}</th>)}
-              <th>Notes</th>
-              {showFrameColumn && <th>Frame.io</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {(groups.length ? groups : [{ id: null, name: 'Asset list' }]).map((group) => (
-              groupRows(group).length ? (
-                <Fragment key={group.id ?? 'asset-list'}>
+        {(groups.length ? groups : [{ id: null, name: 'Asset list' }]).map((group) => {
+          const publishedColumns = columnsForGroup(group);
+          const visibleColumns = publishedColumns.filter((column) => !/frame\.?io/i.test(column.name ?? ''));
+          const publishedFrameColumn = publishedColumns.find((column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? ''));
+          const showFrameColumn = Boolean(publishedFrameColumn);
+          const assetColSpan = visibleColumns.length + 2 + (showFrameColumn ? 1 : 0);
+          return groupRows(group).length ? (
+            <table key={group.id ?? 'asset-list'} className="public-asset-table">
+              <tbody>
                   <tr key={`${group.id}-heading`} className="public-asset-category-row">
                     <td colSpan={assetColSpan}>
                       <button type="button" onClick={() => toggleGroup(group.id ?? 'asset-list')}>
@@ -239,6 +256,14 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                       </button>
                     </td>
                   </tr>
+                  {!collapsedGroups.has(group.id ?? 'asset-list') && (
+                    <tr className="public-asset-column-header">
+                      <th>Number</th>
+                      {visibleColumns.map((column) => <th key={column.id}>{column.name}</th>)}
+                      <th>Notes</th>
+                      {showFrameColumn && <th>Frame.io</th>}
+                    </tr>
+                  )}
                   {!collapsedGroups.has(group.id ?? 'asset-list') && groupRows(group).map((row) => (
                     <tr key={row.id}>
                       <td className="public-asset-number">{row.number}</td>
@@ -269,16 +294,11 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                       )}
                     </tr>
                   ))}
-                </Fragment>
-              ) : null
-            ))}
-            {!visibleRows.length && (
-              <tr>
-                <td colSpan={assetColSpan} className="public-asset-empty">No assets match your search.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              </tbody>
+            </table>
+          ) : null;
+        })}
+        {!visibleRows.length && <div className="public-asset-empty">No assets match your search.</div>}
       </div>
     </section>
   );

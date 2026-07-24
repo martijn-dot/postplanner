@@ -119,7 +119,17 @@ function projectClientCode(project, clients = []) {
 }
 
 function generatedFilename(project, list, row, clients = []) {
-  const columns = orderedColumns(list);
+  const rowCategory = (list.categories ?? []).find((category) => category.id === row.group_id);
+  const rootCategoryId = rowCategory?.parent_id ?? rowCategory?.id;
+  const rootCategory = (list.categories ?? []).find((category) => category.id === rootCategoryId);
+  const orderIndex = new Map((rootCategory?.column_order ?? []).map((columnId, index) => [columnId, index]));
+  const columns = orderedColumns(list)
+    .filter((column) => !column.category_id || !rootCategoryId || column.category_id === rootCategoryId)
+    .sort((a, b) => {
+      const aIndex = orderIndex.has(a.id) ? orderIndex.get(a.id) : Number.MAX_SAFE_INTEGER;
+      const bIndex = orderIndex.has(b.id) ? orderIndex.get(b.id) : Number.MAX_SAFE_INTEGER;
+      return aIndex - bIndex || (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
   const standardProjectParts = [project.project_number, projectClientCode(project, clients), project.name]
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
@@ -506,6 +516,7 @@ export default function AssetListPage({ project }) {
   const [settingsColumnId, setSettingsColumnId] = useState('');
   const [selectedCell, setSelectedCell] = useState(null);
   const [orderPopupOpen, setOrderPopupOpen] = useState(false);
+  const [orderCategoryId, setOrderCategoryId] = useState('');
   const [selectedCells, setSelectedCells] = useState([]);
   const [selectionAnchor, setSelectionAnchor] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState('');
@@ -528,6 +539,7 @@ export default function AssetListPage({ project }) {
   const [templateUpdateId, setTemplateUpdateId] = useState('');
   const [frameLinkPopup, setFrameLinkPopup] = useState(null);
   const [frameLinkDraft, setFrameLinkDraft] = useState('');
+  const [cellGroupPrompt, setCellGroupPrompt] = useState(null);
   const fillSourceRef = useRef(null);
   const undoStackRef = useRef([]);
   const globalOptions = useMemo(() => labels
@@ -571,9 +583,6 @@ export default function AssetListPage({ project }) {
 
   const activeList = projectLists.find((item) => item.id === activeId) ?? projectLists[0];
   const columns = orderedColumns(activeList);
-  const visibleColumns = columns.filter((column) => (isUniqueRatioColumn(column) || !column.hidden) && !['asset_static_type', 'asset_static_size'].includes(column.label_type));
-  const beforeFilenameColumns = visibleColumns.filter((column) => !isFrameColumn(column));
-  const afterCopyColumns = visibleColumns.filter(isFrameColumn);
   const rows = orderedRows(activeList);
   const categories = orderedCategories(activeList);
   const fallbackCategory = categories[0] ?? { id: 'default', name: 'Category 1', collapsed: false, sort_order: 0 };
@@ -723,6 +732,8 @@ export default function AssetListPage({ project }) {
     return 360;
   };
 
+  const notesColumnWidth = () => Math.max(100, Number(activeList?.filename_options?.notes_column_width) || 154);
+
   const startColumnResize = (event, columnId) => {
     if (!activeList) return;
     event.preventDefault();
@@ -758,6 +769,31 @@ export default function AssetListPage({ project }) {
         filename_options: {
           ...(activeList.filename_options ?? {}),
           filename_column_width: nextWidth,
+        },
+      });
+    };
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      markProjectEdited(project.id);
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp, { once: true });
+  };
+
+  const startNotesColumnResize = (event) => {
+    if (!activeList) return;
+    event.preventDefault();
+    event.stopPropagation();
+    undoStackRef.current.push(structuredClone(activeList));
+    const startX = event.clientX;
+    const startWidth = notesColumnWidth();
+    const onPointerMove = (moveEvent) => {
+      const nextWidth = Math.max(100, Math.min(760, Math.round(startWidth + moveEvent.clientX - startX)));
+      updateAssetList(activeList.id, {
+        filename_options: {
+          ...(activeList.filename_options ?? {}),
+          notes_column_width: nextWidth,
         },
       });
     };
@@ -958,7 +994,8 @@ export default function AssetListPage({ project }) {
     saveList({ rows: rows.map((row) => row.id === rowId ? { ...row, ...patch } : row) });
   };
 
-  const addColumn = () => {
+  const addColumn = (categoryId) => {
+    const rootCategoryId = categories.find((category) => category.id === categoryId)?.parent_id ?? categoryId;
     const column = {
       id: uid(),
       name: `Column ${columns.length + 1}`,
@@ -968,6 +1005,7 @@ export default function AssetListPage({ project }) {
       sort_order: columns.length,
       width: 180,
       is_custom: true,
+      category_id: rootCategoryId,
     };
     saveColumns([...columns, column], updateRowsForColumn(rows, column.id));
     setSettingsColumnId(column.id);
@@ -1249,8 +1287,76 @@ export default function AssetListPage({ project }) {
       && (extraSelected || selectedCells.some((cell) => cell.rowIndex === rowIndex && cell.columnIndex === columnIndex))
   );
 
+  const cellColumnKey = (columnIndex) => {
+    if (columnIndex === -1) return 'number';
+    if (columnIndex === columns.length + NOTES_COLUMN_OFFSET) return 'notes';
+    return columns[columnIndex]?.id ?? '';
+  };
+
+  const savedCellGroups = activeList?.filename_options?.cell_groups ?? [];
+
+  const cellGroupDisplay = (rowId, columnKey) => {
+    const group = savedCellGroups.find((item) => item.column_key === columnKey && item.row_ids?.includes(rowId));
+    if (!group) return { className: '', group: null };
+    const position = group.row_ids.indexOf(rowId);
+    return {
+      group,
+      className: position === 0
+        ? 'is-cell-group-start'
+        : position === group.row_ids.length - 1
+          ? 'is-cell-group-end'
+          : 'is-cell-group-middle',
+    };
+  };
+
+  const openCellGroupPrompt = (cells) => {
+    if (cells.length < 2) return;
+    const columnIndexes = [...new Set(cells.map((cell) => cell.columnIndex))];
+    if (columnIndexes.length !== 1) return;
+    const columnIndex = columnIndexes[0];
+    if ([columns.length + FILENAME_COLUMN_OFFSET, columns.length + COPY_COLUMN_OFFSET].includes(columnIndex)) return;
+    const columnKey = cellColumnKey(columnIndex);
+    if (!columnKey) return;
+    const rowIds = [...new Set(cells
+      .sort((a, b) => a.rowIndex - b.rowIndex)
+      .map((cell) => rows[cell.rowIndex]?.id)
+      .filter(Boolean))];
+    if (rowIds.length < 2) return;
+    const selectedRows = rowIds.map((rowId) => rows.find((row) => row.id === rowId)).filter(Boolean);
+    if (new Set(selectedRows.map((row) => row.group_id)).size !== 1) return;
+    const existingGroup = savedCellGroups.find((group) => group.column_key === columnKey && rowIds.every((rowId) => group.row_ids?.includes(rowId)));
+    setCellGroupPrompt({
+      mode: existingGroup ? 'ungroup' : 'group',
+      groupId: existingGroup?.id,
+      columnKey,
+      rowIds,
+    });
+  };
+
+  const confirmCellGrouping = () => {
+    if (!cellGroupPrompt) return;
+    const nextGroups = cellGroupPrompt.mode === 'ungroup'
+      ? savedCellGroups.filter((group) => group.id !== cellGroupPrompt.groupId)
+      : [
+        ...savedCellGroups.filter((group) => group.column_key !== cellGroupPrompt.columnKey || !group.row_ids?.some((rowId) => cellGroupPrompt.rowIds.includes(rowId))),
+        { id: uid(), column_key: cellGroupPrompt.columnKey, row_ids: cellGroupPrompt.rowIds },
+      ];
+    saveList({
+      filename_options: {
+        ...(activeList.filename_options ?? {}),
+        cell_groups: nextGroups,
+      },
+    });
+    setSelectedCells([]);
+    setSelectionAnchor(null);
+    setCellGroupPrompt(null);
+  };
+
   useEffect(() => {
-    const onPointerUp = () => setSelectionAnchor(null);
+    const onPointerUp = () => {
+      if (selectionAnchor && selectedCells.length > 1) openCellGroupPrompt([...selectedCells]);
+      setSelectionAnchor(null);
+    };
     const onKeyDown = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
@@ -1378,17 +1484,33 @@ export default function AssetListPage({ project }) {
     }
     return compactColumnWidth(autoFitColumnWidth(column));
   };
-  const fullGridTemplate = `52px 78px 60px ${beforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
-  const staticVisibleColumns = [
-    columns.find((column) => isUniqueRatioColumn(column)),
-    columns.find((column) => column.label_type === 'asset_static_type'),
-    columns.find((column) => /^name$/i.test(column.name ?? '')),
-    columns.find((column) => column.label_type === 'asset_static_size'),
-    columns.find((column) => isFrameColumn(column)),
-  ].filter(Boolean);
-  const staticBeforeFilenameColumns = staticVisibleColumns.filter((column) => !isFrameColumn(column));
-  const staticAfterCopyColumns = staticVisibleColumns.filter(isFrameColumn);
-  const staticGridTemplate = `52px 78px 60px ${staticBeforeFilenameColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${staticAfterCopyColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} 154px`;
+  const categoryColumns = (category) => {
+    const rootId = category.parent_id ?? category.id;
+    const rootCategory = categories.find((item) => item.id === rootId) ?? category;
+    const settings = rootCategory.column_settings ?? {};
+    const orderIndex = new Map((rootCategory.column_order ?? []).map((columnId, index) => [columnId, index]));
+    return columns
+      .filter((column) => !column.category_id || column.category_id === rootId)
+      .map((column) => ({ ...column, ...(settings[column.id] ?? {}) }))
+      .sort((a, b) => {
+        const aIndex = orderIndex.has(a.id) ? orderIndex.get(a.id) : Number.MAX_SAFE_INTEGER;
+        const bIndex = orderIndex.has(b.id) ? orderIndex.get(b.id) : Number.MAX_SAFE_INTEGER;
+        return aIndex - bIndex || (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      });
+  };
+  const visibleCategoryColumns = (category, isStatic) => categoryColumns(category).filter((column) => {
+    if (column.hidden && !isUniqueRatioColumn(column)) return false;
+    if (isStatic) {
+      return isUniqueRatioColumn(column)
+        || column.label_type === 'asset_static_type'
+        || column.label_type === 'asset_static_size'
+        || /^name$/i.test(column.name ?? '')
+        || isFrameColumn(column)
+        || (column.is_custom && column.category_id === (category.parent_id ?? category.id));
+    }
+    return !['asset_static_type', 'asset_static_size'].includes(column.label_type);
+  });
+  const gridTemplateForColumns = (beforeColumns, afterColumns) => `52px 78px 60px ${beforeColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${notesColumnWidth()}px`;
   const renderCategoryColumnHeader = (headerBeforeColumns, headerAfterColumns, gridTemplate, isStatic = false) => (
     <div className="asset-list-row asset-static-header grid" style={{ gridTemplateColumns: gridTemplate }}>
       <div className="asset-list-header locked" aria-label="Actions" />
@@ -1403,7 +1525,7 @@ export default function AssetListPage({ project }) {
               {column.name}
             </button>
           )}
-          {!isStatic && (isCustomAssetColumn(column) || (!isUniqueRatioColumn(column) && !isCompactFixedColumn(column))) && (
+          {!isStatic && !isFrameColumn(column) && (isCustomAssetColumn(column) || (!isUniqueRatioColumn(column) && !isCompactFixedColumn(column))) && (
             <button type="button" className="asset-column-resize-handle" onPointerDown={(event) => startColumnResize(event, column.id)} aria-label={`Resize ${column.name}`} />
           )}
         </div>
@@ -1422,10 +1544,13 @@ export default function AssetListPage({ project }) {
           ) : (
             <span className="asset-header-label">{column.name}</span>
           )}
-          {!isStatic && <button type="button" className="asset-column-resize-handle" onPointerDown={(event) => startColumnResize(event, column.id)} aria-label={`Resize ${column.name}`} />}
+          {!isStatic && !isFrameColumn(column) && <button type="button" className="asset-column-resize-handle" onPointerDown={(event) => startColumnResize(event, column.id)} aria-label={`Resize ${column.name}`} />}
         </div>
       ))}
-      <div className="asset-list-header locked"><span className="asset-header-label">Notes</span></div>
+      <div className="asset-list-header locked">
+        <span className="asset-header-label">Notes</span>
+        <button type="button" className="asset-column-resize-handle" onPointerDown={startNotesColumnResize} aria-label="Resize Notes column" />
+      </div>
     </div>
   );
 
@@ -1499,9 +1624,10 @@ export default function AssetListPage({ project }) {
             if (parentCategory?.collapsed) return null;
             const groupRows = rows.filter((row) => (row.group_id ?? fallbackCategory.id) === category.id && (showClones || !row.ratio_parent_id));
             const isStaticCategory = category.asset_kind === 'static';
-            const categoryBeforeColumns = isStaticCategory ? staticBeforeFilenameColumns : beforeFilenameColumns;
-            const categoryAfterColumns = isStaticCategory ? staticAfterCopyColumns : afterCopyColumns;
-            const categoryGridTemplate = isStaticCategory ? staticGridTemplate : fullGridTemplate;
+            const scopedVisibleColumns = visibleCategoryColumns(category, isStaticCategory);
+            const categoryBeforeColumns = scopedVisibleColumns.filter((column) => !isFrameColumn(column));
+            const categoryAfterColumns = scopedVisibleColumns.filter(isFrameColumn);
+            const categoryGridTemplate = gridTemplateForColumns(categoryBeforeColumns, categoryAfterColumns);
             const mainCategoryId = category.parent_id ?? category.id;
             const mainCategory = category.parent_id ? parentCategory : category;
             const mainSubcategories = categories.filter((item) => item.parent_id === mainCategoryId);
@@ -1563,9 +1689,9 @@ export default function AssetListPage({ project }) {
                 {!category.parent_id && (
                   <div className="asset-subcategory-action-row">
                     <div className="asset-category-header-tools">
-                      <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
+                      <button type="button" onClick={() => addColumn(category.id)} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
                       <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Asset</button>
-                      <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={12} /> Columns</button>
+                      <button type="button" onClick={() => { setOrderCategoryId(category.id); setOrderPopupOpen(true); }} className="asset-list-tool"><Menu size={12} /> Columns</button>
                     </div>
                   </div>
                 )}
@@ -1623,7 +1749,7 @@ export default function AssetListPage({ project }) {
                           setOpenDropdownId={setOpenDropdownId}
                         />
                       </div>
-                      <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
+                      <div className={`asset-cell ${isVisuallySelected(absoluteRowIndex, -1) ? 'copy-cell-selected' : ''} ${cellGroupDisplay(row.id, 'number').className}`} data-asset-row={absoluteRowIndex} data-asset-column="-1" {...cellSelectionProps(absoluteRowIndex, -1)}>
                         <input
                           className="table-input"
                           value={row.number ?? ''}
@@ -1658,7 +1784,7 @@ export default function AssetListPage({ project }) {
                             key={column.id}
                             data-asset-row={absoluteRowIndex}
                             data-asset-column={columnIndex}
-                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${isRatioSharedColumn && row.ratio_group ? 'is-ratio-shared-parent' : ''} ${isRatioSharedColumn && row.ratio_parent_id ? 'is-ratio-shared-child' : ''} ${isAssetTypeColumn && row.ratio_parent_id ? 'is-ratio-branch-cell' : ''}`}
+                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${cellGroupDisplay(row.id, column.id).className} ${isRatioSharedColumn && row.ratio_group ? 'is-ratio-shared-parent' : ''} ${isRatioSharedColumn && row.ratio_parent_id ? 'is-ratio-shared-child' : ''} ${isAssetTypeColumn && row.ratio_parent_id ? 'is-ratio-branch-cell' : ''}`}
                             {...cellSelectionProps(absoluteRowIndex, columnIndex, row.id, column.id)}
                             onCopy={(event) => {
                               event.preventDefault();
@@ -1809,7 +1935,7 @@ export default function AssetListPage({ project }) {
                             key={column.id}
                             data-asset-row={absoluteRowIndex}
                             data-asset-column={columnIndex}
-                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''}`}
+                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${cellGroupDisplay(row.id, column.id).className}`}
                             {...cellSelectionProps(absoluteRowIndex, columnIndex, row.id, column.id)}
                             onCopy={(event) => {
                               event.preventDefault();
@@ -1834,7 +1960,7 @@ export default function AssetListPage({ project }) {
                         );
                       })}
                       <div
-                        className={`asset-cell copy-cell ${isVisuallySelected(absoluteRowIndex, notesColumnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === 'notes') ? 'copy-cell-selected' : ''}`}
+                        className={`asset-cell copy-cell ${isVisuallySelected(absoluteRowIndex, notesColumnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === 'notes') ? 'copy-cell-selected' : ''} ${cellGroupDisplay(row.id, 'notes').className}`}
                         data-asset-row={absoluteRowIndex}
                         data-asset-column={notesColumnIndex}
                         {...cellSelectionProps(absoluteRowIndex, notesColumnIndex)}
@@ -1846,8 +1972,12 @@ export default function AssetListPage({ project }) {
                       >
                         <input
                           className="table-input"
-                          value={row.notes ?? ''}
-                          onChange={(event) => updateRow(row.id, { notes: event.target.value })}
+                          defaultValue={row.notes ?? ''}
+                          onBlur={(event) => {
+                            if (event.currentTarget.value !== (row.notes ?? '')) {
+                              updateRow(row.id, { notes: event.currentTarget.value });
+                            }
+                          }}
                           onFocus={() => setSelectedCell({ rowId: row.id, columnId: 'notes' })}
                           onKeyDown={(event) => {
                             if (moveCellFocus(event, absoluteRowIndex, notesColumnIndex)) return;
@@ -1945,6 +2075,30 @@ export default function AssetListPage({ project }) {
           </div>
           <footer>{selectedRatios.length} additional {ratioPanelIsStatic ? (selectedRatios.length === 1 ? 'size' : 'sizes') : (selectedRatios.length === 1 ? 'ratio' : 'ratios')} created</footer>
         </aside>
+      )}
+
+      {cellGroupPrompt && (
+        <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={() => setCellGroupPrompt(null)}>
+          <div className="asset-cell-group-popup" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <h2>{cellGroupPrompt.mode === 'ungroup' ? 'Ungroup cells' : 'Group cells'}</h2>
+                <p>
+                  {cellGroupPrompt.mode === 'ungroup'
+                    ? 'Separate these cells again and restore their individual values.'
+                    : `Combine ${cellGroupPrompt.rowIds.length} selected cells. The first value stays visible and all individual values are preserved.`}
+                </p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setCellGroupPrompt(null)} aria-label="Close"><X size={16} /></button>
+            </header>
+            <footer>
+              <button type="button" className="secondary-button" onClick={() => setCellGroupPrompt(null)}>Cancel</button>
+              <button type="button" className="primary-button" onClick={confirmCellGrouping}>
+                {cellGroupPrompt.mode === 'ungroup' ? 'Ungroup' : 'Group cells'}
+              </button>
+            </footer>
+          </div>
+        </div>
       )}
 
       {categoryKindPromptOpen && (
@@ -2145,9 +2299,19 @@ export default function AssetListPage({ project }) {
       )}
       {orderPopupOpen && (
         <ColumnOrderPopup
-          columns={columns}
-          onClose={() => setOrderPopupOpen(false)}
-          onReorder={(nextColumns) => saveColumns(nextColumns)}
+          columns={categoryColumns(categories.find((category) => category.id === orderCategoryId) ?? fallbackCategory)}
+          onClose={() => { setOrderPopupOpen(false); setOrderCategoryId(''); }}
+          onReorder={(nextColumns) => {
+            const category = categories.find((item) => item.id === orderCategoryId);
+            if (!category) return;
+            updateCategory(category.id, {
+              column_order: nextColumns.map((column) => column.id),
+              column_settings: Object.fromEntries(nextColumns.map((column) => [column.id, {
+                hidden: Boolean(column.hidden),
+                publish_to_client: column.publish_to_client !== false,
+              }])),
+            });
+          }}
         />
       )}
     </main>
