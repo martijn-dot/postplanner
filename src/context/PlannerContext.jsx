@@ -867,12 +867,23 @@ export function PlannerProvider({ children }) {
           : { data: null, error: null };
       }
       if (!result.error && !result.data && expectedRevision != null) {
-        const conflict = new Error('This row changed in another browser. The latest server version was restored.');
         const latest = await supabase.from('line_items').select('*').eq('id', itemId).maybeSingle();
         if (latest.data) {
           rememberLatestRevision(lineItemRevisionRef.current, itemId, latest.data.revision);
+          let retryRequest = supabase.from('line_items').update(payload).eq('id', itemId);
+          if (latest.data.revision != null) retryRequest = retryRequest.eq('revision', latest.data.revision);
+          const retry = await retryRequest.select().maybeSingle();
+          if (!retry.error && retry.data) {
+            rememberLatestRevision(lineItemRevisionRef.current, itemId, retry.data.revision);
+            setData((current) => ({
+              ...current,
+              lineItems: current.lineItems.map((item) => item.id === itemId ? { ...item, ...retry.data } : item),
+            }));
+            return saveSupabase(label, Promise.resolve(retry), { throwOnError });
+          }
           setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? latest.data : item) }));
         }
+        const conflict = new Error('This row changed in another browser. The latest server version was restored.');
         setSaveError(conflict.message);
         if (throwOnError) throw conflict;
         return { data: null, error: conflict };
