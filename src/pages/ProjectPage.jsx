@@ -8,7 +8,7 @@ import ClientTableView from './ClientTableView.jsx';
 import AssetListPage from './AssetListPage.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { CalendarRange, Eye, FileSpreadsheet } from 'lucide-react';
+import { CalendarRange, FileSpreadsheet } from 'lucide-react';
 
 function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
@@ -103,10 +103,6 @@ export default function ProjectPage() {
         <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
           <span className="project-tab-icon"><CalendarRange size={16} strokeWidth={2.1} /></span>
           <span>Planning</span>
-        </NavLink>
-        <NavLink to={`/projects/${projectId}/client?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
-          <span className="project-tab-icon"><Eye size={16} strokeWidth={2.1} /></span>
-          <span>Client View</span>
         </NavLink>
         <NavLink to={`/projects/${projectId}/assets?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
           <span className="project-tab-icon"><FileSpreadsheet size={16} strokeWidth={2.1} /></span>

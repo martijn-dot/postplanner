@@ -1316,6 +1316,9 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
       <div className="flex h-full flex-col">
         <div className="timeline-project-header flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
           <div className="flex w-full flex-wrap items-center justify-end gap-2">
+            <Link to={`/projects/${project.id}/client?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button">
+              <Eye size={16} /> Client View
+            </Link>
             <button type="button" onClick={() => setTableVisible((next) => !next)} className="secondary-button">
               {tableVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               {tableVisible ? 'Hide table' : 'Show table'}
