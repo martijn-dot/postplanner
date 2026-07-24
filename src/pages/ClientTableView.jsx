@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from '../components/AppIcons.jsx';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
@@ -615,7 +615,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                 <h2 className="text-lg font-semibold text-ink-100">Edit planning row</h2>
                 <p className="mt-1 text-sm text-ink-500">{editingItem.asset || 'Client planning row'}</p>
               </div>
-              <button type="button" onClick={() => setEditingItemId(null)} className="icon-button">x</button>
+              <button type="button" onClick={() => setEditingItemId(null)} className="icon-button" aria-label="Close editor"><X size={17} /></button>
             </div>
             <div className="space-y-4">
               <label className="block space-y-1">

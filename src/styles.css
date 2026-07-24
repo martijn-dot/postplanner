@@ -69,6 +69,11 @@ code,
   color: #f3f0ff;
 }
 
+.app-icon {
+  flex: 0 0 auto;
+  shape-rendering: geometricPrecision;
+}
+
 @layer components {
   .primary-button {
     @apply inline-flex items-center justify-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-glow transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-50;
@@ -813,12 +818,13 @@ nav .tab-active {
 .asset-list-page .asset-category-bar { gap: 4px; min-height: 27px; padding: 3px 6px 3px 0; }
 .asset-list-page .asset-category-name { font-size: 0.52rem; min-width: 126px; padding: 3px 5px; }
 .asset-list-page .asset-category-title {
-  display: grid;
-  gap: 0;
+  align-items: center;
+  display: flex;
+  gap: 5px;
   min-width: 126px;
 }
 .asset-list-page .asset-category-title .asset-category-name {
-  padding-bottom: 0;
+  min-width: 0;
 }
 .asset-list-page .asset-category-type-label {
   border: 1px solid rgba(139, 124, 255, 0.62);
@@ -826,10 +832,8 @@ nav .tab-active {
   color: #b9b0ff;
   font-size: 0.38rem;
   font-weight: 850;
-  justify-self: start;
   letter-spacing: 0.075em;
   line-height: 1;
-  margin-left: 5px;
   padding: 2px 4px;
   text-transform: uppercase;
 }
@@ -1750,9 +1754,27 @@ nav .tab-active {
   font-size: 0.52rem;
   font-weight: 800;
   gap: 4px;
-  margin-left: auto;
   min-height: 21px;
   padding: 0 7px;
+}
+
+.asset-category-header-tools {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.asset-list-page .asset-category-header-tools .asset-list-tool {
+  height: 23px;
+  min-height: 23px;
+  padding-inline: 7px;
+}
+
+.asset-list-page .asset-category-header-tools .asset-add-subcategory {
+  height: 23px;
+  margin-left: 0;
+  min-height: 23px;
 }
 
 .asset-add-subcategory:hover {
@@ -4540,7 +4562,7 @@ body.public-share-body {
 .client-planning-table .date-today-tag {
   color: #e5485d;
   font-family: var(--font-data);
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 1;
@@ -5071,15 +5093,17 @@ body.public-share-body {
 .client-planning-admin .client-planning-table .combined-date-chip { min-height: 42px; padding: 4px 12px; }
 .client-planning-admin .client-planning-table .combined-date-chip .date-day-name { color: #fff; font-size: 12px; font-weight: 600; text-transform: none; }
 .client-planning-admin .client-planning-table .combined-date-chip strong { color: #94a3b8; font-size: 11px; font-weight: 400; }
-.client-planning-admin .client-planning-table .date-today-tag { color: #ef4444; font-size: 9px; margin: 0; }
+.client-planning-admin .client-planning-table .date-today-tag { color: #ef4444; font-size: 12px; margin: 0; }
 .client-planning-admin .client-planning-table .date-today-cell { background: transparent !important; box-shadow: inset 4px 0 0 #ef4444; }
 .client-planning-admin .client-planning-table .date-today-cell .combined-date-chip { color: inherit; }
-.client-planning-admin .client-planning-table tbody tr.bg-zinc-200\/70 > td,
-.client-planning-admin .client-planning-table .date-group-cell.date-weekend-cell {
+.client-planning-admin .client-planning-table tbody tr.bg-zinc-200\/70 {
   background:
     repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.05) 0 1px, transparent 1px 18px),
     #252a33 !important;
-  background-attachment: fixed !important;
+}
+.client-planning-admin .client-planning-table tbody tr.bg-zinc-200\/70 > td,
+.client-planning-admin .client-planning-table tbody tr.bg-zinc-200\/70 > .date-group-cell.date-weekend-cell {
+  background: transparent !important;
 }
 .client-planning-admin .client-edit-button { background: #1e293b; border-color: #334155; border-radius: 4px; color: #fff; font-size: 10px; padding: 4px 8px; }
 .client-planning-admin .client-category-pill { background: rgba(14,165,233,.1) !important; border-color: #0ea5e9 !important; border-radius: 999px; color: #0ea5e9 !important; font-size: 10px; padding: 4px 8px; }
@@ -5905,12 +5929,14 @@ body.public-share-body {
   color: #191c1e;
 }
 
-.public-client-page .client-planning-table .date-group-cell.date-weekend-cell,
-.public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > td {
+.public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 {
   background:
     repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.05) 0 1px, transparent 1px 18px),
     #f2f4f6 !important;
-  background-attachment: fixed !important;
+}
+.public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > td,
+.public-client-page .client-planning-table tbody tr.bg-zinc-200\/70 > .date-group-cell.date-weekend-cell {
+  background: transparent !important;
 }
 
 .public-client-page .client-planning-table .week-divider > td {

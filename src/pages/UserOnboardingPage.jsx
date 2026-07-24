@@ -1,4 +1,4 @@
-import { Camera, ArrowRight } from 'lucide-react';
+import { Camera, ArrowRight } from '../components/AppIcons.jsx';
 import { useMemo, useState } from 'react';
 import { RovalLogo } from '../components/TopBar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';

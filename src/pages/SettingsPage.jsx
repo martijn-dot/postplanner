@@ -1,7 +1,7 @@
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArchiveRestore, Check, GripVertical, KeyRound, Pencil, Plus, Search, Trash2, UserX, X, XCircle } from 'lucide-react';
+import { ArchiveRestore, Check, GripVertical, KeyRound, Pencil, Plus, Search, Trash2, UserX, X, XCircle } from '../components/AppIcons.jsx';
 import { useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';

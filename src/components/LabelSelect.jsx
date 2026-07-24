@@ -1,4 +1,4 @@
-import { Check, Globe2, Plus, Search, Trash2 } from 'lucide-react';
+import { Check, Globe2, Plus, Search, Trash2 } from './AppIcons.jsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Pill from './Pill.jsx';

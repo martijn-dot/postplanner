@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Send, Trash2, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Send, Trash2, X } from '../components/AppIcons.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -487,9 +487,7 @@ export default function AssetListPage({ project }) {
     labels = [],
     clients = [],
     ensureAssetList,
-    createAssetListTab,
     updateAssetList,
-    deleteAssetListTab,
     addLabel,
     deleteLabel,
     markProjectEdited,
@@ -847,18 +845,6 @@ export default function AssetListPage({ project }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeList?.id, columns.length]);
 
-  const addRow = () => {
-    const nextRow = {
-      id: uid(),
-      number: nextAssetNumber(rows),
-      group_id: fallbackCategory.id,
-      values: Object.fromEntries(columns.map((column) => [column.id, ''])),
-      sort_order: rows.length,
-      notes: '',
-    };
-    saveList({ rows: [...rows, nextRow] });
-  };
-
   const syncRatioGroup = (sourceRowId, nextRatios) => {
     const uniqueRatioColumn = columns.find(isUniqueRatioColumn);
     const sourceIndex = rows.findIndex((row) => row.id === sourceRowId);
@@ -1134,13 +1120,6 @@ export default function AssetListPage({ project }) {
     markProjectEdited(project.id);
     setDragRowId('');
     setDragTargetRowId('');
-  };
-
-  const renameAssetListTab = (listId, name) => {
-    const trimmed = name.trim();
-    const list = projectLists.find((item) => item.id === listId);
-    if (!list || !trimmed || trimmed === list.name) return;
-    updateAssetList(listId, { name: trimmed });
   };
 
   const pasteCells = (event, rowIndex, columnIndex) => {
@@ -1454,38 +1433,11 @@ export default function AssetListPage({ project }) {
     <main className="asset-list-page flex h-[calc(100vh-7rem)] flex-col text-ink-950 dark:text-ink-100">
       <div className="asset-list-commandbar">
         <div className="asset-list-tabs">
-            {projectLists.map((list) => (
-              <span key={list.id} className={`asset-tab ${list.id === activeList.id ? 'tab-active' : ''}`} onClick={() => setActiveId(list.id)}>
-                <input
-                  className="asset-tab-input"
-                  defaultValue={list.name || 'Assetlist'}
-                  style={{ width: `${Math.max(8, Math.min(18, (list.name || 'Assetlist').length + 1))}ch` }}
-                  onFocus={() => setActiveId(list.id)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter') return;
-                    event.preventDefault();
-                    renameAssetListTab(list.id, event.currentTarget.value);
-                    event.currentTarget.blur();
-                  }}
-                  onBlur={(event) => {
-                    renameAssetListTab(list.id, event.currentTarget.value);
-                    if (!event.currentTarget.value.trim()) event.currentTarget.value = list.name || 'Assetlist';
-                  }}
-                  aria-label={`Rename ${list.name || 'Assetlist'}`}
-                />
-                {list.id === activeList.id && projectLists.length > 1 && (
-                  <button type="button" onClick={(event) => { event.stopPropagation(); deleteAssetListTab(activeList.id); }} className="asset-tab-delete" aria-label="Delete assetlist tab" data-tooltip="Delete tab"><Trash2 size={13} /></button>
-                )}
-              </span>
-            ))}
-            <button type="button" onClick={() => setActiveId(createAssetListTab(project.id))} className="asset-tab-new" aria-label="Create new assetlist tab" data-tooltip="New tab"><Plus size={16} /></button>
+          <button type="button" onClick={() => setCategoryKindPromptOpen(true)} className="asset-list-tool">
+            <Plus size={15} /> Category
+          </button>
         </div>
         <div className={`asset-list-tools ${categories.length ? '' : 'is-empty'}`}>
-          <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={15} /> Column</button>
-          <button type="button" onClick={addRow} className="asset-list-tool"><Plus size={15} /> Row</button>
-          <button type="button" onClick={() => setCategoryKindPromptOpen(true)} className="asset-list-tool"><Plus size={15} /> Category</button>
-          <span className="asset-list-tool-divider" />
-          <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={15} /> Columns</button>
           <button
             type="button"
             onClick={() => setShowClones((current) => !current)}
@@ -1590,23 +1542,30 @@ export default function AssetListPage({ project }) {
                     {category.collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                   </button>
                   <div className="asset-category-title">
+                    {!category.parent_id && (
+                      <span className={`asset-category-type-label is-${isStaticCategory ? 'static' : 'video'}`}>
+                        {isStaticCategory ? 'Static' : 'Video'}
+                      </span>
+                    )}
                     <input
                       className="asset-category-name"
                       value={category.name}
                       onChange={(event) => updateCategory(category.id, { name: event.target.value })}
                     />
-                    <span className={`asset-category-type-label is-${isStaticCategory ? 'static' : 'video'}`}>
-                      {isStaticCategory ? 'Static' : 'Video'}
-                    </span>
                   </div>
                   {!category.parent_id && (
-                    <button
-                      type="button"
-                      onClick={() => addSubcategory(category.id)}
-                      className="asset-add-subcategory"
-                    >
-                      <Plus size={12} /> Subcategory
-                    </button>
+                    <div className="asset-category-header-tools">
+                      <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
+                      <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Row</button>
+                      <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={12} /> Columns</button>
+                      <button
+                        type="button"
+                        onClick={() => addSubcategory(category.id)}
+                        className="asset-add-subcategory"
+                      >
+                        <Plus size={12} /> Subcategory
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="asset-category-body">

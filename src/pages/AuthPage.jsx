@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '../components/AppIcons.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { RovalLogo } from '../components/TopBar.jsx';
 
