@@ -26,6 +26,7 @@ export default function LabelSelect({
   multiple = false,
   multipleModeToggle = false,
   placeholder = 'Select',
+  allowClear = false,
   onChange,
   onAddLabel,
   onDeleteLabel,
@@ -219,6 +220,19 @@ export default function LabelSelect({
         </label>
       </div>
       <div className="max-h-64 overflow-auto p-1">
+        {allowClear && !search && (
+          <button
+            type="button"
+            onClick={() => {
+              onChange(multiple ? [] : '');
+              setOpen(false);
+            }}
+            className="flex w-full items-center justify-between rounded-md px-2 py-2 text-sm text-ink-100 hover:bg-white/5"
+          >
+            <span className="rounded bg-ink-700 px-2 py-0.5 text-xs font-bold text-ink-300">None</span>
+            {!selected.length && <Check size={16} className="text-accent-300" />}
+          </button>
+        )}
         {filteredLabels.map((label) => {
           if (label.is_divider) {
             return (

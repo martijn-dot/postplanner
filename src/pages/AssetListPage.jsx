@@ -1605,7 +1605,7 @@ export default function AssetListPage({ project }) {
       <div className="asset-list-header locked"><span className="asset-header-label"><CircleDot aria-hidden="true" />Status</span></div>
       <div className="asset-list-header locked"><span className="asset-header-label"><Hash aria-hidden="true" />Number</span></div>
       {headerBeforeColumns.map((column) => (
-        <div key={column.id} className="asset-list-header">
+        <div key={column.id} className={`asset-list-header ${isUniqueRatioColumn(column) || /^length$/i.test(column.name ?? '') ? 'is-balanced-compact-header' : ''}`}>
           {isStatic || !isCustomAssetColumn(column) ? (
             defaultColumnHeader(column, isStatic)
           ) : (
@@ -1624,7 +1624,7 @@ export default function AssetListPage({ project }) {
       </div>
       <div className="asset-list-header locked"><span className="asset-header-label"><Copy aria-hidden="true" />Copy</span></div>
       {headerAfterColumns.map((column) => (
-        <div key={column.id} className="asset-list-header">
+        <div key={column.id} className={`asset-list-header ${isUniqueRatioColumn(column) || /^length$/i.test(column.name ?? '') ? 'is-balanced-compact-header' : ''}`}>
           {!isStatic && isCustomAssetColumn(column) ? (
             <button type="button" className="asset-header-settings-name" onClick={() => setSettingsColumnId(column.id)} aria-label={`Open settings for ${column.name}`}>
               {column.name}
@@ -1673,9 +1673,8 @@ export default function AssetListPage({ project }) {
             Filename prefix
           </button>
           <div className="asset-template-picker">
-            <span>Template</span>
             <button type="button" onClick={() => setTemplateChooserOpen(true)}>
-              <Plus size={13} /> Add template category <ChevronDown size={13} />
+              <Plus size={13} /> Templates <ChevronDown size={13} />
             </button>
           </div>
           <span className="asset-list-autosave"><Check size={12} /> Autosaved</span>
@@ -1775,7 +1774,7 @@ export default function AssetListPage({ project }) {
                       <button type="button" onClick={() => addColumn(category.id)} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
                       <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Asset</button>
                       <button type="button" onClick={() => { setOrderCategoryId(category.id); setOrderPopupOpen(true); }} className="asset-list-tool"><Menu size={12} /> Columns</button>
-                      {isAdmin && <button type="button" onClick={() => saveCategoryAsTemplate(category.id)} className="asset-list-tool"><Plus size={12} /> Save category template</button>}
+                      {isAdmin && <button type="button" onClick={() => saveCategoryAsTemplate(category.id)} className="asset-list-tool asset-save-category-template"><Plus size={12} /> Save category template</button>}
                     </div>
                   </div>
                 )}
@@ -1935,6 +1934,7 @@ export default function AssetListPage({ project }) {
                                 <LabelSelect
                                   labels={assetTypeLabels}
                                   value={assetTypeLabels.find((label) => label.value === value)?.id ?? ''}
+                                  allowClear
                                   placeholder={<span className="asset-label-chip is-none">None</span>}
                                   onChange={(labelId) => updateCell(row.id, column.id, assetTypeLabels.find((label) => label.id === labelId)?.value ?? '')}
                                   onAddLabel={(labelValue, color) => addLabel(project.id, 'asset_type', labelValue, color)}
@@ -1946,6 +1946,7 @@ export default function AssetListPage({ project }) {
                                 <LabelSelect
                                   labels={isStaticAssetTypeColumn ? staticAssetTypeLabels : staticSizeLabels}
                                   value={(isStaticAssetTypeColumn ? staticAssetTypeLabels : staticSizeLabels).find((label) => label.value === value)?.id ?? ''}
+                                  allowClear
                                   placeholder={<span className="asset-label-chip is-none">None</span>}
                                   onChange={(labelId) => updateCell(row.id, column.id, (isStaticAssetTypeColumn ? staticAssetTypeLabels : staticSizeLabels).find((label) => label.id === labelId)?.value ?? '')}
                                   onAddLabel={(labelValue, color) => addLabel(project.id, isStaticAssetTypeColumn ? 'asset_static_type' : 'asset_static_size', labelValue, color)}

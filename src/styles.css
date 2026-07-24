@@ -822,6 +822,9 @@ nav .tab-active {
 .asset-list-page .asset-list-row { min-height: 29px; }
 .asset-list-page .asset-list-row.sticky { min-height: 41px; }
 .asset-list-page .asset-list-header { gap: 3px; padding: 4px 6px; }
+.asset-list-page .asset-list-header.is-balanced-compact-header {
+  align-items: center;
+}
 .asset-list-page .asset-header-label,
 .asset-list-page .asset-header-name { font-size: 0.5rem; height: 14px; }
 .asset-list-page .asset-header-label { gap: 3px; }
@@ -879,14 +882,14 @@ nav .tab-active {
   text-transform: uppercase;
 }
 .asset-list-page .asset-category-type-label.is-video {
-  background: #7567f8;
-  border-color: #7567f8;
-  color: #fff;
+  background: #ffcf4b;
+  border-color: #ffcf4b;
+  color: #100e1d;
 }
 .asset-list-page .asset-category-type-label.is-static {
-  background: #7567f8;
-  border-color: #7567f8;
-  color: #fff;
+  background: #ffcf4b;
+  border-color: #ffcf4b;
+  color: #100e1d;
 }
 .asset-list-page .asset-category-bar .icon-button { height: 20px !important; width: 20px !important; }
 .asset-list-page .asset-category-bar svg { height: 11px; width: 11px; }
@@ -1875,12 +1878,17 @@ nav .tab-active {
   align-items: center;
   display: flex;
   gap: 5px;
+  width: 100%;
 }
 
 .asset-list-page .asset-category-header-tools .asset-list-tool {
   height: 23px;
   min-height: 23px;
   padding-inline: 7px;
+}
+
+.asset-list-page .asset-category-header-tools .asset-save-category-template {
+  margin-left: auto;
 }
 
 .asset-list-page .asset-category-header-tools .asset-add-subcategory {
