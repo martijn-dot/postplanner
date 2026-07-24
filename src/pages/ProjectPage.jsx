@@ -8,10 +8,18 @@ import ClientTableView from './ClientTableView.jsx';
 import AssetListPage from './AssetListPage.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { CalendarRange, FileSpreadsheet } from 'lucide-react';
+import { CalendarRange, FileSpreadsheet, Share2 } from 'lucide-react';
 
 function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
+}
+
+function slugifyProjectName(value) {
+  return String(value ?? 'project')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'project';
 }
 
 function versionsForProject(project, lineItems = [], categories = [], planningType = DEFAULT_PLANNING_TYPE) {
@@ -31,7 +39,7 @@ export default function ProjectPage() {
   const { projectId } = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { projects, lineItems, categories, profiles, presence, loading, loadProjectData, upsertPresence, clearPresence, markProjectEdited, ensurePlanningModule } = usePlanner();
+  const { projects, lineItems, categories, shareLinks, profiles, presence, loading, loadProjectData, upsertPresence, clearPresence, markProjectEdited, ensurePlanningModule } = usePlanner();
   const [projectDataLoading, setProjectDataLoading] = useState(true);
   const project = projects.find((item) => item.id === projectId);
   const requestedType = safePlanningType(searchParams.get('type'));
@@ -39,6 +47,14 @@ export default function ProjectPage() {
   const requestedVersion = searchParams.get('version');
   const fallbackVersion = requestedType === DEFAULT_PLANNING_TYPE ? project?.preferred_planning_version : null;
   const activeVersion = versions.includes(requestedVersion) ? requestedVersion : (versions.includes(fallbackVersion) ? fallbackVersion : versions[0] ?? 'V1');
+  const activeClientPortal = shareLinks.find((share) => share.project_id === projectId
+    && share.page_type === 'client_planning'
+    && safePlanningType(share.planning_type) === requestedType
+    && (share.planning_version ?? 'V1') === activeVersion
+    && !share.revoked_at);
+  const clientPortalUrl = activeClientPortal && project
+    ? `/share/${slugifyProjectName(project.name)}-${activeClientPortal.token}`
+    : '';
   const pageType = location.pathname.endsWith('/assets') ? 'asset_list' : 'planning';
   const activeEditors = (presence ?? [])
     .filter((item) => {
@@ -108,6 +124,12 @@ export default function ProjectPage() {
           <span className="project-tab-icon"><FileSpreadsheet size={16} strokeWidth={2.1} /></span>
           <span>Asset List</span>
         </NavLink>
+        {clientPortalUrl && (
+          <a href={clientPortalUrl} target="_blank" rel="noreferrer" className="tab">
+            <span className="project-tab-icon"><Share2 size={16} strokeWidth={2.1} /></span>
+            <span>CLIENT PORTAL</span>
+          </a>
+        )}
       </nav>
       <Routes>
         <Route index element={<TimelineView project={project} planningType={requestedType} planningVersion={activeVersion} />} />

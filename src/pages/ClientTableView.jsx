@@ -1006,7 +1006,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-semibold tracking-tight text-white">Client Planning</h1>
-            {publishedUrl && <a href={publishedUrl} target="_blank" rel="noreferrer" className="client-share-link">Share link</a>}
           </div>
           <p className="mt-1 text-[11px] text-slate-500">Milestones are generated from the final day of each timeline item.</p>
         </div>

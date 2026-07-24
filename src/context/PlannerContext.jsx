@@ -650,6 +650,9 @@ export function PlannerProvider({ children }) {
   const pendingLineItemWritesRef = useRef(new Map());
   const lineItemRevisionRef = useRef(new Map());
   const lineItemWriteChainsRef = useRef(new Map());
+  const pendingAssetRowWritesRef = useRef(new Map());
+  const assetRowRevisionRef = useRef(new Map());
+  const assetRowWriteChainsRef = useRef(new Map());
   const useSupabase = hasSupabaseConfig && !demoMode;
 
   useEffect(() => {
@@ -661,6 +664,10 @@ export function PlannerProvider({ children }) {
     pendingLineItemWritesRef.current.clear();
     lineItemRevisionRef.current.clear();
     lineItemWriteChainsRef.current.clear();
+    pendingAssetRowWritesRef.current.forEach((pending) => window.clearTimeout(pending.timer));
+    pendingAssetRowWritesRef.current.clear();
+    assetRowRevisionRef.current.clear();
+    assetRowWriteChainsRef.current.clear();
     setLoading(true);
     const load = async () => {
       const next = useSupabase ? await withTimeout(loadSupabaseData(), PLANNER_LOAD_TIMEOUT_MS, 'Planner data load') : readLocal(activeUser);
@@ -669,6 +676,9 @@ export function PlannerProvider({ children }) {
         signedInProfile.preferences = activeUser.user_metadata.preferences;
       }
       if (alive) {
+        next.assetLists.forEach((list) => list.rows?.forEach((row) => {
+          if (row.revision != null) assetRowRevisionRef.current.set(row.id, row.revision);
+        }));
         setData(next);
         setLoading(false);
       }
@@ -721,7 +731,12 @@ export function PlannerProvider({ children }) {
           const list = draft.assetLists.find((item) => item.id === row.asset_list_id);
           if (!list) return current;
           if (payload.eventType === 'DELETE') list.rows = (list.rows ?? []).filter((item) => item.id !== row.id);
-          else replaceById(list.rows, fromDbAssetListRow(payload.new));
+          else {
+            const nextRow = fromDbAssetListRow(payload.new);
+            if (nextRow.revision != null) assetRowRevisionRef.current.set(nextRow.id, nextRow.revision);
+            const pendingRow = pendingAssetRowWritesRef.current.get(nextRow.id)?.row;
+            replaceById(list.rows, pendingRow ? { ...nextRow, ...pendingRow, revision: nextRow.revision } : nextRow);
+          }
           return draft;
         }
         const collectionName = collectionByTable[table];
@@ -732,7 +747,8 @@ export function PlannerProvider({ children }) {
           let next = table === 'labels' ? applyDefaultLabelColor(payload.new) : payload.new;
           if (table === 'asset_lists') {
             const { rows: _legacyRows, ...metadata } = next;
-            next = metadata;
+            const currentList = draft.assetLists.find((item) => item.id === metadata.id);
+            next = { ...(currentList ?? {}), ...metadata, rows: currentList?.rows ?? [] };
           }
           if (table === 'line_items') {
             if (next.revision != null) lineItemRevisionRef.current.set(next.id, next.revision);
@@ -985,6 +1001,91 @@ export function PlannerProvider({ children }) {
     };
   }, [flushLineItemUpdate]);
 
+  const saveAssetRowUpdate = useCallback(async (list, row, suppliedRevision) => {
+    if (!useSupabase) return null;
+    const queuedWrite = assetRowWriteChainsRef.current.get(row.id);
+    const previousWrite = queuedWrite ?? Promise.resolve();
+    const capturedRevision = suppliedRevision ?? assetRowRevisionRef.current.get(row.id);
+    const write = previousWrite.catch(() => null).then(async () => {
+      const payload = dbAssetListRow(list, row);
+      const { id: _id, revision: _revision, ...changes } = payload;
+      const expectedRevision = queuedWrite ? assetRowRevisionRef.current.get(row.id) : capturedRevision;
+      let request = supabase.from('asset_list_rows').update(changes).eq('id', row.id);
+      if (expectedRevision != null) request = request.eq('revision', expectedRevision);
+      const result = await request.select().maybeSingle();
+      if (!result.error && !result.data && expectedRevision != null) {
+        const latest = await supabase.from('asset_list_rows').select('*').eq('id', row.id).maybeSingle();
+        if (latest.data) {
+          const latestRow = fromDbAssetListRow(latest.data);
+          if (latestRow.revision != null) assetRowRevisionRef.current.set(row.id, latestRow.revision);
+          const pendingRow = pendingAssetRowWritesRef.current.get(row.id)?.row;
+          setData((current) => ({
+            ...current,
+            assetLists: current.assetLists.map((item) => item.id !== list.id ? item : {
+              ...item,
+              rows: item.rows.map((currentRow) => currentRow.id === row.id
+                ? { ...latestRow, ...row, ...(pendingRow ?? {}), revision: latestRow.revision }
+                : currentRow),
+            }),
+          }));
+        }
+        setSaveError('An asset row changed in another browser. Your edit was retained, but could not be saved.');
+        return { data: null, error: new Error('Asset row revision conflict') };
+      }
+      if (result.data) {
+        const savedRow = fromDbAssetListRow(result.data);
+        if (savedRow.revision != null) assetRowRevisionRef.current.set(row.id, savedRow.revision);
+        const pendingRow = pendingAssetRowWritesRef.current.get(row.id)?.row;
+        setData((current) => ({
+          ...current,
+          assetLists: current.assetLists.map((item) => item.id !== list.id ? item : {
+            ...item,
+            rows: item.rows.map((currentRow) => currentRow.id === row.id
+              ? (pendingRow ? { ...savedRow, ...pendingRow, revision: savedRow.revision } : savedRow)
+              : currentRow),
+          }),
+        }));
+      }
+      return saveSupabase('asset row', Promise.resolve(result));
+    });
+    assetRowWriteChainsRef.current.set(row.id, write);
+    void write.finally(() => {
+      if (assetRowWriteChainsRef.current.get(row.id) === write) assetRowWriteChainsRef.current.delete(row.id);
+    });
+    return write;
+  }, [saveSupabase, useSupabase]);
+
+  const flushAssetRowUpdate = useCallback((rowId) => {
+    const pending = pendingAssetRowWritesRef.current.get(rowId);
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingAssetRowWritesRef.current.delete(rowId);
+    void saveAssetRowUpdate(pending.list, pending.row, pending.expectedRevision);
+  }, [saveAssetRowUpdate]);
+
+  const queueAssetRowUpdate = useCallback((list, row, previous) => {
+    const existing = pendingAssetRowWritesRef.current.get(row.id);
+    if (existing) window.clearTimeout(existing.timer);
+    pendingAssetRowWritesRef.current.set(row.id, {
+      list,
+      row,
+      expectedRevision: existing?.expectedRevision ?? previous?.revision ?? assetRowRevisionRef.current.get(row.id),
+      timer: window.setTimeout(() => flushAssetRowUpdate(row.id), 450),
+    });
+  }, [flushAssetRowUpdate]);
+
+  useEffect(() => {
+    const flushPendingAssetRows = () => {
+      [...pendingAssetRowWritesRef.current.keys()].forEach((rowId) => flushAssetRowUpdate(rowId));
+    };
+    document.addEventListener('visibilitychange', flushPendingAssetRows);
+    window.addEventListener('pagehide', flushPendingAssetRows);
+    return () => {
+      document.removeEventListener('visibilitychange', flushPendingAssetRows);
+      window.removeEventListener('pagehide', flushPendingAssetRows);
+    };
+  }, [flushAssetRowUpdate]);
+
   const saveAssetRows = useCallback(async (list, previousRows, nextRows) => {
     if (!useSupabase) return;
     const previousById = new Map((previousRows ?? []).map((row) => [row.id, row]));
@@ -1018,21 +1119,15 @@ export function PlannerProvider({ children }) {
         await saveSupabase('asset row', supabase.from('asset_list_rows').insert(payload));
         return;
       }
-      const { id: _id, revision: _revision, ...changes } = payload;
-      let request = supabase.from('asset_list_rows').update(changes).eq('id', row.id);
-      if (previous.revision != null) request = request.eq('revision', previous.revision);
-      const result = await request.select().maybeSingle();
-      if (!result.error && !result.data && previous.revision != null) {
-        setSaveError('An asset row changed in another browser. Refresh before editing it again.');
-        return;
-      }
-      await saveSupabase('asset row', Promise.resolve(result));
+      queueAssetRowUpdate(list, row, previous);
     }));
-  }, [saveSupabase, useSupabase]);
+  }, [queueAssetRowUpdate, saveSupabase, useSupabase]);
 
   useEffect(() => () => {
     pendingLineItemWritesRef.current.forEach((pending) => window.clearTimeout(pending.timer));
     pendingLineItemWritesRef.current.clear();
+    pendingAssetRowWritesRef.current.forEach((pending) => window.clearTimeout(pending.timer));
+    pendingAssetRowWritesRef.current.clear();
   }, []);
 
   const api = useMemo(
