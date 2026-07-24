@@ -464,20 +464,24 @@ nav .tab-active {
   text-transform: uppercase;
 }
 
-.asset-template-picker select {
+.asset-template-picker button {
+  align-items: center;
   background: #222a3d;
   border: 1px solid #3c465e;
   border-radius: 7px;
   color: #dae2fd;
+  display: inline-flex;
   font-size: 0.68rem;
   font-weight: 750;
+  gap: 6px;
   height: 34px;
   max-width: 180px;
   outline: none;
-  padding: 0 28px 0 9px;
+  padding: 0 9px;
 }
 
-.asset-template-picker select:focus {
+.asset-template-picker button:hover,
+.asset-template-picker button:focus {
   border-color: #8083ff;
 }
 
@@ -594,6 +598,37 @@ nav .tab-active {
   gap: 8px;
   justify-content: flex-end;
   margin-top: 18px;
+}
+
+.asset-template-category-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+}
+
+.asset-template-category-options > button {
+  align-items: center;
+  background: #0b1326;
+  border: 1px solid #35405a;
+  border-radius: 8px;
+  color: #dae2fd;
+  display: flex;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 11px;
+  text-align: left;
+}
+
+.asset-template-category-options > button:hover,
+.asset-template-category-options > button.is-active {
+  background: rgba(109, 93, 252, 0.14);
+  border-color: #7567f8;
+}
+
+.asset-template-category-options > button strong {
+  font-size: 0.78rem;
 }
 
 .asset-prefix-popup header {
@@ -803,8 +838,10 @@ nav .tab-active {
 .asset-list-page .asset-header-settings-name {
   color: inherit;
   cursor: pointer;
+  font-family: inherit;
   font-size: 0.5rem;
-  font-weight: inherit;
+  font-weight: 850;
+  letter-spacing: 0;
   line-height: 14px;
   overflow: hidden;
   padding: 0;
@@ -834,7 +871,7 @@ nav .tab-active {
   border: 1px solid rgba(139, 124, 255, 0.62);
   border-radius: 3px;
   color: #b9b0ff;
-  font-size: 0.38rem;
+  font-size: 0.52rem;
   font-weight: 850;
   letter-spacing: 0.075em;
   line-height: 1;
@@ -2047,6 +2084,9 @@ nav .tab-active {
   background: rgba(245, 158, 11, 0.2);
   border-color: #f59e0b;
   color: #ffd27a;
+  font-size: 0.435rem;
+  height: 18px;
+  padding-inline: 6px;
 }
 
 .asset-frame-link-main.is-preview:hover {
@@ -2067,12 +2107,23 @@ nav .tab-active {
   line-height: 1.4;
 }
 
+.asset-frame-link-requirement {
+  color: #8f99b2;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.asset-frame-link-requirement strong {
+  color: #c7c0ff;
+  font-family: var(--font-data);
+}
+
 .asset-frame-link-mini {
   border-radius: 3px;
-  font-size: 0.34rem;
-  height: 12px;
+  font-size: 0.39rem;
+  height: 14px;
   padding: 0;
-  width: 12px;
+  width: 14px;
 }
 
 .asset-frame-link-main:hover,

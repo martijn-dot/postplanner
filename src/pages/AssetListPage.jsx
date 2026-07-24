@@ -1,4 +1,4 @@
-import { ArrowRight, Boxes, Check, ChevronDown, ChevronRight, CircleDot, Copy, Download, ExternalLink, Eye, EyeOff, FileText, GitBranch, GripVertical, Hash, Maximize2, Menu, Plus, Ratio, Ruler, Send, StickyNote, Trash2, Type, X } from 'lucide-react';
+import { ArrowRight, Boxes, Check, ChevronDown, ChevronRight, CircleDot, Clock3, Copy, Download, ExternalLink, Eye, EyeOff, FileText, GitBranch, GripVertical, Hash, Maximize2, Menu, Plus, Ratio, Send, StickyNote, Trash2, Type, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -179,7 +179,7 @@ function linkHref(value) {
 }
 
 function isValidFramePreviewLink(value) {
-  return String(value ?? '').trim().toLowerCase().includes('https://f.io');
+  return String(value ?? '').trim().toLowerCase().startsWith('https://f.io/');
 }
 
 function updateRowsForColumn(rows, columnId, fallback = '') {
@@ -520,8 +520,19 @@ export default function AssetListPage({ project }) {
     saveAssetListTemplate,
   } = usePlanner();
   const isAdmin = profiles.some((profile) => profile.id === user.id && profile.role === 'admin');
-  const assetListTemplates = appSettings.assetListTemplates ?? [];
-  const availableAssetListTemplates = [DEFAULT_ASSET_LIST_TEMPLATE, ...assetListTemplates];
+  const assetListTemplates = useMemo(() => appSettings.assetListTemplates ?? [], [appSettings.assetListTemplates]);
+  const availableAssetListTemplates = useMemo(() => [DEFAULT_ASSET_LIST_TEMPLATE, ...assetListTemplates], [assetListTemplates]);
+  const savedCategoryTemplates = useMemo(() => assetListTemplates.filter((template) => template.category_template), [assetListTemplates]);
+  const categoryTemplateOptions = useMemo(() => availableAssetListTemplates.flatMap((template) => {
+    const templateCategories = (template.categories?.length ? template.categories : [{ id: 'template-default', name: template.name, asset_kind: 'video' }])
+      .filter((category) => !category.parent_id);
+    return templateCategories.map((category) => ({
+      id: `${template.id}:${category.id}`,
+      template,
+      category,
+      label: template.category_template ? template.name : `${template.name} — ${category.name}`,
+    }));
+  }), [availableAssetListTemplates]);
   const projectLists = useMemo(
     () => assetLists.filter((item) => item.project_id === project.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
     [assetLists, project.id],
@@ -551,6 +562,9 @@ export default function AssetListPage({ project }) {
   const [templateSaveMode, setTemplateSaveMode] = useState('new');
   const [templateNameDraft, setTemplateNameDraft] = useState('');
   const [templateUpdateId, setTemplateUpdateId] = useState('');
+  const [templateSourceCategoryId, setTemplateSourceCategoryId] = useState('');
+  const [templateChooserOpen, setTemplateChooserOpen] = useState(false);
+  const [selectedCategoryTemplateId, setSelectedCategoryTemplateId] = useState('');
   const [frameLinkPopup, setFrameLinkPopup] = useState(null);
   const [frameLinkDraft, setFrameLinkDraft] = useState('');
   const [cellGroupPrompt, setCellGroupPrompt] = useState(null);
@@ -665,71 +679,111 @@ export default function AssetListPage({ project }) {
     });
   };
 
-  const saveCurrentListAsTemplate = () => {
+  const saveCategoryAsTemplate = (categoryId) => {
     if (!isAdmin || !activeList) return;
+    const category = categories.find((item) => item.id === categoryId && !item.parent_id);
+    if (!category) return;
+    setTemplateSourceCategoryId(category.id);
     setTemplateSaveMode('new');
     setTemplateUpdateId('');
-    setTemplateNameDraft(activeList.name || 'Asset list template');
+    setTemplateNameDraft(category.name || 'Category template');
     setTemplatePopupOpen(true);
   };
 
-  const confirmSaveCurrentListAsTemplate = () => {
+  const confirmSaveCategoryAsTemplate = () => {
     if (!isAdmin || !activeList) return;
+    const sourceCategory = categories.find((category) => category.id === templateSourceCategoryId && !category.parent_id);
+    if (!sourceCategory) return;
     const selectedTemplate = assetListTemplates.find((template) => template.id === templateUpdateId);
     const name = templateNameDraft.trim();
     if (!name) return;
-    const filenameOptions = { ...(activeList.filename_options ?? {}) };
-    delete filenameOptions.status;
-    delete filenameOptions.asset_published_at;
-    delete filenameOptions.template_id;
-    delete filenameOptions.template_name;
-    const savedTemplate = saveAssetListTemplate({
+    const sourceColumns = columns
+      .filter((column) => !column.category_id || column.category_id === sourceCategory.id)
+      .map((column) => ({ ...structuredClone(column), category_id: null }));
+    const columnIdMap = Object.fromEntries(sourceColumns.map((column) => [column.id, column.id]));
+    saveAssetListTemplate({
       id: templateSaveMode === 'update' ? selectedTemplate?.id : undefined,
       name,
-      columns: structuredClone(columns),
-      categories: structuredClone(categories),
+      category_template: true,
+      columns: sourceColumns,
+      categories: [{
+        ...structuredClone(sourceCategory),
+        id: 'category-template-root',
+        parent_id: null,
+        collapsed: false,
+        sort_order: 0,
+        column_order: (sourceCategory.column_order ?? sourceColumns.map((column) => column.id)).filter((id) => columnIdMap[id]),
+        column_settings: Object.fromEntries(Object.entries(sourceCategory.column_settings ?? {}).filter(([id]) => columnIdMap[id])),
+      }],
       global_separator: activeList.global_separator ?? '_',
-      filename_options: filenameOptions,
+      filename_options: {},
     });
-    if (savedTemplate) {
-      saveList({ filename_options: { ...(activeList.filename_options ?? {}), template_id: savedTemplate.id, template_name: savedTemplate.name } }, { trackUndo: false });
-    }
     setTemplatePopupOpen(false);
   };
 
-  const applyAssetListTemplate = (templateId) => {
-    const template = availableAssetListTemplates.find((item) => item.id === templateId);
-    if (!template || !activeList) return;
-    if (!window.confirm(`Apply “${template.name}”? Current columns, categories, and rows will be replaced.`)) return;
-    const columnIdMap = Object.fromEntries((template.columns ?? []).map((column) => [column.id, uid()]));
-    const categoryIdMap = Object.fromEntries((template.categories ?? []).map((category) => [category.id, uid()]));
-    const nextColumns = (template.columns ?? []).map((column, index) => ({ ...structuredClone(column), id: columnIdMap[column.id], sort_order: index }));
-    const nextCategories = (template.categories?.length ? template.categories : [{ id: 'template-default', name: 'Category 1', asset_kind: 'video' }]).map((category, index) => ({
-      ...structuredClone(category),
-      id: categoryIdMap[category.id] ?? uid(),
-      parent_id: category.parent_id ? categoryIdMap[category.parent_id] ?? null : null,
-      collapsed: false,
-      sort_order: index,
-    }));
-    const rowCategories = nextCategories.filter((category) => !category.container_only);
-    const rowTargets = template.starter_row_count
-      ? Array.from({ length: template.starter_row_count }, () => rowCategories[0])
-      : rowCategories;
-    const nextRows = rowTargets.map((category, index) => ({
-      id: uid(),
-      number: template.starter_row_count ? String(index + 1).padStart(2, '0') : String((index + 1) * 10).padStart(3, '0'),
-      group_id: category.id,
-      values: Object.fromEntries(nextColumns.map((column) => [column.id, ''])),
-      sort_order: index,
-      notes: '',
-    }));
-    saveList({
-      columns: nextColumns,
-      categories: nextCategories,
-      rows: nextRows,
-      global_separator: template.global_separator ?? '_',
-      filename_options: { ...(template.filename_options ?? {}), status: 'none', template_id: template.id, template_name: template.name },
+  const addCategoryFromTemplate = () => {
+    const option = categoryTemplateOptions.find((item) => item.id === selectedCategoryTemplateId);
+    if (!option || !activeList) return;
+    const { template, category: sourceCategory } = option;
+    const newCategoryId = uid();
+    const assetKind = sourceCategory.asset_kind === 'static' ? 'static' : 'video';
+    const sourceColumns = (template.columns ?? []).filter((column) => {
+      if (column.category_id && column.category_id !== sourceCategory.id) return false;
+      if (isCustomAssetColumn(column)) return true;
+      if (assetKind === 'static') {
+        return isUniqueRatioColumn(column)
+          || ['asset_static_type', 'asset_static_size'].includes(column.label_type)
+          || /^name$/i.test(column.name ?? '')
+          || isFrameColumn(column);
+      }
+      return !['asset_static_type', 'asset_static_size'].includes(column.label_type);
     });
+    const columnIdMap = {};
+    const addedColumns = [];
+    sourceColumns.forEach((sourceColumn) => {
+      const existingColumn = !isCustomAssetColumn(sourceColumn) && columns.find((column) => (
+        sourceColumn.label_type
+          ? column.label_type === sourceColumn.label_type
+          : column.type === sourceColumn.type && column.name?.trim().toLowerCase() === sourceColumn.name?.trim().toLowerCase()
+      ));
+      if (existingColumn) {
+        columnIdMap[sourceColumn.id] = existingColumn.id;
+        return;
+      }
+      const nextId = uid();
+      columnIdMap[sourceColumn.id] = nextId;
+      addedColumns.push({
+        ...structuredClone(sourceColumn),
+        id: nextId,
+        category_id: newCategoryId,
+        is_custom: true,
+        sort_order: columns.length + addedColumns.length,
+      });
+    });
+    const sourceOrder = sourceCategory.column_order?.length
+      ? sourceCategory.column_order
+      : sourceColumns.map((column) => column.id);
+    const columnOrder = sourceOrder.map((id) => columnIdMap[id]).filter(Boolean);
+    const columnSettings = Object.fromEntries(Object.entries(sourceCategory.column_settings ?? {})
+      .map(([id, settings]) => [columnIdMap[id], structuredClone(settings)])
+      .filter(([id]) => Boolean(id)));
+    const nextCategory = {
+      ...structuredClone(sourceCategory),
+      id: newCategoryId,
+      parent_id: null,
+      name: sourceCategory.name || template.name,
+      collapsed: false,
+      sort_order: categories.length,
+      column_order: columnOrder,
+      column_settings: columnSettings,
+    };
+    saveList({
+      columns: [...columns, ...addedColumns],
+      categories: [...categories, nextCategory],
+      rows: addedColumns.reduce((nextRows, column) => updateRowsForColumn(nextRows, column.id), rows),
+    });
+    setTemplateChooserOpen(false);
+    setSelectedCategoryTemplateId('');
     markProjectEdited(project.id);
   };
 
@@ -1489,7 +1543,8 @@ export default function AssetListPage({ project }) {
     : [];
   const compactColumnWidth = (width) => Math.max(52, Math.round(width * 0.7));
   const columnGridWidth = (column) => {
-    if (isUniqueRatioColumn(column) || /^length$/i.test(column?.name ?? '')) return 52;
+    if (isUniqueRatioColumn(column)) return 57;
+    if (/^length$/i.test(column?.name ?? '')) return 52;
     if (column?.label_type === 'asset_ratio') return 67;
     if (/^name$/i.test(column?.name ?? '')) return compactColumnWidth(Number(column.width) || 240);
     if (column?.label_type === 'asset_static_type') {
@@ -1538,7 +1593,7 @@ export default function AssetListPage({ project }) {
     if (normalized === 'clones') HeaderIcon = GitBranch;
     else if (normalized === 'asset type') HeaderIcon = Boxes;
     else if (normalized === 'name') HeaderIcon = Type;
-    else if (normalized === 'length') HeaderIcon = Ruler;
+    else if (normalized === 'length') HeaderIcon = Clock3;
     else if (normalized === 'ratio') HeaderIcon = Ratio;
     else if (normalized === 'size') HeaderIcon = Maximize2;
     else if (/frame\.?io/.test(normalized)) HeaderIcon = ExternalLink;
@@ -1617,17 +1672,12 @@ export default function AssetListPage({ project }) {
           >
             Filename prefix
           </button>
-          <label className="asset-template-picker">
+          <div className="asset-template-picker">
             <span>Template</span>
-            <select value={activeList.filename_options?.template_id ?? ''} onChange={(event) => applyAssetListTemplate(event.target.value)}>
-              <option value="">Choose template</option>
-              {activeList.filename_options?.template_id && !availableAssetListTemplates.some((template) => template.id === activeList.filename_options.template_id) && (
-                <option value={activeList.filename_options.template_id}>{activeList.filename_options.template_name || 'Deleted template'}</option>
-              )}
-              {availableAssetListTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
-            </select>
-          </label>
-          {isAdmin && <button type="button" onClick={saveCurrentListAsTemplate} className="asset-list-tool"><Plus size={15} /> Save template</button>}
+            <button type="button" onClick={() => setTemplateChooserOpen(true)}>
+              <Plus size={13} /> Add template category <ChevronDown size={13} />
+            </button>
+          </div>
           <span className="asset-list-autosave"><Check size={12} /> Autosaved</span>
           <span className="asset-list-tool-divider" />
           <label className="asset-list-toolbar-status">
@@ -1725,6 +1775,7 @@ export default function AssetListPage({ project }) {
                       <button type="button" onClick={() => addColumn(category.id)} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
                       <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Asset</button>
                       <button type="button" onClick={() => { setOrderCategoryId(category.id); setOrderPopupOpen(true); }} className="asset-list-tool"><Menu size={12} /> Columns</button>
+                      {isAdmin && <button type="button" onClick={() => saveCategoryAsTemplate(category.id)} className="asset-list-tool"><Plus size={12} /> Save category template</button>}
                     </div>
                   </div>
                 )}
@@ -2177,22 +2228,62 @@ export default function AssetListPage({ project }) {
         </div>
       )}
 
+      {templateChooserOpen && (
+        <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={() => setTemplateChooserOpen(false)}>
+          <div className="asset-template-save-popup asset-template-category-popup" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <h2>Add template category</h2>
+                <p>Select a saved category setup. It will be added without changing the existing list.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setTemplateChooserOpen(false)} aria-label="Close"><X size={16} /></button>
+            </header>
+            <div className="asset-template-category-options">
+              {categoryTemplateOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option.id}
+                  className={selectedCategoryTemplateId === option.id ? 'is-active' : ''}
+                  onClick={() => setSelectedCategoryTemplateId(option.id)}
+                >
+                  <span className={`asset-category-type-label is-${option.category.asset_kind === 'static' ? 'static' : 'video'}`}>
+                    {option.category.asset_kind === 'static' ? 'Static' : 'Video'}
+                  </span>
+                  <strong>{option.label}</strong>
+                </button>
+              ))}
+            </div>
+            <footer>
+              <button type="button" className="secondary-button" onClick={() => setTemplateChooserOpen(false)}>Cancel</button>
+              <button type="button" className="primary-button" disabled={!selectedCategoryTemplateId} onClick={addCategoryFromTemplate}>
+                <Plus size={15} /> Add category
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       {templatePopupOpen && (
         <div className="fixed inset-0 z-[4000] grid place-items-center bg-black/60 p-5" onMouseDown={() => setTemplatePopupOpen(false)}>
           <div className="asset-template-save-popup" onMouseDown={(event) => event.stopPropagation()}>
             <header>
               <div>
-                <h2>Save Asset List template</h2>
-                <p>Add this setup as a new template or update an existing template.</p>
+                <h2>Save category template</h2>
+                <p>Save this category’s column setup as a new template or update an existing one.</p>
               </div>
               <button type="button" className="icon-button" onClick={() => setTemplatePopupOpen(false)} aria-label="Close"><X size={16} /></button>
             </header>
             <div className="asset-template-save-modes">
-              <button type="button" className={templateSaveMode === 'new' ? 'is-active' : ''} onClick={() => { setTemplateSaveMode('new'); setTemplateUpdateId(''); setTemplateNameDraft(activeList.name || 'Asset list template'); }}>
+              <button type="button" className={templateSaveMode === 'new' ? 'is-active' : ''} onClick={() => {
+                const sourceCategory = categories.find((category) => category.id === templateSourceCategoryId);
+                setTemplateSaveMode('new');
+                setTemplateUpdateId('');
+                setTemplateNameDraft(sourceCategory?.name || 'Category template');
+              }}>
                 <Plus size={14} /> New template
               </button>
-              <button type="button" className={templateSaveMode === 'update' ? 'is-active' : ''} disabled={!assetListTemplates.length} onClick={() => {
-                const firstTemplate = assetListTemplates[0];
+              <button type="button" className={templateSaveMode === 'update' ? 'is-active' : ''} disabled={!savedCategoryTemplates.length} onClick={() => {
+                const firstTemplate = savedCategoryTemplates[0];
                 setTemplateSaveMode('update');
                 setTemplateUpdateId(firstTemplate?.id ?? '');
                 setTemplateNameDraft(firstTemplate?.name ?? '');
@@ -2208,7 +2299,7 @@ export default function AssetListPage({ project }) {
                   setTemplateUpdateId(event.target.value);
                   setTemplateNameDraft(template?.name ?? '');
                 }}>
-                  {assetListTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                  {savedCategoryTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
               </label>
             )}
@@ -2219,7 +2310,7 @@ export default function AssetListPage({ project }) {
             {templateSaveMode === 'update' && <p className="asset-template-overwrite-note">The selected template will be overwritten for all users.</p>}
             <footer>
               <button type="button" className="secondary-button" onClick={() => setTemplatePopupOpen(false)}>Cancel</button>
-              <button type="button" className="primary-button" disabled={!templateNameDraft.trim() || (templateSaveMode === 'update' && !templateUpdateId)} onClick={confirmSaveCurrentListAsTemplate}>
+              <button type="button" className="primary-button" disabled={!templateNameDraft.trim() || (templateSaveMode === 'update' && !templateUpdateId)} onClick={confirmSaveCategoryAsTemplate}>
                 {templateSaveMode === 'update' ? 'Update template' : 'Save template'}
               </button>
             </footer>
@@ -2239,6 +2330,7 @@ export default function AssetListPage({ project }) {
             </header>
             <label>
               <span>Frame.io link</span>
+              <small className="asset-frame-link-requirement">Only links starting with <strong>https://f.io/</strong> can be added.</small>
               <input
                 value={frameLinkDraft}
                 onChange={(event) => setFrameLinkDraft(event.target.value)}
@@ -2252,7 +2344,7 @@ export default function AssetListPage({ project }) {
                 autoFocus
               />
               {frameLinkDraft.trim() && !isValidFramePreviewLink(frameLinkDraft) && (
-                <small className="asset-frame-link-error">Not a valid Frame.io preview link. The URL must contain https://f.io</small>
+                <small className="asset-frame-link-error">Not a valid Frame.io preview link. The URL must start with https://f.io/</small>
               )}
             </label>
             <footer>
