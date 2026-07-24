@@ -8,7 +8,7 @@ import ClientTableView from './ClientTableView.jsx';
 import AssetListPage from './AssetListPage.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { CalendarRange, Eye, FileSpreadsheet } from '../components/AppIcons.jsx';
+import { CalendarRange, Eye, FileSpreadsheet } from 'lucide-react';
 
 function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;

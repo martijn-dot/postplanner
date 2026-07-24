@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Flag, Search, Send, Users } from '../components/AppIcons.jsx';
+import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Flag, Search, Send, Users } from 'lucide-react';
 import { ClientGanttChart, ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';

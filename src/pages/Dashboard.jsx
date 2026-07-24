@@ -1,4 +1,4 @@
-import { ChevronDown, Copy, FileSpreadsheet, Plus, Search, Settings, Star, Trash2 } from '../components/AppIcons.jsx';
+import { ChevronDown, Copy, FileSpreadsheet, Plus, Search, Settings, Star, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import TopBar from '../components/TopBar.jsx';

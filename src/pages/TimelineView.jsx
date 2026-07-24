@@ -18,8 +18,7 @@ import {
   Plus,
   StickyNote,
   Trash2,
-  X,
-} from '../components/AppIcons.jsx';
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import LabelSelect from '../components/LabelSelect.jsx';
@@ -361,7 +360,7 @@ function SortableLine({
         aria-label={`Fill ${COLUMN_LABELS[column]} down`}
         title={`Drag to fill ${COLUMN_LABELS[column]} down`}
       >
-        <Plus size={11} aria-hidden="true" />
+        +
       </button>
     </span>
   );
@@ -1554,7 +1553,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                 <h2 className="text-lg font-semibold text-ink-100">{detailsItem.asset || 'Booking details'}</h2>
                 <p className="mt-1 text-sm text-ink-500">Add client-visible time and notes for this milestone.</p>
               </div>
-              <button type="button" onClick={() => setDetailsItemId(null)} className="icon-button" aria-label="Close details"><X size={17} /></button>
+              <button type="button" onClick={() => setDetailsItemId(null)} className="icon-button" aria-label="Close details">×</button>
             </div>
             <div className="text-sm font-semibold text-ink-300">
               <label htmlFor={`booking-time-${detailsItem.id}`}>Time</label>
@@ -1571,7 +1570,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                   placeholder="HH:MM"
                 />
                 <button type="button" onClick={() => updateLineItemWithUndo(detailsItem.id, { time: 'EOD' })} className="secondary-button !px-3 !py-2" aria-label="Set time to EOD">EOD</button>
-                <button type="button" onClick={() => updateLineItemWithUndo(detailsItem.id, { time: '' })} disabled={!detailsItem.time} className="icon-button h-auto shrink-0 border border-white/10" aria-label="Clear time" title="Clear time"><X size={15} /></button>
+                <button type="button" onClick={() => updateLineItemWithUndo(detailsItem.id, { time: '' })} disabled={!detailsItem.time} className="icon-button h-auto shrink-0 border border-white/10" aria-label="Clear time" title="Clear time">×</button>
               </div>
             </div>
             <label className="mt-4 block text-sm font-semibold text-ink-300">

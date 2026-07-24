@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Send, Trash2, X } from '../components/AppIcons.jsx';
+import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Send, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -1504,6 +1504,22 @@ export default function AssetListPage({ project }) {
             const categoryGridTemplate = isStaticCategory ? staticGridTemplate : fullGridTemplate;
             return (
               <div key={category.id} className={`asset-category-container ${category.parent_id ? 'is-subcategory' : ''}`}>
+                {!category.parent_id && (
+                  <div className="asset-category-menu-row">
+                    <button
+                      type="button"
+                      onClick={() => addSubcategory(category.id)}
+                      className="asset-add-subcategory"
+                    >
+                      <Plus size={12} /> Subcategory
+                    </button>
+                    <div className="asset-category-header-tools">
+                      <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
+                      <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Row</button>
+                      <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={12} /> Columns</button>
+                    </div>
+                  </div>
+                )}
                 <div
                   className={`asset-category-bar ${category.parent_id ? 'is-subcategory' : ''} ${dragTargetCategoryId === category.id ? 'is-category-drop-target' : ''}`}
                   onDragOver={(event) => {
@@ -1553,20 +1569,6 @@ export default function AssetListPage({ project }) {
                       onChange={(event) => updateCategory(category.id, { name: event.target.value })}
                     />
                   </div>
-                  {!category.parent_id && (
-                    <div className="asset-category-header-tools">
-                      <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
-                      <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Row</button>
-                      <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={12} /> Columns</button>
-                      <button
-                        type="button"
-                        onClick={() => addSubcategory(category.id)}
-                        className="asset-add-subcategory"
-                      >
-                        <Plus size={12} /> Subcategory
-                      </button>
-                    </div>
-                  )}
                 </div>
                 <div className="asset-category-body">
                 {!category.collapsed && !category.container_only && renderCategoryColumnHeader(categoryBeforeColumns, categoryAfterColumns, categoryGridTemplate, isStaticCategory)}
@@ -1860,7 +1862,7 @@ export default function AssetListPage({ project }) {
                     </div>
                   );
                 })}
-                {!category.collapsed && !category.container_only && !groupRows.length && <p className="px-4 py-3 text-sm text-ink-500">No rows in this category yet.</p>}
+                {!category.collapsed && !category.container_only && !groupRows.length && <p className="px-4 py-3 text-sm text-ink-500">No assets added yet.</p>}
                 {!category.collapsed && !category.container_only && (
                   <div className="asset-category-empty-actions">
                     <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-add-row-button">

@@ -1,4 +1,4 @@
-import { Camera, ChevronDown, LogOut, Save, Settings } from './AppIcons.jsx';
+import { Camera, ChevronDown, LogOut, Save, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import rovalLogo from '../assets/roval-logo.png';
