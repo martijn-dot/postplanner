@@ -1263,12 +1263,12 @@ nav .tab-active {
 .asset-list-page .asset-cell.is-cell-group-end {
   background: #111b2e !important;
   border-left: 1px solid rgba(128, 131, 255, 0.48);
+  border-radius: 0 !important;
   border-right: 1px solid rgba(128, 131, 255, 0.48);
   z-index: 2;
 }
 
 .asset-list-page .asset-cell.is-cell-group-start {
-  border-radius: 6px 6px 0 0;
   border-top: 1px solid rgba(128, 131, 255, 0.48);
 }
 
@@ -1291,7 +1291,6 @@ nav .tab-active {
 
 .asset-list-page .asset-cell.is-cell-group-end {
   border-bottom: 1px solid rgba(128, 131, 255, 0.48);
-  border-radius: 0 0 6px 6px;
 }
 
 .asset-cell-group-popup {

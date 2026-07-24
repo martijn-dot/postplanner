@@ -123,6 +123,16 @@ function generatedFilename(project, list, row, clients = []) {
   const rootCategoryId = rowCategory?.parent_id ?? rowCategory?.id;
   const rootCategory = (list.categories ?? []).find((category) => category.id === rootCategoryId);
   const orderIndex = new Map((rootCategory?.column_order ?? []).map((columnId, index) => [columnId, index]));
+  const cellGroups = list.filename_options?.cell_groups ?? [];
+  const groupedValue = (columnKey, fallbackValue) => {
+    const group = cellGroups.find((item) => item.column_key === columnKey && item.row_ids?.includes(row.id));
+    if (!group?.row_ids?.length) return fallbackValue;
+    const firstRow = (list.rows ?? []).find((item) => item.id === group.row_ids[0]);
+    if (!firstRow) return fallbackValue;
+    if (columnKey === 'number') return firstRow.number;
+    if (columnKey === 'notes') return firstRow.notes;
+    return firstRow.values?.[columnKey];
+  };
   const columns = orderedColumns(list)
     .filter((column) => !column.category_id || !rootCategoryId || column.category_id === rootCategoryId)
     .sort((a, b) => {
@@ -136,12 +146,12 @@ function generatedFilename(project, list, row, clients = []) {
   const customPrefix = String(list.filename_options?.prefix_override ?? '').trim();
   const prefixSeparator = list.filename_options?.prefix_separator ?? list.global_separator ?? '_';
   const formattedCustomPrefix = customPrefix.replace(/\s+/g, prefixSeparator);
-  const baseParts = [...(formattedCustomPrefix ? [formattedCustomPrefix] : standardProjectParts), row.number]
+  const baseParts = [...(formattedCustomPrefix ? [formattedCustomPrefix] : standardProjectParts), groupedValue('number', row.number)]
     .map((part) => String(part ?? '').trim())
     .filter(Boolean);
   const rowParts = columns
     .filter((column) => !column.exclude_from_filename && column.label_type !== 'asset_unique_ratio' && !/^unique\b/i.test(column.name ?? '') && !/^frame\.?io$/i.test(column.name ?? ''))
-    .map((column) => ({ value: formatCellValue(row.values?.[column.id], column), separator: column.separator || list.global_separator || '_' }))
+    .map((column) => ({ value: formatCellValue(groupedValue(column.id, row.values?.[column.id]), column), separator: column.separator || list.global_separator || '_' }))
     .filter((part) => part.value);
   const parts = [
     ...baseParts.map((value) => ({ value, separator: list.global_separator || '_' })),
@@ -1510,7 +1520,7 @@ export default function AssetListPage({ project }) {
     }
     return !['asset_static_type', 'asset_static_size'].includes(column.label_type);
   });
-  const gridTemplateForColumns = (beforeColumns, afterColumns) => `52px 78px 60px ${beforeColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${notesColumnWidth()}px`;
+  const gridTemplateForColumns = (beforeColumns, afterColumns) => `52px 88px 60px ${beforeColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${notesColumnWidth()}px`;
   const renderCategoryColumnHeader = (headerBeforeColumns, headerAfterColumns, gridTemplate, isStatic = false) => (
     <div className="asset-list-row asset-static-header grid" style={{ gridTemplateColumns: gridTemplate }}>
       <div className="asset-list-header locked" aria-label="Actions" />
