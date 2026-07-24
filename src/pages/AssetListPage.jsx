@@ -1564,7 +1564,7 @@ export default function AssetListPage({ project }) {
                   <div className="asset-subcategory-action-row">
                     <div className="asset-category-header-tools">
                       <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
-                      <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Row</button>
+                      <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Asset</button>
                       <button type="button" onClick={() => setOrderPopupOpen(true)} className="asset-list-tool"><Menu size={12} /> Columns</button>
                     </div>
                   </div>
@@ -1865,7 +1865,7 @@ export default function AssetListPage({ project }) {
                 {!category.collapsed && !category.container_only && (
                   <div className="asset-category-empty-actions">
                     <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-add-row-button">
-                      <Plus size={14} /> Row
+                      <Plus size={14} /> Asset
                     </button>
                     {!category.parent_id && !groupRows.length && (
                       <button type="button" onClick={() => updateCategory(category.id, { container_only: true })} className="asset-add-row-button">
