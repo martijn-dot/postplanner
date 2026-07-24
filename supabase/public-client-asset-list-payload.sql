@@ -9,7 +9,7 @@ security definer
 set search_path = public
 as $$
   with share as (
-    select project_id, planning_type, planning_version
+    select project_id, planning_type, planning_version, created_at
     from public.public_share_links
     where token = share_token
       and page_type = 'client_planning'

@@ -29,7 +29,7 @@ function readLocalShare(token) {
   const planningVersion = share.planningVersion ?? 'V1';
   return {
     project: planner.projects?.find((project) => project.id === share.projectId),
-    share: { planning_type: planningType, planning_version: planningVersion },
+    share: { planning_type: planningType, planning_version: planningVersion, created_at: share.createdAt ?? share.created_at },
     categories: planner.categories?.filter((category) => category.project_id === share.projectId && safePlanningType(category.planning_type) === planningType && (category.planning_version ?? 'V1') === planningVersion) ?? [],
     lineItems: planner.lineItems?.filter((item) => item.project_id === share.projectId && safePlanningType(item.planning_type) === planningType && (item.planning_version ?? 'V1') === planningVersion) ?? [],
     labels: planner.labels?.filter((label) => !label.project_id || label.project_id === share.projectId) ?? [],
@@ -330,6 +330,7 @@ export default function PublicClientPage() {
     ?? payload?.project?.planning_version
     ?? 'V1';
   const publishedDate = formatPublicDate(payload?.share?.created_at ?? payload?.published_at ?? payload?.project?.created_at);
+  const lastEditedDate = formatPublicDate(payload?.project?.last_edited_at ?? payload?.project?.updated_at ?? payload?.project?.created_at);
   const whoFilterIds = useMemo(() => ({
     wenneker: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'wenneker')?.id,
     client: payload?.labels?.find((label) => label.column_type === 'who' && label.value.toLowerCase() === 'client')?.id,
@@ -513,10 +514,10 @@ export default function PublicClientPage() {
             <footer className="public-client-footer">
               <div className="public-client-footer-row">
                 <span>{new Date().getFullYear()} · {payload.project.name}</span>
-                <span>Published planning</span>
-                <span className="public-footer-brand"><img src={rovalLogo} alt="" />The production manager</span>
+                <span>Published Client Portal: {publishedDate} / Updated at: {lastEditedDate}</span>
               </div>
               <p>This planning tool is tailor-made for Wenneker.Amsterdam to serve our clients in the best way. If you have any suggestions, please feel free to reach out to our producers with your ideas.</p>
+              <span className="public-footer-brand"><img src={rovalLogo} alt="" />The production manager</span>
             </footer>
           </div>
         </div>

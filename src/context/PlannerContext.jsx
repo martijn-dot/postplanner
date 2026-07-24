@@ -1953,7 +1953,7 @@ export function PlannerProvider({ children }) {
           });
           return existingToken;
         }
-        shares[token] = { projectId, planningType: safeType, planningVersion: safeVersion };
+        shares[token] = { projectId, planningType: safeType, planningVersion: safeVersion, createdAt: new Date().toISOString() };
         writeShares(shares);
         mutate((draft) => {
           draft.shareLinks.push({ token, project_id: projectId, page_type: 'client_planning', planning_type: safeType, planning_version: safeVersion, revoked_at: null });
