@@ -7720,3 +7720,27 @@ body.public-share-body {
   position: absolute;
   right: 0;
 }
+
+.public-asset-category-target {
+  scroll-margin-top: 210px;
+}
+
+.public-asset-title .public-asset-tabs button {
+  background: #eef0ff;
+  border: 1px solid #d8e2ff;
+  color: #4648d4;
+}
+
+.public-asset-title .public-asset-tabs button:hover {
+  background: #4648d4;
+  border-color: #4648d4;
+  color: #ffffff;
+}
+
+.public-asset-table td.public-asset-grouped-cell {
+  background: #f8f9ff;
+  border-left: 1px solid #d8e2ff;
+  border-right: 1px solid #d8e2ff;
+  box-shadow: inset 3px 0 0 #4648d4;
+  vertical-align: middle;
+}

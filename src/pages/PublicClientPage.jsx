@@ -148,16 +148,9 @@ function publicPlanningStats(project, lineItems = [], labels = [], categories = 
 }
 
 function PublicAssetList({ assetLists = [], labels = [] }) {
-  const [activeId, setActiveId] = useState(assetLists[0]?.id ?? '');
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
-  const activeList = assetLists.find((list) => list.id === activeId) ?? assetLists[0];
-  useEffect(() => {
-    if (!activeId && assetLists[0]?.id) setActiveId(assetLists[0].id);
-  }, [activeId, assetLists]);
-  useEffect(() => {
-    setCollapsedGroups(new Set());
-  }, [activeId]);
+  const activeList = assetLists[0];
 
   if (!assetLists.length) return <div className="rounded-lg border border-black/10 bg-white px-4 py-10 text-center text-ink-500 dark:border-white/10 dark:bg-ink-900">No asset list published yet.</div>;
 
@@ -202,6 +195,20 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
   };
   const visibleRows = rows.filter(rowMatchesSearch);
   const groupRows = (group) => (groups.length ? visibleRows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === group.id) : visibleRows);
+  const allGroupRows = (group) => (groups.length ? rows.filter((row) => (row.group_id ?? groups[0]?.id ?? null) === group.id) : rows);
+  const hasMeaningfulValue = (value) => {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return Boolean(normalized && !['none', 'null', '-'].includes(normalized));
+  };
+  const cellGroups = activeList?.filename_options?.cell_groups ?? [];
+  const groupedCellMeta = (row, columnKey, displayedRows) => {
+    const cellGroup = cellGroups.find((item) => item.column_key === columnKey && item.row_ids?.includes(row.id));
+    if (!cellGroup) return { render: true, rowSpan: 1, sourceRow: row };
+    const visibleGroupRows = displayedRows.filter((item) => cellGroup.row_ids.includes(item.id));
+    if (!visibleGroupRows.length || visibleGroupRows[0].id !== row.id) return { render: false, rowSpan: 0, sourceRow: row };
+    const sourceRow = rows.find((item) => item.id === cellGroup.row_ids[0]) ?? row;
+    return { render: true, rowSpan: visibleGroupRows.length, sourceRow };
+  };
   const toggleGroup = (groupId) => {
     setCollapsedGroups((current) => {
       const next = new Set(current);
@@ -218,12 +225,18 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
           <span className="public-asset-title-icon"><BarChart3 size={18} /></span>
           <div>
             <h2>Asset List</h2>
-            {assetLists.length > 1 && (
-              <div className="public-asset-tabs">
-                {assetLists.map((list) => (
-                  <button key={list.id} type="button" onClick={() => setActiveId(list.id)} className={list.id === activeList.id ? 'is-active' : ''}>{list.name}</button>
+            {groups.length > 0 && (
+              <nav className="public-asset-tabs" aria-label="Jump to asset category">
+                {groups.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => document.getElementById(`public-asset-category-${group.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  >
+                    {group.name}
+                  </button>
                 ))}
-              </div>
+              </nav>
             )}
           </div>
         </div>
@@ -242,12 +255,21 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
       <div className="public-asset-table-wrap">
         {(groups.length ? groups : [{ id: null, name: 'Asset list' }]).map((group) => {
           const publishedColumns = columnsForGroup(group);
-          const visibleColumns = publishedColumns.filter((column) => !/frame\.?io/i.test(column.name ?? ''));
+          const sourceRows = allGroupRows(group);
+          const isFrameColumn = (column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? '');
+          const isClonesColumn = (column) => /(^|[_\s-])clones?($|[_\s-])/i.test([column.name, column.key, column.label_type].filter(Boolean).join(' '));
+          const visibleColumns = publishedColumns.filter((column) => (
+            !isFrameColumn(column)
+            && !isClonesColumn(column)
+            && sourceRows.some((row) => hasMeaningfulValue(assetValue(row.values?.[column.id], column)))
+          ));
           const publishedFrameColumn = publishedColumns.find((column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? ''));
-          const showFrameColumn = Boolean(publishedFrameColumn);
-          const assetColSpan = visibleColumns.length + 2 + (showFrameColumn ? 1 : 0);
-          return groupRows(group).length ? (
-            <table key={group.id ?? 'asset-list'} className="public-asset-table">
+          const showFrameColumn = Boolean(publishedFrameColumn && sourceRows.some((row) => hasMeaningfulValue(frameIoValue(row, [publishedFrameColumn]))));
+          const showNotesColumn = sourceRows.some((row) => hasMeaningfulValue(row.notes));
+          const assetColSpan = 1 + visibleColumns.length + (showFrameColumn ? 1 : 0) + (showNotesColumn ? 1 : 0);
+          const displayedRows = groupRows(group);
+          return displayedRows.length ? (
+            <table id={`public-asset-category-${group.id ?? 'asset-list'}`} key={group.id ?? 'asset-list'} className="public-asset-table public-asset-category-target">
               <tbody>
                   <tr key={`${group.id}-heading`} className="public-asset-category-row">
                     <td colSpan={assetColSpan}>
@@ -261,40 +283,56 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                     <tr className="public-asset-column-header">
                       <th>Number</th>
                       {visibleColumns.map((column) => <th key={column.id}>{column.name}</th>)}
-                      <th>Notes</th>
                       {showFrameColumn && <th>Frame.io</th>}
+                      {showNotesColumn && <th>Notes</th>}
                     </tr>
                   )}
-                  {!collapsedGroups.has(group.id ?? 'asset-list') && groupRows(group).map((row) => (
+                  {!collapsedGroups.has(group.id ?? 'asset-list') && displayedRows.map((row) => {
+                    const numberMeta = groupedCellMeta(row, 'number', displayedRows);
+                    return (
                     <tr key={row.id}>
-                      <td className="public-asset-number">{row.number}</td>
+                      {numberMeta.render && <td rowSpan={numberMeta.rowSpan} className={numberMeta.rowSpan > 1 ? 'public-asset-number public-asset-grouped-cell' : 'public-asset-number'}>{numberMeta.sourceRow.number}</td>}
                       {visibleColumns.map((column) => {
-                        const value = assetValue(row.values?.[column.id], column);
+                        const cellMeta = groupedCellMeta(row, column.id, displayedRows);
+                        if (!cellMeta.render) return null;
+                        const value = assetValue(cellMeta.sourceRow.values?.[column.id], column);
                         const isPillValue = value && !['text', 'length'].includes(column.type);
                         return (
-                          <td key={column.id}>
+                          <td key={column.id} rowSpan={cellMeta.rowSpan} className={cellMeta.rowSpan > 1 ? 'public-asset-grouped-cell' : undefined}>
                             {value ? <span className={isPillValue ? 'public-asset-pill' : ''} style={isPillValue ? assetLabelStyle(value, column, labels) : undefined}>{value}</span> : '-'}
                           </td>
                         );
                       })}
-                      <td className="public-asset-notes">
-                        {row.notes ? (
-                          <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300">
-                            <FileText size={14} className="shrink-0 text-ink-500" />
-                            <span>{row.notes}</span>
-                            <span className="note-tooltip">{row.notes}</span>
-                          </span>
-                        ) : null}
-                      </td>
-                      {showFrameColumn && (
-                        <td>
-                          {frameIoValue(row, [publishedFrameColumn])
-                            ? <a className="public-asset-frame-button is-active" href={frameIoValue(row, [publishedFrameColumn])} target="_blank" rel="noreferrer">View</a>
+                      {showFrameColumn && (() => {
+                        const frameMeta = groupedCellMeta(row, publishedFrameColumn.id, displayedRows);
+                        if (!frameMeta.render) return null;
+                        const frameValue = frameIoValue(frameMeta.sourceRow, [publishedFrameColumn]);
+                        return (
+                        <td rowSpan={frameMeta.rowSpan} className={frameMeta.rowSpan > 1 ? 'public-asset-grouped-cell' : undefined}>
+                          {frameValue
+                            ? <a className="public-asset-frame-button is-active" href={frameValue} target="_blank" rel="noreferrer">View</a>
                             : <span className="public-asset-frame-button">View</span>}
                         </td>
-                      )}
+                        );
+                      })()}
+                      {showNotesColumn && (() => {
+                        const notesMeta = groupedCellMeta(row, 'notes', displayedRows);
+                        if (!notesMeta.render) return null;
+                        return (
+                        <td rowSpan={notesMeta.rowSpan} className={`public-asset-notes${notesMeta.rowSpan > 1 ? ' public-asset-grouped-cell' : ''}`}>
+                          {hasMeaningfulValue(notesMeta.sourceRow.notes) ? (
+                            <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300">
+                              <FileText size={14} className="shrink-0 text-ink-500" />
+                              <span>{notesMeta.sourceRow.notes}</span>
+                              <span className="note-tooltip">{notesMeta.sourceRow.notes}</span>
+                            </span>
+                          ) : null}
+                        </td>
+                        );
+                      })()}
                     </tr>
-                  ))}
+                    );
+                  })}
               </tbody>
             </table>
           ) : null;
