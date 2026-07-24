@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Download, ExternalLink, Eye, EyeOff, GripVertical, Menu, Plus, Send, Trash2, X } from 'lucide-react';
+import { ArrowRight, Boxes, Check, ChevronDown, ChevronRight, CircleDot, Copy, Download, ExternalLink, Eye, EyeOff, FileText, GitBranch, GripVertical, Hash, Maximize2, Menu, Plus, Ratio, Ruler, Send, StickyNote, Trash2, Type, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LabelSelect from '../components/LabelSelect.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -1527,15 +1527,32 @@ export default function AssetListPage({ project }) {
     return !['asset_static_type', 'asset_static_size'].includes(column.label_type);
   });
   const gridTemplateForColumns = (beforeColumns, afterColumns) => `52px 88px 60px ${beforeColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${compactColumnWidth(filenameColumnWidth())}px 52px ${afterColumns.map((column) => `${columnGridWidth(column)}px`).join(' ')} ${notesColumnWidth()}px`;
+  const defaultColumnHeader = (column, isStatic = false) => {
+    const label = isStatic && column.label_type === 'asset_static_type'
+      ? 'Asset Type'
+      : isUniqueRatioColumn(column)
+        ? 'Clones'
+        : column.name;
+    const normalized = label.toLowerCase();
+    let HeaderIcon = null;
+    if (normalized === 'clones') HeaderIcon = GitBranch;
+    else if (normalized === 'asset type') HeaderIcon = Boxes;
+    else if (normalized === 'name') HeaderIcon = Type;
+    else if (normalized === 'length') HeaderIcon = Ruler;
+    else if (normalized === 'ratio') HeaderIcon = Ratio;
+    else if (normalized === 'size') HeaderIcon = Maximize2;
+    else if (/frame\.?io/.test(normalized)) HeaderIcon = ExternalLink;
+    return <span className="asset-header-label">{HeaderIcon && <HeaderIcon aria-hidden="true" />}{label}</span>;
+  };
   const renderCategoryColumnHeader = (headerBeforeColumns, headerAfterColumns, gridTemplate, isStatic = false) => (
     <div className="asset-list-row asset-static-header grid" style={{ gridTemplateColumns: gridTemplate }}>
       <div className="asset-list-header locked" aria-label="Actions" />
-      <div className="asset-list-header locked"><span className="asset-header-label">Status</span></div>
-      <div className="asset-list-header locked"><span className="asset-header-label">Number</span></div>
+      <div className="asset-list-header locked"><span className="asset-header-label"><CircleDot aria-hidden="true" />Status</span></div>
+      <div className="asset-list-header locked"><span className="asset-header-label"><Hash aria-hidden="true" />Number</span></div>
       {headerBeforeColumns.map((column) => (
         <div key={column.id} className="asset-list-header">
           {isStatic || !isCustomAssetColumn(column) ? (
-            <span className="asset-header-label">{isStatic && column.label_type === 'asset_static_type' ? 'Asset Type' : isUniqueRatioColumn(column) ? 'CLONES' : column.name}</span>
+            defaultColumnHeader(column, isStatic)
           ) : (
             <button type="button" className="asset-header-settings-name" onClick={() => setSettingsColumnId(column.id)} aria-label={`Open settings for ${column.name}`}>
               {column.name}
@@ -1547,10 +1564,10 @@ export default function AssetListPage({ project }) {
         </div>
       ))}
       <div className="asset-list-header locked">
-        <span className="asset-header-label">Filename</span>
+        <span className="asset-header-label"><FileText aria-hidden="true" />Filename</span>
         {!isStatic && <button type="button" className="asset-column-resize-handle" onPointerDown={startFilenameColumnResize} aria-label="Resize Filename column" />}
       </div>
-      <div className="asset-list-header locked"><span className="asset-header-label">Copy</span></div>
+      <div className="asset-list-header locked"><span className="asset-header-label"><Copy aria-hidden="true" />Copy</span></div>
       {headerAfterColumns.map((column) => (
         <div key={column.id} className="asset-list-header">
           {!isStatic && isCustomAssetColumn(column) ? (
@@ -1558,13 +1575,13 @@ export default function AssetListPage({ project }) {
               {column.name}
             </button>
           ) : (
-            <span className="asset-header-label">{column.name}</span>
+            defaultColumnHeader(column, isStatic)
           )}
           {!isStatic && !isFrameColumn(column) && <button type="button" className="asset-column-resize-handle" onPointerDown={(event) => startColumnResize(event, column.id)} aria-label={`Resize ${column.name}`} />}
         </div>
       ))}
       <div className="asset-list-header locked">
-        <span className="asset-header-label">Notes</span>
+        <span className="asset-header-label"><StickyNote aria-hidden="true" />Notes</span>
         <button type="button" className="asset-column-resize-handle" onPointerDown={startNotesColumnResize} aria-label="Resize Notes column" />
       </div>
     </div>

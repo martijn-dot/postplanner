@@ -789,6 +789,13 @@ nav .tab-active {
 .asset-list-page .asset-list-header { gap: 3px; padding: 4px 6px; }
 .asset-list-page .asset-header-label,
 .asset-list-page .asset-header-name { font-size: 0.5rem; height: 14px; }
+.asset-list-page .asset-header-label { gap: 3px; }
+.asset-list-page .asset-header-label > svg {
+  height: 9px;
+  opacity: 0.62;
+  stroke-width: 2;
+  width: 9px;
+}
 .asset-list-page .asset-list-header .asset-header-label,
 .asset-list-page .asset-header-settings-name {
   text-transform: uppercase;
