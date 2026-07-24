@@ -1505,14 +1505,7 @@ export default function AssetListPage({ project }) {
             return (
               <div key={category.id} className={`asset-category-container ${category.parent_id ? 'is-subcategory' : ''}`}>
                 {!category.parent_id && (
-                  <div className="asset-category-menu-row">
-                    <button
-                      type="button"
-                      onClick={() => addSubcategory(category.id)}
-                      className="asset-add-subcategory"
-                    >
-                      <Plus size={12} /> Subcategory
-                    </button>
+                  <div className="asset-category-menu-row is-tools-only">
                     <div className="asset-category-header-tools">
                       <button type="button" onClick={addColumn} className="asset-list-tool is-primary"><Plus size={12} /> Column</button>
                       <button type="button" onClick={() => addRowToCategory(category.id)} className="asset-list-tool"><Plus size={12} /> Row</button>
@@ -1570,6 +1563,17 @@ export default function AssetListPage({ project }) {
                     />
                   </div>
                 </div>
+                {!category.parent_id && (
+                  <div className="asset-subcategory-action-row">
+                    <button
+                      type="button"
+                      onClick={() => addSubcategory(category.id)}
+                      className="asset-add-subcategory"
+                    >
+                      <Plus size={12} /> Subcategory
+                    </button>
+                  </div>
+                )}
                 <div className="asset-category-body">
                 {!category.collapsed && !category.container_only && renderCategoryColumnHeader(categoryBeforeColumns, categoryAfterColumns, categoryGridTemplate, isStaticCategory)}
                 {!category.collapsed && groupRows.map((row) => {

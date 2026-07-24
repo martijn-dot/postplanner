@@ -1782,6 +1782,19 @@ nav .tab-active {
   padding: 4px 7px;
 }
 
+.asset-category-menu-row.is-tools-only {
+  justify-content: flex-start;
+}
+
+.asset-subcategory-action-row {
+  align-items: center;
+  background: #0e1628;
+  border-bottom: 1px solid #2c3755;
+  display: flex;
+  min-height: 36px;
+  padding: 5px 8px;
+}
+
 .asset-add-subcategory:hover {
   background: rgba(109, 93, 252, 0.22);
   border-color: rgba(109, 93, 252, 0.62);
