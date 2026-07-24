@@ -230,8 +230,8 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                       <th>Number</th>
                       <th>Status</th>
                       {visibleColumns.map((column) => <th key={column.id}>{column.name}</th>)}
-                      {showFrameColumn && <th>Frame.io</th>}
                       {showNotesColumn && <th>Notes</th>}
+                      {showFrameColumn && <th className="public-asset-frame-column">Frame.io</th>}
                     </tr>
                   )}
                   {!collapsedGroups.has(group.id ?? 'asset-list') && displayedRows.map((row) => {
@@ -255,18 +255,6 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                           </td>
                         );
                       })}
-                      {showFrameColumn && (() => {
-                        const frameMeta = groupedCellMeta(row, publishedFrameColumn.id, displayedRows);
-                        if (!frameMeta.render) return null;
-                        const frameValue = frameIoValue(frameMeta.sourceRow, [publishedFrameColumn]);
-                        return (
-                        <td rowSpan={frameMeta.rowSpan} className={frameMeta.rowSpan > 1 ? 'public-asset-grouped-cell' : undefined}>
-                          {frameValue
-                            ? <a className="public-asset-frame-button is-active" href={frameValue} target="_blank" rel="noreferrer">View</a>
-                            : <span className="public-asset-frame-button">View</span>}
-                        </td>
-                        );
-                      })()}
                       {showNotesColumn && (() => {
                         const notesMeta = groupedCellMeta(row, 'notes', displayedRows);
                         if (!notesMeta.render) return null;
@@ -279,6 +267,21 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                               <span className="note-tooltip">{notesMeta.sourceRow.notes}</span>
                             </span>
                           ) : null}
+                        </td>
+                        );
+                      })()}
+                      {showFrameColumn && (() => {
+                        const frameMeta = groupedCellMeta(row, publishedFrameColumn.id, displayedRows);
+                        if (!frameMeta.render) return null;
+                        const frameValue = frameIoValue(frameMeta.sourceRow, [publishedFrameColumn]);
+                        return (
+                        <td
+                          rowSpan={frameMeta.rowSpan}
+                          className={`public-asset-frame-column${frameMeta.rowSpan > 1 ? ' public-asset-grouped-cell' : ''}`}
+                        >
+                          {frameValue
+                            ? <a className="public-asset-frame-button is-active" href={frameValue} target="_blank" rel="noreferrer">View</a>
+                            : <span className="public-asset-frame-button">View</span>}
                         </td>
                         );
                       })()}

@@ -7881,6 +7881,19 @@ body.public-share-body {
   width: 8%;
 }
 
+.public-asset-table .public-asset-frame-column {
+  padding: 10px !important;
+  text-align: center;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.public-asset-frame-column .public-asset-frame-button {
+  box-sizing: border-box;
+  justify-content: center;
+  min-width: 56px;
+}
+
 @media (max-width: 720px) {
   .public-roval-logo {
     height: 30px;
