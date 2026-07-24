@@ -1341,6 +1341,7 @@ nav .tab-active {
   display: block;
   height: 19px;
   margin-top: -8px;
+  opacity: 0.5;
   position: relative;
   width: 34px;
 }
@@ -2009,6 +2010,29 @@ nav .tab-active {
 
 .asset-frame-link-main {
   padding: 0 8px;
+}
+
+.asset-frame-link-main.is-add {
+  background: #222a3d;
+  border-color: #3c465e;
+  border-radius: 7px;
+  color: #dae2fd;
+  font-size: 0.5rem;
+  gap: 4px;
+  letter-spacing: 0.045em;
+  padding: 0 8px;
+  text-transform: uppercase;
+}
+
+.asset-frame-link-main.is-add svg {
+  height: 11px;
+  width: 11px;
+}
+
+.asset-frame-link-main.is-add:hover {
+  background: #2d3449;
+  border-color: #8083ff;
+  color: #f3f0ff;
 }
 
 .asset-frame-link-main.is-preview {

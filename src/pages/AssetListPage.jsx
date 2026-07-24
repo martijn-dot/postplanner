@@ -1786,6 +1786,7 @@ export default function AssetListPage({ project }) {
                         const isAssetTypeColumn = column.label_type === 'asset_type' || /^asset\s*type$/i.test(column.name ?? '');
                         const isStaticAssetTypeColumn = column.label_type === 'asset_static_type';
                         const isStaticSizeColumn = column.label_type === 'asset_static_size';
+                        const isBranchColumn = isAssetTypeColumn || isStaticAssetTypeColumn;
                         const isRatioSharedColumn = !isUniqueRatioColumn && !isRatioColumn;
                         const selected = isVisuallySelected(absoluteRowIndex, columnIndex, selectedCell?.rowId === row.id && selectedCell?.columnId === column.id);
                         const value = row.values?.[column.id] ?? '';
@@ -1794,7 +1795,7 @@ export default function AssetListPage({ project }) {
                             key={column.id}
                             data-asset-row={absoluteRowIndex}
                             data-asset-column={columnIndex}
-                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${cellGroupDisplay(row.id, column.id).className} ${isRatioSharedColumn && row.ratio_group ? 'is-ratio-shared-parent' : ''} ${isRatioSharedColumn && row.ratio_parent_id ? 'is-ratio-shared-child' : ''} ${isAssetTypeColumn && row.ratio_parent_id ? 'is-ratio-branch-cell' : ''}`}
+                            className={`asset-cell copy-cell ${selected ? 'copy-cell-selected' : ''} ${cellGroupDisplay(row.id, column.id).className} ${isRatioSharedColumn && row.ratio_group ? 'is-ratio-shared-parent' : ''} ${isRatioSharedColumn && row.ratio_parent_id ? 'is-ratio-shared-child' : ''} ${isBranchColumn && row.ratio_parent_id ? 'is-ratio-branch-cell' : ''}`}
                             {...cellSelectionProps(absoluteRowIndex, columnIndex, row.id, column.id)}
                             onCopy={(event) => {
                               event.preventDefault();
@@ -1843,7 +1844,7 @@ export default function AssetListPage({ project }) {
                               </div>
                             ) : isRatioColumn && row.ratio_parent_id ? (
                               <span className="asset-ratio-child-label">{row.ratio_value || value}</span>
-                            ) : isAssetTypeColumn && row.ratio_parent_id ? (
+                            ) : isBranchColumn && row.ratio_parent_id ? (
                               <span className="asset-ratio-branch" aria-label="Ratio variant" />
                             ) : isAssetTypeColumn ? (
                               <div className="asset-type-label-select">
@@ -1963,7 +1964,9 @@ export default function AssetListPage({ project }) {
                                   <button type="button" className="asset-frame-link-mini" onClick={(event) => { event.stopPropagation(); navigator.clipboard?.writeText(value); }} aria-label="Copy Frame.io link" title="Copy link">C</button>
                                 </>
                               ) : (
-                                <button type="button" className="asset-frame-link-main" onClick={(event) => { event.stopPropagation(); openFrameLinkPopup(row.id, column.id); }}>+ Add link</button>
+                                <button type="button" className="asset-frame-link-main is-add" onClick={(event) => { event.stopPropagation(); openFrameLinkPopup(row.id, column.id); }}>
+                                  <Plus size={12} /> Add link
+                                </button>
                               )}
                             </div>
                           </div>
