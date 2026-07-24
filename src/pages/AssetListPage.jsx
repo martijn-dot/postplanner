@@ -1606,7 +1606,7 @@ export default function AssetListPage({ project }) {
       <div className="asset-list-header locked"><span className="asset-header-label"><Hash aria-hidden="true" />Number</span></div>
       {headerBeforeColumns.map((column) => (
         <div key={column.id} className={`asset-list-header ${isUniqueRatioColumn(column) || /^length$/i.test(column.name ?? '') ? 'is-balanced-compact-header' : ''}`}>
-          {isStatic || !isCustomAssetColumn(column) ? (
+          {!isCustomAssetColumn(column) ? (
             defaultColumnHeader(column, isStatic)
           ) : (
             <button type="button" className="asset-header-settings-name" onClick={() => setSettingsColumnId(column.id)} aria-label={`Open settings for ${column.name}`}>
@@ -1625,7 +1625,7 @@ export default function AssetListPage({ project }) {
       <div className="asset-list-header locked"><span className="asset-header-label"><Copy aria-hidden="true" />Copy</span></div>
       {headerAfterColumns.map((column) => (
         <div key={column.id} className={`asset-list-header ${isUniqueRatioColumn(column) || /^length$/i.test(column.name ?? '') ? 'is-balanced-compact-header' : ''}`}>
-          {!isStatic && isCustomAssetColumn(column) ? (
+          {isCustomAssetColumn(column) ? (
             <button type="button" className="asset-header-settings-name" onClick={() => setSettingsColumnId(column.id)} aria-label={`Open settings for ${column.name}`}>
               {column.name}
             </button>

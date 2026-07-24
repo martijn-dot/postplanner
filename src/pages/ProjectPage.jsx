@@ -8,7 +8,7 @@ import ClientTableView from './ClientTableView.jsx';
 import AssetListPage from './AssetListPage.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { CalendarRange, FileSpreadsheet, Share2 } from 'lucide-react';
+import { CalendarRange, ExternalLink, FileSpreadsheet } from 'lucide-react';
 
 function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
@@ -126,7 +126,7 @@ export default function ProjectPage() {
         </NavLink>
         {clientPortalUrl && (
           <a href={clientPortalUrl} target="_blank" rel="noreferrer" className="tab">
-            <span className="project-tab-icon"><Share2 size={16} strokeWidth={2.1} /></span>
+            <span className="project-tab-icon"><ExternalLink size={16} strokeWidth={2.1} /></span>
             <span>CLIENT PORTAL</span>
           </a>
         )}
