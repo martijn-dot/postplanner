@@ -7873,6 +7873,14 @@ body.public-share-body {
   width: 20px;
 }
 
+.public-asset-table th:first-child {
+  width: 8%;
+}
+
+.public-asset-table th:nth-child(2) {
+  width: 8%;
+}
+
 @media (max-width: 720px) {
   .public-roval-logo {
     height: 30px;

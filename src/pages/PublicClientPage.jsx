@@ -175,19 +175,6 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
           <span className="public-asset-title-icon"><BarChart3 size={18} /></span>
           <div>
             <h2>Asset List</h2>
-            {groups.length > 0 && (
-              <nav className="public-asset-tabs" aria-label="Jump to asset category">
-                {groups.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => document.getElementById(`public-asset-category-${group.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                  >
-                    {group.name}
-                  </button>
-                ))}
-              </nav>
-            )}
           </div>
         </div>
         <div className="public-asset-tools">
@@ -213,10 +200,9 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
             && !isClonesColumn(column)
             && sourceRows.some((row) => hasMeaningfulValue(assetValue(row.values?.[column.id], column)))
           ));
-          const publishedFrameColumn = publishedColumns.find((column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? ''));
-          const rootGroup = groups.find((item) => item.id === (group?.parent_id ?? group?.id)) ?? group;
-          const isStaticGroup = (group?.asset_kind ?? rootGroup?.asset_kind) === 'static';
-          const showFrameColumn = Boolean(!isStaticGroup && publishedFrameColumn && sourceRows.some((row) => hasMeaningfulValue(frameIoValue(row, [publishedFrameColumn]))));
+          const publishedFrameColumn = publishedColumns.find((column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? ''))
+            ?? columns.find((column) => /frame\.?io/i.test(column.name ?? '') || /frame\.?io/i.test(column.key ?? ''));
+          const showFrameColumn = Boolean(publishedFrameColumn);
           const showNotesColumn = sourceRows.some((row) => hasMeaningfulValue(row.notes));
           const assetColSpan = 2 + visibleColumns.length + (showFrameColumn ? 1 : 0) + (showNotesColumn ? 1 : 0);
           const displayedRows = groupRows(group);
