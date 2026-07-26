@@ -44,3 +44,5 @@ end;
 $$;
 
 grant execute on function public.rename_producer(text, text) to authenticated;
+
+notify pgrst, 'reload schema';

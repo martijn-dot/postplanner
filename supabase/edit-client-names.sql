@@ -33,3 +33,5 @@ end;
 $$;
 
 grant execute on function public.rename_client(text, text) to authenticated;
+
+notify pgrst, 'reload schema';

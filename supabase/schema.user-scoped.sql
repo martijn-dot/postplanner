@@ -703,6 +703,8 @@ $$;
 
 grant execute on function public.get_public_client_planning(text) to anon, authenticated;
 
+notify pgrst, 'reload schema';
+
 insert into public.labels (project_id, column_type, value, color, is_default, scope) values
   (null, 'who', 'Wenneker', '#8bb9ff', true, 'global'),
   (null, 'who', 'Client', '#ffd166', true, 'global'),
