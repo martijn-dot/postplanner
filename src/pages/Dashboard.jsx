@@ -329,11 +329,21 @@ export default function Dashboard() {
               const missingClient = clientLabel === 'no client';
               const activeNames = activeNamesForProject(project.id);
               const projectAssetLists = assetLists.filter((list) => list.project_id === project.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-              const hasAssetRows = projectAssetLists.some((list) => Array.isArray(list.rows) && list.rows.length > 0);
-              const latestAssetListUpdate = projectAssetLists
-                .map((list) => list.updated_at)
+              const projectAssetRows = projectAssetLists.flatMap((list) => Array.isArray(list.rows) ? list.rows : []);
+              const hasAssetRows = projectAssetRows.length > 0;
+              const latestAssetListUpdate = projectAssetRows
+                .map((row) => row.updated_at)
                 .filter(Boolean)
                 .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+              const assetEditMetadata = projectAssetLists
+                .map((list) => ({
+                  editedAt: list.filename_options?.asset_last_edited_at,
+                  editedBy: list.filename_options?.asset_last_edited_by,
+                }))
+                .filter((item) => item.editedAt)
+                .sort((a, b) => new Date(b.editedAt).getTime() - new Date(a.editedAt).getTime())[0];
+              const assetEditedBy = (profiles ?? []).find((profile) => profile.id === assetEditMetadata?.editedBy) ?? editedBy;
+              const assetEditedAt = assetEditMetadata?.editedAt ?? latestAssetListUpdate;
               const isFavorite = favoriteProjectIdSet.has(project.id);
               const toggleFavoriteAction = (event) => {
                 event.preventDefault();
@@ -483,9 +493,9 @@ export default function Dashboard() {
                         </button>
                         <span className="project-asset-updated">
                           {!hasAssetRows
-                            ? 'No assets yet!'
-                            : latestAssetListUpdate
-                              ? `Updated ${formatDistanceToNow(new Date(latestAssetListUpdate), { addSuffix: true })}`
+                            ? 'No assets yet'
+                            : assetEditedAt
+                              ? `Edited ${formatDistanceToNow(new Date(assetEditedAt), { addSuffix: true })} by ${assetEditedBy?.display_name ?? 'Unknown'}`
                               : 'No updates yet'}
                         </span>
                       </div>

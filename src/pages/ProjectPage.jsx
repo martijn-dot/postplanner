@@ -6,9 +6,10 @@ import { usePlanner } from '../context/PlannerContext.jsx';
 import TimelineView from './TimelineView.jsx';
 import ClientTableView from './ClientTableView.jsx';
 import AssetListPage from './AssetListPage.jsx';
+import BriefPage from './BriefPage.jsx';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { CalendarRange, ExternalLink, FileSpreadsheet } from 'lucide-react';
+import { CalendarRange, ExternalLink, FileSpreadsheet, NotebookPen } from 'lucide-react';
 
 function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
@@ -53,7 +54,11 @@ export default function ProjectPage() {
   const clientPortalUrl = activeClientPortal && project
     ? `/share/${slugifyProjectName(project.name)}-${activeClientPortal.token}`
     : '';
-  const pageType = location.pathname.endsWith('/assets') ? 'asset_list' : 'planning';
+  const pageType = location.pathname.endsWith('/assets')
+    ? 'asset_list'
+    : location.pathname.endsWith('/brief')
+      ? 'brief'
+      : 'planning';
   const activeEditors = (presence ?? [])
     .filter((item) => {
       if (item.project_id !== projectId || item.user_id === user.id) return false;
@@ -114,6 +119,10 @@ export default function ProjectPage() {
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar project={project} planningType={requestedType} planningVersion={activeVersion} planningVersions={versions} currentPath={location.pathname} />
       <nav className="project-page-tabs flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
+        <NavLink to={`/projects/${projectId}/brief?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
+          <span className="project-tab-icon"><NotebookPen size={16} strokeWidth={2.1} /></span>
+          <span>Brief</span>
+        </NavLink>
         <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
           <span className="project-tab-icon"><CalendarRange size={16} strokeWidth={2.1} /></span>
           <span>Planning</span>
@@ -131,6 +140,7 @@ export default function ProjectPage() {
       </nav>
       <Routes>
         <Route index element={<TimelineView project={project} planningType={requestedType} planningVersion={activeVersion} />} />
+        <Route path="brief" element={<BriefPage project={project} />} />
         <Route path="client" element={<ClientTableView key={`${project.id}:${requestedType}:${activeVersion}`} project={project} planningType={requestedType} planningVersion={activeVersion} />} />
         <Route path="assets" element={<AssetListPage project={project} />} />
       </Routes>

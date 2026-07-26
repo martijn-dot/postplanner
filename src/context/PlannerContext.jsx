@@ -535,7 +535,7 @@ function readLocal(user) {
 }
 
 async function loadSupabaseData() {
-  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers, appSettings, assetLists, shareLinks] = await Promise.all([
+  const [projects, categories, lineItems, labels, profiles, presence, invitations, clients, producers, appSettings, assetLists, assetRows, shareLinks] = await Promise.all([
     supabase.from('projects').select('*').order('last_edited_at', { ascending: false }).range(0, 49),
     supabase.from('categories').select('id,project_id,planning_type,planning_version,name,sort_order,revision,updated_at').order('sort_order'),
     Promise.resolve({ data: [], error: null }),
@@ -547,6 +547,7 @@ async function loadSupabaseData() {
     supabase.from('producers').select('*').order('name'),
     supabase.from('app_settings').select('*').in('key', ['default_planning', 'asset_list_templates']),
     supabase.from('asset_lists').select('id,project_id,name,sort_order,global_separator,filename_options,created_at,updated_at,revision').order('sort_order'),
+    supabase.from('asset_list_rows').select('id,asset_list_id,project_id,updated_at').order('updated_at', { ascending: false }),
     supabase.from('public_share_links').select('*').is('revoked_at', null),
   ]);
   for (const result of [projects, categories, lineItems, labels, profiles, presence]) {
@@ -557,6 +558,7 @@ async function loadSupabaseData() {
   if (producers.error && producers.error.code !== '42P01' && producers.error.code !== '42501') throw producers.error;
   if (appSettings.error && appSettings.error.code !== '42P01' && appSettings.error.code !== '42501' && appSettings.error.code !== 'PGRST205') throw appSettings.error;
   if (assetLists.error && assetLists.error.code !== '42P01' && assetLists.error.code !== '42501' && assetLists.error.code !== 'PGRST205') throw assetLists.error;
+  if (assetRows.error && assetRows.error.code !== '42P01' && assetRows.error.code !== '42501' && assetRows.error.code !== 'PGRST205') throw assetRows.error;
   if (shareLinks.error && shareLinks.error.code !== '42P01' && shareLinks.error.code !== '42501' && shareLinks.error.code !== 'PGRST205') throw shareLinks.error;
   const loadedProfiles = profiles.data ?? [];
   const loadedClients = (clients.data ?? [...new Set(projects.data.map((project) => project.client).filter(Boolean))].map((name) => ({ id: name, name, abbreviation: '' }))).map((client) => ({ ...client, abbreviation: client.abbreviation ?? '' }));
@@ -583,7 +585,9 @@ async function loadSupabaseData() {
       ...list,
       columns: list.columns ?? [],
       categories: list.categories ?? [],
-      rows: list.rows ?? [],
+      rows: (assetRows.data ?? [])
+        .filter((row) => row.asset_list_id === list.id)
+        .map((row) => ({ id: row.id, updated_at: row.updated_at })),
       filename_options: list.filename_options ?? {},
       global_separator: list.global_separator ?? '_',
     })),
@@ -1281,7 +1285,16 @@ export function PlannerProvider({ children }) {
         const list = draft.assetLists.find((item) => item.id === listId);
         if (!list) return;
         const previousRows = list.rows ?? [];
-        const nextPatch = { ...patch, updated_at: new Date().toISOString() };
+        const updatedAt = new Date().toISOString();
+        const nextPatch = { ...patch, updated_at: updatedAt };
+        if (Object.hasOwn(patch, 'rows')) {
+          nextPatch.filename_options = {
+            ...(list.filename_options ?? {}),
+            ...(patch.filename_options ?? {}),
+            asset_last_edited_by: user.id,
+            asset_last_edited_at: updatedAt,
+          };
+        }
         Object.assign(list, nextPatch);
         markDirty(list.project_id);
         if (useSupabase) {
