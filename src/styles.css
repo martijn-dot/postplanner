@@ -8064,6 +8064,35 @@ body.public-share-body {
 
 .public-client-page .public-calendar-column-head {
   background: #f8f9ff;
+  border-radius: 0;
+}
+
+/* Notes must be readable above sticky rails, table rows, and card boundaries. */
+.public-client-page .note-preview:hover {
+  position: relative;
+  z-index: 10000;
+}
+
+.public-client-page .note-preview .note-tooltip {
+  z-index: 10001;
+}
+
+.public-client-page .public-calendar-date-card:has(.note-preview:hover) {
+  overflow: visible;
+  position: relative;
+  z-index: 10000;
+}
+
+.public-client-page .public-calendar-event-row > div:has(.note-preview:hover) {
+  position: relative;
+  z-index: 10001;
+}
+
+.public-client-page .public-asset-card:has(.note-preview:hover),
+.public-client-page .public-asset-table-wrap:has(.note-preview:hover) {
+  overflow: visible;
+  position: relative;
+  z-index: 10000;
 }
 
 .public-calendar-column-head::before {
