@@ -664,10 +664,10 @@ export default function Dashboard() {
               </label>
               <ComboField label="Client" value={client} onChange={setClient} options={clients} placeholder="Client" required />
               {(editingProject || initialPlanningType === PLANNING_TYPES.post.key) && (
-                <ComboField label="Post Producer" value={postProducer} onChange={setPostProducer} options={postProducers} placeholder="Post producer" required />
+                <ComboField label="Owner - Post Production" value={postProducer} onChange={setPostProducer} options={postProducers} placeholder="Owner - Post Production" required />
               )}
               {(editingProject || initialPlanningType === PLANNING_TYPES.production.key) && (
-                <ComboField label="Producer" value={producer} onChange={setProducer} options={producers} placeholder="Producer" required />
+                <ComboField label="Owner - Production" value={producer} onChange={setProducer} options={producers} placeholder="Owner - Production" required />
               )}
               {editingProject && (
                 <div className="project-settings-planning">
