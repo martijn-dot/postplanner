@@ -4063,6 +4063,7 @@ body.public-share-body {
   top: 0;
   transition: opacity 0.15s ease;
   width: 8px;
+  z-index: 30;
 }
 
 .column-resizer::after {
@@ -4079,6 +4080,18 @@ body.public-share-body {
 .group:hover .column-resizer,
 .column-resizer:focus-visible {
   opacity: 1;
+}
+
+[data-resize-column="asset"] {
+  opacity: 1;
+}
+
+[data-resize-column="asset"]::after {
+  background: #8b5cf6;
+}
+
+.timeline-line [data-cell-column="asset"] {
+  border-right: 1px solid rgba(139, 92, 246, 0.42);
 }
 
 .drag-handle {

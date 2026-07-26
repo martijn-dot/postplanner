@@ -125,9 +125,9 @@ function transparentColor(hex, alpha = '80') {
 
 function HeaderCell({ children, columnKey, onResizeStart }) {
   return (
-    <span className="group relative flex items-center px-3 py-3">
+    <span className="group relative flex items-center px-3 py-3" data-header-column={columnKey}>
       {children}
-      <button type="button" onPointerDown={(event) => onResizeStart(event, columnKey)} className="column-resizer" aria-label={`Resize ${children} column`} />
+      <button type="button" data-resize-column={columnKey} onPointerDown={(event) => onResizeStart(event, columnKey)} className="column-resizer" aria-label={`Resize ${children} column`} />
     </span>
   );
 }
@@ -1022,13 +1022,18 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   const onColumnResizeStart = (event, columnKey) => {
     event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     const startX = event.clientX;
-    const startWidth = columns[columnKey];
+    const startWidth = Number(columns[columnKey]) || DEFAULT_COLUMNS[columnKey];
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
     const move = (moveEvent) => {
-      const nextWidth = Math.max(columnKey === 'asset' ? 150 : 72, startWidth + moveEvent.clientX - startX);
+      const nextWidth = Math.max(72, startWidth + moveEvent.clientX - startX);
       setColumns((current) => ({ ...current, [columnKey]: nextWidth }));
     };
     const up = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
     };
@@ -1369,6 +1374,11 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
     if (suppressDetailsOpen.current) return;
     setDetailsItemId(itemId);
   };
+  const toggleTableVisibility = () => {
+    const nextVisible = !tableVisible;
+    setTableVisible(nextVisible);
+    if (!nextVisible && activePlanningType === PLANNING_TYPES.post.key) setShowAssetLabels(true);
+  };
   const togglePublishedPlanning = async () => {
     if (publishing) return;
     if (activeShare && !window.confirm(`Unpublish this ${planningDefinition.label.toLowerCase()} planning from the client portal?`)) return;
@@ -1404,7 +1414,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
       <div className="flex h-full flex-col">
         <div className="timeline-project-header flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
           <div className="flex w-full flex-wrap items-center justify-end gap-2">
-            <button type="button" onClick={() => setTableVisible((next) => !next)} className="secondary-button">
+            <button type="button" onClick={toggleTableVisibility} className="secondary-button">
               {tableVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               {tableVisible ? 'Hide table' : 'Show table'}
             </button>
