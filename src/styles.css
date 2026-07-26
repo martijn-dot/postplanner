@@ -4082,16 +4082,19 @@ body.public-share-body {
   opacity: 1;
 }
 
-[data-resize-column="asset"] {
+[data-resize-column="asset"],
+[data-resize-column="who"] {
   opacity: 1;
 }
 
-[data-resize-column="asset"]::after {
+[data-resize-column="asset"]::after,
+[data-resize-column="who"]::after {
   background: #8b5cf6;
 }
 
 .timeline-line [data-cell-column="asset"] {
   border-right: 1px solid rgba(139, 92, 246, 0.42);
+  border-radius: 0;
 }
 
 .drag-handle {
