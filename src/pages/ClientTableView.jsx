@@ -332,7 +332,7 @@ function OverflowNote({ note, onOpen }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onUpdateCategory, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE }) {
+export function ClientPlanningTable({ project, lineItems, widthLineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onUpdateCategory, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
   const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
@@ -380,9 +380,15 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     () => annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType), dateWindow)),
     [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, dateWindow, planningType],
   );
+  const widthRows = useMemo(
+    () => widthLineItems
+      ? annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, widthLineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType), dateWindow))
+      : rows,
+    [project, widthLineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType, dateWindow, rows],
+  );
   const autoWidths = useMemo(() => {
-    const maxText = (key, fallback) => rows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
-    const longestAsset = rows.reduce((longest, row) => (String(row.Asset ?? '').length > String(longest ?? '').length ? row.Asset : longest), 'Asset');
+    const maxText = (key, fallback) => widthRows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
+    const longestAsset = widthRows.reduce((longest, row) => (String(row.Asset ?? '').length > String(longest ?? '').length ? row.Asset : longest), 'Asset');
     const labelExtra = 54;
     return {
       edit: 86,
@@ -394,7 +400,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
       what: measureTextWidth(maxText('What', 'What'), 110, 280, 7.1) + labelExtra,
       todo: measureTextWidth(maxText('Todo', 'Todo'), 110, 300, 7.1) + labelExtra,
     };
-  }, [rows]);
+  }, [widthRows]);
   const widthForColumn = (column) => {
     if (column.key === 'asset' && autoWidths.assetResizable) return prefs.widths.asset ?? autoWidths.asset;
     if (['calendar', 'who', 'what', 'todo'].includes(column.key) && prefs.widths[column.key]) return prefs.widths[column.key];
@@ -500,7 +506,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                 return <col key={column.key} style={column.key === 'notes' ? { width, minWidth: width, maxWidth: width } : { width }} />;
               })}
             </colgroup>
-            <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
+            {showHeader && <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
                 {showWeekColumn && <th className="sticky-week px-2 py-3 text-center font-semibold"></th>}
                 <th className="px-3 py-3 font-semibold">Date</th>
@@ -545,8 +551,8 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   </th>
                 ))}
               </tr>
-            </thead>
-            <tbody>
+            </thead>}
+            {!headerOnly && <tbody>
               {rows.map((row, index) => (
                 <Fragment key={`${row._item?.id ?? row._dateKey}-${index}`}>
                   {!showWeekColumn && row._showWeekDivider && (
@@ -611,7 +617,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   <td colSpan={(showWeekColumn ? 2 : 1) + orderedColumns.length} className="px-4 py-10 text-center text-ink-500">No milestones yet.</td>
                 </tr>
               )}
-            </tbody>
+            </tbody>}
           </table>
         </div>
       </div>
@@ -1001,7 +1007,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   };
 
   return (
-    <main ref={planningViewRef} className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 p-4">
+    <main ref={planningViewRef} className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 px-4 pb-4">
       <div className="client-planning-header flex flex-col justify-between gap-3 rounded-xl border p-4 shadow-lg xl:flex-row xl:items-center">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1092,7 +1098,29 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       )}
 
       {viewMode === 'table' ? (
-          <div className="space-y-4">
+          <div className="client-category-list">
+            <div className="client-global-column-header">
+              <ClientPlanningTable
+                project={project}
+                lineItems={filteredLineItems}
+                widthLineItems={filteredLineItems}
+                labels={labels}
+                categories={versionCategories}
+                showEmptyDates={showEmptyDates}
+                dateWindow={dateWindow}
+                onUpdateLineItem={updateLineItem}
+                onFlushLineItem={flushLineItemUpdate}
+                onUpdateCategory={updateCategory}
+                onAddLabel={addLabel}
+                uncategorizedName={uncategorizedName}
+                columnPrefs={columnPrefs}
+                onColumnPrefsChange={updateColumnPrefs}
+                forceHideCategoryColumn
+                showWeekColumn
+                planningType={activePlanningType}
+                headerOnly
+              />
+            </div>
             {categoryGroups.map((group) => (
               <section key={group.key} className="client-category-section">
                 <button type="button" onClick={() => toggleCollapsedCategory(group.key)} className="client-category-section-title">
@@ -1103,6 +1131,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                   <ClientPlanningTable
                     project={project}
                     lineItems={group.items}
+                    widthLineItems={filteredLineItems}
                     labels={labels}
                     categories={versionCategories}
                     showEmptyDates={showEmptyDates}
@@ -1117,6 +1146,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     forceHideCategoryColumn
                     showWeekColumn
                     planningType={activePlanningType}
+                    showHeader={false}
                   />
                 )}
               </section>

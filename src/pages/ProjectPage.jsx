@@ -134,7 +134,7 @@ export default function ProjectPage() {
         {clientPortalUrl && (
           <a href={clientPortalUrl} target="_blank" rel="noreferrer" className="tab">
             <span className="project-tab-icon"><ExternalLink size={16} strokeWidth={2.1} /></span>
-            <span>CLIENT PORTAL</span>
+            <span>Client portal</span>
           </a>
         )}
       </nav>

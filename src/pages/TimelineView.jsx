@@ -231,6 +231,7 @@ function SortableLine({
   onOpenDetails,
   selectedCells,
   onCellSelect,
+  onClearCellSelection,
   fillCells,
   onFillStart,
   onSpreadsheetUpdate,
@@ -380,8 +381,45 @@ function SortableLine({
           <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
           <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
-          {columnVisibility.who && <div {...cellProps('who')}><LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color, { planningType: planningDefinition.key })} onDeleteLabel={deleteLabel} /></div>}
-          {columnVisibility.asset && <div {...cellProps('asset')}><input value={item.asset} onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }} onBlur={() => flushLineItemUpdate(item.id)} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="table-input" placeholder={assetColumnLabel} />{fillHandle('asset')}</div>}
+          {columnVisibility.who && (
+            <div {...cellProps('who')}>
+              <LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color, { planningType: planningDefinition.key })} onDeleteLabel={deleteLabel} />
+              {fillHandle('who')}
+            </div>
+          )}
+          {columnVisibility.asset && (
+            <div {...cellProps('asset')}>
+              <input
+                value={item.asset}
+                onChange={(event) => { onInteract(item.id); onUpdateLineItem(item.id, { asset: event.target.value }); }}
+                onBlur={() => flushLineItemUpdate(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                    onClearCellSelection();
+                    return;
+                  }
+                  if (event.key !== 'Tab') return;
+                  const cells = [...document.querySelectorAll('[data-fill-cell="true"][data-cell-column="asset"]')];
+                  const currentCell = event.currentTarget.closest('[data-fill-cell="true"]');
+                  const currentIndex = cells.indexOf(currentCell);
+                  const nextCell = cells[currentIndex + (event.shiftKey ? -1 : 1)];
+                  const nextInput = nextCell?.querySelector('input');
+                  if (!nextCell?.dataset.cellId || !nextInput) return;
+                  event.preventDefault();
+                  onCellSelect(nextCell.dataset.cellId, 'asset', {});
+                  window.requestAnimationFrame(() => {
+                    nextInput.focus();
+                    nextInput.select();
+                  });
+                }}
+                className="table-input"
+                placeholder={assetColumnLabel}
+              />
+              {fillHandle('asset')}
+            </div>
+          )}
           {optionsVisible && (
             <div className="timeline-option-cluster">
               <button type="button" onClick={() => { onInteract(item.id); onFocusBlock(item); }} disabled={!block} className="focus-button" aria-label="Focus booking on timeline">F</button>
@@ -520,6 +558,7 @@ function CategoryBlock({
   onOpenDetails,
   selectedCells,
   onCellSelect,
+  onClearCellSelection,
   fillCells,
   onFillStart,
   onSpreadsheetUpdate,
@@ -691,6 +730,7 @@ function CategoryBlock({
                 onOpenDetails={onOpenDetails}
                 selectedCells={selectedCells}
                 onCellSelect={onCellSelect}
+                onClearCellSelection={onClearCellSelection}
                 fillCells={fillCells}
                 onFillStart={onFillStart}
                 onSpreadsheetUpdate={onSpreadsheetUpdate}
@@ -1533,6 +1573,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                       onOpenDetails={openBookingDetails}
                       selectedCells={selectedCells}
                       onCellSelect={selectCell}
+                      onClearCellSelection={() => { setSelectedCells([]); setFillCells([]); }}
                       fillCells={fillCells}
                       onFillStart={startFillDrag}
                       onSpreadsheetUpdate={applySpreadsheetUpdate}
@@ -1579,6 +1620,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
                   onOpenDetails={openBookingDetails}
                   selectedCells={selectedCells}
                   onCellSelect={selectCell}
+                  onClearCellSelection={() => { setSelectedCells([]); setFillCells([]); }}
                   fillCells={fillCells}
                   onFillStart={startFillDrag}
                   onSpreadsheetUpdate={applySpreadsheetUpdate}
