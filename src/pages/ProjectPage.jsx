@@ -121,7 +121,7 @@ export default function ProjectPage() {
           <span className="project-tab-icon"><NotebookPen size={16} strokeWidth={2.1} /></span>
           <span>Brief</span>
         </NavLink>
-        <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
+        <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive || location.pathname.endsWith('/client') ? 'tab-active' : ''}`}>
           <span className="project-tab-icon"><CalendarRange size={16} strokeWidth={2.1} /></span>
           <span>Planning</span>
         </NavLink>

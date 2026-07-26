@@ -4074,7 +4074,7 @@ body.public-share-body {
   left: 3px;
   position: absolute;
   top: 8px;
-  width: 2px;
+  width: 1px;
 }
 
 .group:hover .column-resizer,
@@ -5049,7 +5049,6 @@ body.public-share-body {
 
 /* Authenticated client planning — matched to the supplied dark dashboard reference. */
 .client-planning-admin {
-  background: #161922;
   color: #cbd5e1;
   font-size: 12px;
 }
@@ -5431,6 +5430,17 @@ body.public-share-body {
   z-index: 70;
 }
 
+.client-planning-admin .client-filter-row::after {
+  background: #0f111a;
+  content: "";
+  height: 16px;
+  left: -1px;
+  pointer-events: none;
+  position: absolute;
+  right: -1px;
+  top: 100%;
+}
+
 .client-planning-admin .client-filter-group {
   border-right: 1px solid #252a37;
   padding-right: 24px;
@@ -5528,7 +5538,6 @@ body.public-share-body {
 }
 
 .client-planning-admin .client-category-section {
-  background: #161922;
   position: relative;
 }
 
