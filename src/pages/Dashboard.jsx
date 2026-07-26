@@ -191,6 +191,8 @@ export default function Dashboard() {
       resetForm();
       return;
     }
+    const selectedPostProducer = initialPlanningType === PLANNING_TYPES.post.key ? postProducer : '';
+    const selectedProducer = initialPlanningType === PLANNING_TYPES.production.key ? producer : '';
     if (!/^\d{5}$/.test(projectNumber)) {
       setFormError('Project code should be exactly 5 numbers.');
       return;
@@ -205,7 +207,12 @@ export default function Dashboard() {
         return;
       }
       if (window.confirm(`Project code ${projectNumber} already exists. Add ${selectedDefinition.label} planning to that project?`)) {
+        updateProject(duplicateProject.id, selectedDefinition.key === PLANNING_TYPES.production.key
+          ? { producer: selectedProducer || null }
+          : { post_producer: selectedPostProducer || null });
         ensurePlanningModule(duplicateProject.id, selectedDefinition.key);
+        if (selectedPostProducer) addProducer(selectedPostProducer);
+        if (selectedProducer) addProducer(selectedProducer);
         resetForm();
       } else {
         setFormError(`Project code ${projectNumber} already exists. Choose the missing planning type to add it to the existing project.`);
@@ -213,10 +220,17 @@ export default function Dashboard() {
       return;
     }
     try {
-      await createProject({ projectNumber, name, client, postProducer, producer, planningType: initialPlanningType });
+      await createProject({
+        projectNumber,
+        name,
+        client,
+        postProducer: selectedPostProducer,
+        producer: selectedProducer,
+        planningType: initialPlanningType,
+      });
       if (client) addClient(client);
-      if (postProducer) addProducer(postProducer);
-      if (producer) addProducer(producer);
+      if (selectedPostProducer) addProducer(selectedPostProducer);
+      if (selectedProducer) addProducer(selectedProducer);
       resetForm();
     } catch (error) {
       setFormError(error.message);
@@ -333,11 +347,12 @@ export default function Dashboard() {
                 setVersionMenuType(definition.key);
                 setVersionMenuProjectId(project.id);
               };
-              const openArchiveAction = (event) => {
+              const deletePlanningRowAction = (definition, event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                setArchiveProjectTarget(project);
-                setArchiveConfirmText('');
+                if (window.confirm(`Delete the ${definition.label} row and all of its versions? This cannot be undone.`)) {
+                  deletePlanningModule(project.id, definition.key);
+                }
               };
               const openAssetListAction = (event) => {
                 event.preventDefault();
@@ -367,6 +382,15 @@ export default function Dashboard() {
                       </div>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={openProjectSettingsAction}
+                      className="project-action-button project-header-settings"
+                      aria-label={`${project.name} settings`}
+                      title="Project settings"
+                    >
+                      <Settings size={17} />
+                    </button>
                   </div>
                   <div className="project-planning-rows">
                     <div className="project-planning-list">
@@ -415,9 +439,16 @@ export default function Dashboard() {
                             <span>by {editedBy?.display_name ?? createdBy?.display_name ?? 'Unknown'}</span>
                           </div>
                           <div className="project-row-actions">
-                            <button type="button" onClick={openProjectSettingsAction} className="project-action-button" aria-label={`${definition.label} settings`}><Settings size={17} /></button>
                             <button type="button" onClick={(event) => openVersionMenuAction(definition, event)} disabled={!exists} className="project-action-button" aria-label={`${definition.label} versions and duplication`} title={`${definition.label} versions and duplication`}><Copy size={16} /></button>
-                            <button type="button" onClick={openArchiveAction} className="project-action-button" aria-label={`Remove ${project.name} from projects`} title="Remove project from overview"><Trash2 size={17} /></button>
+                            <button
+                              type="button"
+                              onClick={(event) => deletePlanningRowAction(definition, event)}
+                              className="project-action-button"
+                              aria-label={`Delete ${definition.label} row`}
+                              title={`Delete ${definition.label} row`}
+                            >
+                              <Trash2 size={17} />
+                            </button>
                           </div>
                         </div>
                       );
@@ -620,8 +651,12 @@ export default function Dashboard() {
                 <input className="field" value={name} onChange={(event) => setName(event.target.value)} placeholder="Project name" required />
               </label>
               <ComboField label="Client" value={client} onChange={setClient} options={clients} placeholder="Client" required />
-              <ComboField label="Post Producer" value={postProducer} onChange={setPostProducer} options={postProducers} placeholder="Post producer" required />
-              <ComboField label="Producer" value={producer} onChange={setProducer} options={producers} placeholder="Producer" required />
+              {(editingProject || initialPlanningType === PLANNING_TYPES.post.key) && (
+                <ComboField label="Post Producer" value={postProducer} onChange={setPostProducer} options={postProducers} placeholder="Post producer" required />
+              )}
+              {(editingProject || initialPlanningType === PLANNING_TYPES.production.key) && (
+                <ComboField label="Producer" value={producer} onChange={setProducer} options={producers} placeholder="Producer" required />
+              )}
               {editingProject && (
                 <div className="project-settings-planning">
                   <div className="text-xs font-semibold uppercase text-ink-500">Planning modules</div>

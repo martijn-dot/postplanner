@@ -7097,6 +7097,11 @@ body.public-share-body {
   opacity: 0.38;
 }
 
+.project-header-settings {
+  color: rgba(202, 196, 211, 0.58);
+  margin-left: auto;
+}
+
 .project-settings-planning {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
