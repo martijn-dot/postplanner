@@ -775,15 +775,24 @@ export default function SettingsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" size={16} />
             <input className="field !py-2 pl-9" value={archiveSearch} onChange={(event) => setArchiveSearch(event.target.value)} placeholder="Search archived projects" />
           </label>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="overflow-hidden rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-ink-900">
+            <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,1.4fr)_auto] gap-4 border-b border-black/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-500 dark:border-white/10 md:grid">
+              <span>Project</span>
+              <span>Client</span>
+              <span>Archived</span>
+              <span className="text-right">Actions</span>
+            </div>
             {projects.filter((project) => project.is_archived).filter((project) => [project.project_number, project.name, project.client].filter(Boolean).join(' ').toLowerCase().includes(archiveSearch.toLowerCase())).map((project) => {
               const archivedBy = profiles.find((item) => item.id === project.archived_by);
               return (
-                <section key={project.id} className="rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-ink-900">
-                  <h2 className="text-lg font-semibold">{project.name}</h2>
-                  <p className="mt-1 text-sm text-ink-500">{project.client || 'No client'}</p>
-                  <p className="mt-5 text-sm text-ink-500">Archived by {archivedBy?.display_name ?? 'Unknown'} {project.archived_at ? `on ${new Date(project.archived_at).toLocaleDateString()}` : ''}</p>
-                  <div className="mt-5 flex gap-2">
+                <section key={project.id} className="grid gap-3 border-b border-black/10 px-4 py-3 last:border-b-0 dark:border-white/10 md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,1.4fr)_auto] md:items-center md:gap-4">
+                  <div className="min-w-0">
+                    <h2 className="truncate font-semibold">{project.name}</h2>
+                    {project.project_number && <p className="mt-0.5 truncate text-xs text-ink-500">{project.project_number}</p>}
+                  </div>
+                  <p className="min-w-0 truncate text-sm text-ink-500">{project.client || 'No client'}</p>
+                  <p className="text-sm text-ink-500">By {archivedBy?.display_name ?? 'Unknown'} {project.archived_at ? `on ${new Date(project.archived_at).toLocaleDateString()}` : ''}</p>
+                  <div className="flex flex-wrap gap-2 md:flex-nowrap md:justify-end">
                     <button type="button" onClick={() => restoreProject(project.id)} className="secondary-button"><ArchiveRestore size={16} /> Restore</button>
                     <button
                       type="button"

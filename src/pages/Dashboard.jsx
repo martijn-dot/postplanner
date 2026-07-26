@@ -113,6 +113,7 @@ export default function Dashboard() {
   const [versionMenuProjectId, setVersionMenuProjectId] = useState(null);
   const [archiveProjectTarget, setArchiveProjectTarget] = useState(null);
   const [archiveConfirmText, setArchiveConfirmText] = useState('');
+  const [deleteModuleTarget, setDeleteModuleTarget] = useState(null);
   const [search, setSearch] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
@@ -259,13 +260,13 @@ export default function Dashboard() {
       .length;
     if (existingModuleCount <= 1) {
       setOpen(false);
+      setDeleteModuleTarget(null);
       setArchiveProjectTarget(project);
       setArchiveConfirmText('');
       return;
     }
-    if (window.confirm(`Delete the ${definition.label} row and all of its versions? This cannot be undone.`)) {
-      deletePlanningModule(project.id, definition.key);
-    }
+    setOpen(false);
+    setDeleteModuleTarget({ project, definition });
   };
 
   return (
@@ -636,6 +637,31 @@ export default function Dashboard() {
                 className="primary-button disabled:opacity-40"
               >
                 Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteModuleTarget && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/60 p-5">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 text-ink-100 shadow-glow">
+            <h2 className="text-xl font-semibold">Delete {deleteModuleTarget.definition.label}?</h2>
+            <p className="mt-2 text-sm text-ink-500">
+              This deletes the {deleteModuleTarget.definition.label} module and all of its versions from {deleteModuleTarget.project.name}. The other planning module will remain.
+            </p>
+            <p className="mt-3 text-sm font-semibold text-red-300">This action cannot be undone.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setDeleteModuleTarget(null)} className="secondary-button">Cancel</button>
+              <button
+                type="button"
+                onClick={() => {
+                  deletePlanningModule(deleteModuleTarget.project.id, deleteModuleTarget.definition.key);
+                  setDeleteModuleTarget(null);
+                }}
+                className="primary-button bg-red-500 hover:bg-red-400"
+              >
+                <Trash2 size={16} /> Delete module
               </button>
             </div>
           </div>

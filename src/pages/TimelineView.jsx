@@ -546,7 +546,8 @@ function CategoryBlock({
   const [draftName, setDraftName] = useState(category.name);
   const isUncategorized = category.id === 'uncategorized';
   const editable = Boolean(category.id);
-  const showClientReviewAction = planningDefinition.key !== PLANNING_TYPES.production.key;
+  const categoryPlanningType = safePlanningType(category.planning_type ?? planningDefinition.key);
+  const showClientReviewAction = categoryPlanningType !== PLANNING_TYPES.production.key;
   const visibleCategoryActionCount = 2 + (categoryCount > 1 ? 1 : 0) + (showClientReviewAction ? 1 : 0);
   const categoryActionSpacerCount = Math.max(0, 4 - visibleCategoryActionCount);
 

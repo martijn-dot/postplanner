@@ -7711,6 +7711,10 @@ body.public-share-body {
   padding: 0 6px;
 }
 
+.timeline-line .timeline-row-table-panel .relative > button span.text-ink-500 {
+  font-size: 0.656rem;
+}
+
 .timeline-line .table-input {
   border-radius: 6px;
   font-size: 0.53rem;

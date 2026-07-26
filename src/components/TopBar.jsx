@@ -63,7 +63,7 @@ export default function TopBar({ project = null, planningType = DEFAULT_PLANNING
             {!project && (
               <span className="flex flex-col leading-none">
                 <span>ROVAL</span>
-                <span className="mt-1 text-[10px] font-semibold normal-case tracking-normal text-ink-500">the post production planner without clutter</span>
+                <span className="mt-1 text-[10px] font-semibold normal-case tracking-normal text-ink-500">the center within project of wenneker.amsterdam without any clutter</span>
               </span>
             )}
           </Link>
