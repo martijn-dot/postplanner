@@ -350,6 +350,12 @@ export default function Dashboard() {
               const deletePlanningRowAction = (definition, event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                if (visibleModuleLinks.length === 1) {
+                  if (window.confirm(`${definition.label} is the only planning module in this project. Archive the project instead?`)) {
+                    archiveProject(project.id);
+                  }
+                  return;
+                }
                 if (window.confirm(`Delete the ${definition.label} row and all of its versions? This cannot be undone.`)) {
                   deletePlanningModule(project.id, definition.key);
                 }
