@@ -16,6 +16,15 @@ const EDITOR_FONTS = [
   ['Merriweather', 'Merriweather'],
   ['Playfair Display', 'Playfair Display'],
 ];
+const EDITOR_FONT_SIZES = [
+  ['12 px', '1'],
+  ['14 px', '2'],
+  ['16 px', '3'],
+  ['18 px', '4'],
+  ['24 px', '5'],
+  ['32 px', '6'],
+  ['48 px', '7'],
+];
 
 function storageKey(projectId) {
   return `post-planner:brief:${projectId}`;
@@ -210,6 +219,17 @@ export default function BriefPage({ project }) {
                   onChange={(event) => runCommand('fontName', event.target.value)}
                 >
                   {EDITOR_FONTS.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label className="brief-font-select-wrap brief-size-select-wrap" title="Font size">
+                <select
+                  className="brief-font-select brief-size-select"
+                  defaultValue="3"
+                  aria-label="Font size"
+                  onMouseDown={rememberSelection}
+                  onChange={(event) => runCommand('fontSize', event.target.value)}
+                >
+                  {EDITOR_FONT_SIZES.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
               <ToolbarButton label="Heading 1" onClick={() => runCommand('formatBlock', 'h1')}><Heading1 size={18} /></ToolbarButton>
