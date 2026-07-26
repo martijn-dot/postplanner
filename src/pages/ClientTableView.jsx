@@ -623,15 +623,15 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
       </div>
       {editingItem && onUpdateLineItem && (
         <div className="fixed inset-0 z-[700] grid place-items-center bg-black/60 p-5" onMouseDown={() => setEditingItemId(null)}>
-          <div className="w-full max-w-lg rounded-lg border border-white/10 bg-ink-900 p-5 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-white/10 bg-ink-900 p-4 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-ink-100">Edit planning row</h2>
                 <p className="mt-1 text-sm text-ink-500">{editingItem.asset || 'Client planning row'}</p>
               </div>
               <button type="button" onClick={() => setEditingItemId(null)} className="icon-button">x</button>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Category</span>
                 <input
@@ -670,30 +670,32 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Todo</span>
                 <LabelSelect labels={labelsByType.todo} value={editingItem.todo} placeholder="Todo" onChange={(todo) => onUpdateLineItem(editingItem.id, { todo })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'todo', value, color)} />
               </label>
-              <label className="block space-y-1">
+              <div className="space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Time</span>
-                <input
-                  value={editingItem.time === 'EOD' ? '' : editingItem.time ?? ''}
-                  onChange={(event) => onUpdateLineItem(editingItem.id, { time: normalizeTimeInput(event.target.value) })}
-                  onBlur={() => onFlushLineItem?.(editingItem.id)}
-                  className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 font-mono text-sm text-ink-100 outline-none focus:border-accent-400"
-                  placeholder="HH:MM"
-                  inputMode="numeric"
-                />
-              </label>
-              <button type="button" onClick={() => onUpdateLineItem(editingItem.id, { time: 'EOD' })} className="secondary-button">Set EOD</button>
+                <div className="flex items-stretch gap-2">
+                  <input
+                    value={editingItem.time === 'EOD' ? '' : editingItem.time ?? ''}
+                    onChange={(event) => onUpdateLineItem(editingItem.id, { time: normalizeTimeInput(event.target.value) })}
+                    onBlur={() => onFlushLineItem?.(editingItem.id)}
+                    className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-950 px-3 py-2 font-mono text-sm text-ink-100 outline-none focus:border-accent-400"
+                    placeholder="HH:MM"
+                    inputMode="numeric"
+                  />
+                  <button type="button" onClick={() => onUpdateLineItem(editingItem.id, { time: 'EOD' })} className="secondary-button shrink-0">Set EOD</button>
+                </div>
+              </div>
               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Notes</span>
               <textarea
                 value={editingItem.notes ?? ''}
                 onChange={(event) => onUpdateLineItem(editingItem.id, { notes: event.target.value })}
                 onBlur={() => onFlushLineItem?.(editingItem.id)}
-                className="min-h-36 w-full resize-y rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
+                className="min-h-24 w-full resize-y rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
                 placeholder="Add notes for this client planning row..."
               />
               </label>
             </div>
-            <div className="mt-4 flex justify-end">
+            <div className="mt-3 flex justify-end">
               <button type="button" onClick={() => setEditingItemId(null)} className="primary-button">Done</button>
             </div>
           </div>

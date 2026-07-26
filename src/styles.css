@@ -261,7 +261,7 @@ nav .tab-active {
 
 .project-page-tabs {
   position: sticky;
-  top: 0;
+  top: 64px;
   z-index: 90;
 }
 
@@ -5046,6 +5046,7 @@ body.public-share-body {
 
 /* Authenticated client planning — matched to the supplied dark dashboard reference. */
 .client-planning-admin {
+  background: #161922;
   color: #cbd5e1;
   font-size: 12px;
 }
@@ -5423,7 +5424,7 @@ body.public-share-body {
 .client-planning-admin .client-filter-row {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   position: sticky;
-  top: 48px;
+  top: 112px;
   z-index: 70;
 }
 
@@ -5497,18 +5498,20 @@ body.public-share-body {
 .client-planning-admin .client-gantt-today-line { top: 45px; }
 
 .client-planning-admin .today-row {
-  scroll-margin-top: 52px;
+  scroll-margin-top: calc(112px + var(--client-filter-stack-height, 54px) + var(--client-column-stack-height, 39px) + var(--client-category-stack-height, 38px));
 }
 
 .client-planning-admin .client-table-shell { flex: 1; }
 .client-planning-admin .client-category-list {
   --client-filter-stack-height: 54px;
   --client-column-stack-height: 39px;
+  --client-category-stack-height: 38px;
 }
 
 .client-planning-admin .client-global-column-header {
+  background: #161922;
   position: sticky;
-  top: calc(48px + var(--client-filter-stack-height));
+  top: calc(112px + var(--client-filter-stack-height));
   z-index: 60;
 }
 
@@ -5522,13 +5525,14 @@ body.public-share-body {
 }
 
 .client-planning-admin .client-category-section {
+  background: #161922;
   position: relative;
 }
 
 .client-planning-admin .client-category-section-title {
   margin-bottom: 0;
   position: sticky;
-  top: calc(48px + var(--client-filter-stack-height) + var(--client-column-stack-height));
+  top: calc(112px + var(--client-filter-stack-height) + var(--client-column-stack-height));
   z-index: 50;
 }
 

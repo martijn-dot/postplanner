@@ -56,7 +56,7 @@ export default function TopBar({ project = null, planningType = DEFAULT_PLANNING
           <button type="button" onClick={clearSaveError} className="text-xs uppercase tracking-wide text-red-200 hover:text-white">Dismiss</button>
         </div>
       )}
-      <header className="relative z-[1200] flex h-16 items-center justify-between border-b border-black/10 bg-white/80 px-5 text-ink-950 backdrop-blur dark:border-white/10 dark:bg-ink-950/80 dark:text-ink-100">
+      <header className="app-topbar sticky top-0 z-[1200] flex h-16 items-center justify-between border-b border-black/10 bg-white/80 px-5 text-ink-950 backdrop-blur dark:border-white/10 dark:bg-ink-950/80 dark:text-ink-100">
         <div className="flex min-w-0 items-center gap-3">
           <Link to="/" className={`flex shrink-0 items-center text-sm font-bold uppercase tracking-[0.18em] text-accent-300 ${project ? '' : 'gap-2'}`}>
             <RovalLogo />
