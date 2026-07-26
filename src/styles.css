@@ -6507,10 +6507,15 @@ body.public-share-body {
   max-height: none;
 }
 
-/* The date rail stays immediately below the sticky client filters while the page scrolls. */
-.public-client-page .client-gantt,
+/* Keep the long timeline's horizontal scroll inside the chart, never on the portal page. */
+.public-client-page .client-gantt {
+  overflow: hidden !important;
+}
+
 .public-client-page .client-gantt-scroll {
-  overflow: visible !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior-x: contain;
 }
 
 .public-client-page .client-gantt-scroll > .relative > .sticky.top-0 {
