@@ -3636,7 +3636,7 @@ body.public-share-body {
   border: 1px solid #dfe3e7;
   border-radius: 14px;
   display: grid;
-  grid-template-columns: 126px minmax(0, 1fr);
+  grid-template-columns: 106px minmax(0, 1fr);
   /* Keep the date typography intact, while making each planning row 20% denser. */
   min-height: 94px;
   overflow: hidden;
@@ -3649,7 +3649,7 @@ body.public-share-body {
   display: grid;
   margin: 11px 0;
   min-height: 72px;
-  padding: 0 20px;
+  padding: 0 16px;
 }
 
 .public-calendar-date-block span {
@@ -3658,6 +3658,15 @@ body.public-share-body {
   font-weight: 500;
   line-height: 15px;
   text-transform: uppercase;
+}
+
+.public-calendar-date-block span.is-today {
+  background: #fee2e2;
+  border-radius: 4px;
+  color: #dc2626;
+  font-weight: 800;
+  justify-self: start;
+  padding: 1px 5px;
 }
 
 .public-calendar-date-block strong {
@@ -4394,6 +4403,22 @@ body.public-share-body {
 
 .note-preview:hover .note-tooltip {
   display: block;
+}
+
+.cursor-hover-tooltip {
+  background: #171325;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+  color: #f3f0ff;
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: min(340px, calc(100vw - 32px));
+  padding: 10px 12px;
+  pointer-events: none;
+  position: fixed;
+  white-space: normal;
+  z-index: 20000;
 }
 
 .client-note-overflow {

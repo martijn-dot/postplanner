@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Search } from 'lucide-react';
+import { BarChart3, CalendarDays, ChevronDown, ChevronRight, Eye, EyeOff, FileText, Search } from 'lucide-react';
+import CursorTooltip from '../components/CursorTooltip.jsx';
 import { ClientGanttChart, ClientPlanningTable, clientPlanningExportRows } from './ClientTableView.jsx';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 import { downloadPlanningExcel } from '../lib/exportExcel.js';
@@ -278,11 +279,10 @@ function PublicAssetList({ assetLists = [], labels = [] }) {
                         return (
                         <td rowSpan={notesMeta.rowSpan} className={`public-asset-notes${notesMeta.rowSpan > 1 ? ' public-asset-grouped-cell' : ''}`}>
                           {hasMeaningfulValue(notesMeta.sourceRow.notes) ? (
-                            <span className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300">
+                            <CursorTooltip text={notesMeta.sourceRow.notes} className="note-preview group relative inline-flex w-full min-w-0 items-center gap-2 text-left text-sm text-ink-300">
                               <FileText size={14} className="shrink-0 text-ink-500" />
                               <span>{notesMeta.sourceRow.notes}</span>
-                              <span className="note-tooltip">{notesMeta.sourceRow.notes}</span>
-                            </span>
+                            </CursorTooltip>
                           ) : null}
                         </td>
                         );
@@ -378,6 +378,15 @@ export default function PublicClientPage() {
   }), [showClientBookings, showWennekerBookings, visibleLineItems, whoFilterIds.client, whoFilterIds.wenneker]);
   const toggleHiddenCategory = (key) => {
     setHiddenCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  };
+  const scrollToToday = () => {
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const target = document.querySelector(`.public-client-page .public-calendar-date-card[data-date-key="${todayKey}"]`);
+    const header = document.querySelector('.public-client-page .public-calendar-column-head');
+    if (!target) return;
+    const headerBottom = header?.getBoundingClientRect().bottom ?? 0;
+    window.scrollBy({ top: target.getBoundingClientRect().top - headerBottom - 12, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -516,9 +525,14 @@ export default function PublicClientPage() {
                       {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
                     </button>
                     {planningView === 'calendar' && (
-                      <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
-                        {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
-                      </button>
+                      <>
+                        <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
+                          {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
+                        </button>
+                        <button type="button" onClick={scrollToToday} className="client-filter-pill">
+                          <CalendarDays size={14} /> Today
+                        </button>
+                      </>
                     )}
                     {categoryCount > 1 && (
                       <>

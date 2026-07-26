@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
 import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import CursorTooltip from '../components/CursorTooltip.jsx';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
@@ -419,12 +420,14 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
     const publicColumnWidth = (column) => {
       const minWidth = Math.min(widthForColumn(column), 110);
       if (column.key === 'who') return `minmax(${Math.min(minWidth, 76)}px, 0.8fr)`;
-      if (column.key === 'time') return `minmax(${Math.min(minWidth, 58)}px, 0.65fr)`;
-      if (column.key === 'calendar') return `minmax(${minWidth}px, 0.9fr)`;
-      return `minmax(${minWidth}px, ${column.key === 'asset' || column.key === 'notes' ? '1.4fr' : '1fr'})`;
+      if (column.key === 'time') return `minmax(${Math.min(minWidth, 50)}px, 0.55fr)`;
+      if (column.key === 'calendar') return `minmax(${Math.min(minWidth, 92)}px, 0.65fr)`;
+      if (column.key === 'asset') return `minmax(${minWidth}px, 1.7fr)`;
+      if (column.key === 'notes') return `minmax(${minWidth}px, 1.9fr)`;
+      return `minmax(${minWidth}px, 1fr)`;
     };
     const publicEventColumns = orderedColumns.map(publicColumnWidth).join(' ');
-    const gridColumns = `88px 88px ${publicEventColumns}`;
+    const gridColumns = `88px 74px ${publicEventColumns}`;
     const weeks = rows.reduce((groups, row) => {
       let week = groups.at(-1);
       if (!week || week.number !== row.Week) {
@@ -446,15 +449,14 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
       if (column.key === 'time') return row._item ? (row.Time || '-') : null;
       if (column.key === 'who') return row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null;
       if (column.key === 'asset') return row._item ? (
-        <span className="client-asset-overflow note-preview group relative block min-w-0">
-          <span className="block truncate font-semibold">{row.Asset || '-'}</span>
+        <CursorTooltip text={row.Asset} onlyWhenOverflowing className="client-asset-overflow note-preview group relative block min-w-0">
+          <span data-cursor-tooltip-trigger className="block truncate font-semibold">{row.Asset || '-'}</span>
           <span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span>
-          {row.Asset && <span className="note-tooltip">{row.Asset}</span>}
-        </span>
+        </CursorTooltip>
       ) : null;
       if (column.key === 'what') return row._item ? (isProduction ? <span className="font-semibold">{row.What || '-'}</span> : <Pill label={labelsById[row._item.what]} />) : null;
       if (column.key === 'todo') return row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null;
-      if (column.key === 'notes') return row._item?.notes ? <span className="note-preview group relative inline-flex min-w-0 items-center gap-2"><FileText size={14} /><span className="truncate">{row._item.notes}</span><span className="note-tooltip">{row._item.notes}</span></span> : null;
+      if (column.key === 'notes') return row._item?.notes ? <CursorTooltip text={row._item.notes} className="note-preview group relative inline-flex min-w-0 items-center gap-2"><FileText size={14} /><span className="truncate">{row._item.notes}</span></CursorTooltip> : null;
       if (column.key === 'category') return row._item ? row.Category : null;
       return null;
     };
@@ -483,9 +485,9 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
               const [dayNumber, month] = firstRow.Date.split(' ');
               const hasVisibleEvent = date.rows.some((row) => row._item && !row._item.who?.some((id) => hiddenWhoIds.includes(id)));
               return (
-                <article className="public-calendar-date-card" key={date.key}>
+                <article className="public-calendar-date-card" data-date-key={date.key} key={date.key}>
                   <div className="public-calendar-date-block">
-                    <span>{firstRow.Day}</span>
+                    <span className={firstRow._isToday ? 'is-today' : ''}>{firstRow.Day}</span>
                     <strong>{dayNumber}</strong>
                     <b>{month}</b>
                   </div>
