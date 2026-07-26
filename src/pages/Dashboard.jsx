@@ -329,6 +329,7 @@ export default function Dashboard() {
               const missingClient = clientLabel === 'no client';
               const activeNames = activeNamesForProject(project.id);
               const projectAssetLists = assetLists.filter((list) => list.project_id === project.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+              const hasAssetRows = projectAssetLists.some((list) => Array.isArray(list.rows) && list.rows.length > 0);
               const latestAssetListUpdate = projectAssetLists
                 .map((list) => list.updated_at)
                 .filter(Boolean)
@@ -481,7 +482,11 @@ export default function Dashboard() {
                           <FileSpreadsheet size={14} /> ASSETLIST
                         </button>
                         <span className="project-asset-updated">
-                          {latestAssetListUpdate ? `Updated ${formatDistanceToNow(new Date(latestAssetListUpdate), { addSuffix: true })}` : 'No updates yet'}
+                          {!hasAssetRows
+                            ? 'No assets yet!'
+                            : latestAssetListUpdate
+                              ? `Updated ${formatDistanceToNow(new Date(latestAssetListUpdate), { addSuffix: true })}`
+                              : 'No updates yet'}
                         </span>
                       </div>
                     </div>
