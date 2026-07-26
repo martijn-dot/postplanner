@@ -14,7 +14,7 @@ export function RovalLogo() {
   );
 }
 
-export default function TopBar({ project = null, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1', planningVersions = [], currentPath = '' }) {
+export default function TopBar({ project = null, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1', planningVersions = [], availablePlanningTypes = Object.keys(PLANNING_TYPES), currentPath = '' }) {
   const { user, signOut, demoMode } = useAuth();
   const { profiles, saveError, clearSaveError, updateProfile } = usePlanner();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -74,7 +74,7 @@ export default function TopBar({ project = null, planningType = DEFAULT_PLANNING
               {!isAssetListView && (
                 <>
                   <span className="project-topbar-types">
-                    {Object.values(PLANNING_TYPES).map((definition) => (
+                    {Object.values(PLANNING_TYPES).filter((definition) => availablePlanningTypes.includes(definition.key)).map((definition) => (
                       <Link
                         key={definition.key}
                         to={`${currentPath}?type=${definition.key}&version=V1`}
