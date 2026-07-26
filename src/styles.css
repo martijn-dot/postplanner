@@ -6475,6 +6475,18 @@ body.public-share-body {
   max-height: none;
 }
 
+/* The date rail stays immediately below the sticky client filters while the page scrolls. */
+.public-client-page .client-gantt,
+.public-client-page .client-gantt-scroll {
+  overflow: visible !important;
+}
+
+.public-client-page .client-gantt-scroll > .relative > .sticky.top-0 {
+  position: sticky;
+  top: 178px;
+  z-index: 420;
+}
+
 .public-client-page .client-gantt .bg-zinc-100,
 .public-client-page .client-gantt .dark\:bg-ink-850,
 .public-client-page .client-gantt .dark\:bg-ink-900,
@@ -8039,7 +8051,19 @@ body.public-share-body {
 }
 
 .public-client-page .public-client-controls {
+  border-radius: 0;
   box-shadow: none !important;
+}
+
+/* Keep the planning table aligned with the wider filter panel. */
+.public-client-page .public-calendar-cards {
+  margin-left: -20px;
+  margin-right: -20px;
+  width: calc(100% + 40px);
+}
+
+.public-client-page .public-calendar-column-head {
+  background: #f8f9ff;
 }
 
 .public-calendar-column-head::before {

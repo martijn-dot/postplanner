@@ -345,6 +345,7 @@ export default function PublicClientPage() {
   const clients = useMemo(() => payload?.clients ?? [], [payload?.clients]);
   const planningCategories = useMemo(() => (payload?.categories ?? []).filter((category) => safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion), [activePlanningType, payload?.categories, planningVersion]);
   const planningLineItems = useMemo(() => (payload?.lineItems ?? []).filter((item) => safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion), [activePlanningType, payload?.lineItems, planningVersion]);
+  const hasPlanningNotes = useMemo(() => planningLineItems.some((item) => String(item.notes ?? '').trim().length > 0), [planningLineItems]);
   const categoryCount = useMemo(() => new Set(planningLineItems.map((item) => item.category_id).filter(Boolean)).size || planningCategories.length, [planningCategories.length, planningLineItems]);
   const categoryFilterGroups = useMemo(() => {
     if (!payload?.project) return [];
@@ -550,7 +551,7 @@ export default function PublicClientPage() {
                     dateWindow="full"
                     hiddenWhoIds={hiddenWhoIds}
                     publicCardLayout
-                    columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'calendar'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, notes: false, rowColor: false, edit: false } }}
+                    columnPrefs={{ order: ['category', 'who', 'asset', 'what', 'todo', 'time', 'notes', 'calendar'], widths: { calendar: 132, who: 96, what: 126, todo: 133, notes: 180 }, visible: { calendar: true, category: false, notes: hasPlanningNotes, rowColor: false, edit: false } }}
                     showWeekColumn={false}
                     planningType={activePlanningType}
                   />
