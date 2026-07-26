@@ -3600,6 +3600,13 @@ body.public-share-body {
   flex: 0 0 auto;
 }
 
+.public-calendar-column-head > span:last-child,
+.public-calendar-event-row > div:last-child {
+  display: flex;
+  justify-content: flex-end;
+  text-align: right;
+}
+
 .public-calendar-week {
   display: grid;
   gap: 16px;
