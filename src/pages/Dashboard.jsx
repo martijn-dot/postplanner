@@ -250,6 +250,20 @@ export default function Dashboard() {
   const versionMenuProject = projects.find((project) => project.id === versionMenuProjectId);
   const [versionMenuType, setVersionMenuType] = useState(DEFAULT_PLANNING_TYPE);
   const versionMenuVersions = versionMenuProject ? versionsForProject(versionMenuProject, lineItems, categories, versionMenuType) : [];
+  const requestPlanningModuleDelete = (project, definition) => {
+    const existingModuleCount = DASHBOARD_PLANNING_ORDER
+      .filter((item) => hasPlanningModule(project, item.key, lineItems, categories))
+      .length;
+    if (existingModuleCount <= 1) {
+      setOpen(false);
+      setArchiveProjectTarget(project);
+      setArchiveConfirmText('');
+      return;
+    }
+    if (window.confirm(`Delete the ${definition.label} row and all of its versions? This cannot be undone.`)) {
+      deletePlanningModule(project.id, definition.key);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
@@ -350,15 +364,7 @@ export default function Dashboard() {
               const deletePlanningRowAction = (definition, event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                if (visibleModuleLinks.length === 1) {
-                  if (window.confirm(`${definition.label} is the only planning module in this project. Archive the project instead?`)) {
-                    archiveProject(project.id);
-                  }
-                  return;
-                }
-                if (window.confirm(`Delete the ${definition.label} row and all of its versions? This cannot be undone.`)) {
-                  deletePlanningModule(project.id, definition.key);
-                }
+                requestPlanningModuleDelete(project, definition);
               };
               const openAssetListAction = (event) => {
                 event.preventDefault();
@@ -679,11 +685,7 @@ export default function Dashboard() {
                           {exists ? (
                             <button
                               type="button"
-                              onClick={() => {
-                                if (window.confirm(`Delete all ${definition.label} planning versions for this project? This cannot be undone.`)) {
-                                  deletePlanningModule(editingProject.id, definition.key);
-                                }
-                              }}
+                              onClick={() => requestPlanningModuleDelete(editingProject, definition)}
                               className="secondary-button !px-2 !py-1 text-xs text-red-300"
                             >
                               Delete
