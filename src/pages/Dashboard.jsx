@@ -82,9 +82,12 @@ function safePlanningType(value) {
 
 function versionsForProject(project, lineItems = [], categories = [], planningType = DEFAULT_PLANNING_TYPE) {
   const safeType = safePlanningType(planningType);
+  const declaredPlanningVersions = safeType === DEFAULT_PLANNING_TYPE && Array.isArray(project.planning_versions)
+    ? project.planning_versions
+    : [];
   const versions = [...new Set([
-    ...(safeType === DEFAULT_PLANNING_TYPE && Array.isArray(project.planning_versions) ? project.planning_versions : []),
-    safeType === DEFAULT_PLANNING_TYPE ? project.preferred_planning_version : null,
+    ...declaredPlanningVersions,
+    safeType === DEFAULT_PLANNING_TYPE && declaredPlanningVersions.length ? project.preferred_planning_version : null,
     ...lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === safeType).map((item) => item.planning_version ?? 'V1'),
     ...categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === safeType).map((category) => category.planning_version ?? 'V1'),
   ].filter(Boolean))];
