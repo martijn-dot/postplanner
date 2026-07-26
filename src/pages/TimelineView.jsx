@@ -27,7 +27,13 @@ import Pill from '../components/Pill.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePlanner } from '../context/PlannerContext.jsx';
 import { buildTimelineDays, daysBetween, isToday, iso, monthSegments } from '../lib/dates.js';
-import { DEFAULT_PLANNING_TYPE, DEFAULT_PLANNING_WHAT_LABELS, PLANNING_TYPES, PRODUCTION_WHAT_LABELS } from '../lib/defaults.js';
+import {
+  DEFAULT_PLANNING_TYPE,
+  DEFAULT_PLANNING_WHAT_LABELS,
+  PLANNING_TYPES,
+  PRODUCTION_TODO_LABELS,
+  PRODUCTION_WHAT_LABELS,
+} from '../lib/defaults.js';
 import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPreferences.js';
 import { buildProjectSummary } from '../lib/projectSummary.js';
 
@@ -377,7 +383,14 @@ function SortableLine({
       className={`timeline-line ${duplicated ? 'timeline-line-new' : ''} ${dropTarget?.id === item.id ? `timeline-line-drop-${dropTarget.placement}` : ''}`}
     >
       {tableVisible && (
-        <div className={`timeline-table-panel timeline-row-table-panel sticky left-0 z-20 grid h-full items-center border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-950 ${duplicated ? 'timeline-table-row-new' : ''}`} style={{ width: leftWidth, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
+        <div
+          className={`timeline-table-panel timeline-row-table-panel sticky left-0 z-20 grid h-full items-center border-r border-black/10 bg-white dark:border-white/10 dark:bg-ink-950 ${duplicated ? 'timeline-table-row-new' : ''}`}
+          style={{
+            width: leftWidth,
+            gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible),
+            '--timeline-asset-edge': `${columns.duplicate + columns.actions + columns.handle + (columnVisibility.who ? columns.who : 0) + columns.asset}px`,
+          }}
+        >
           <button type="button" onClick={() => onDuplicate(item.id)} className="icon-button mx-auto" aria-label="Duplicate row"><Copy size={15} /></button>
           <button type="button" onClick={() => deleteLineItem(item.id)} className="icon-button mx-auto" aria-label="Delete item"><Trash2 size={16} /></button>
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
@@ -810,8 +823,18 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   const labelsByType = useMemo(() => ({
     who: sortLabels(projectLabels.filter((label) => label.column_type === 'who' && !label.is_divider)),
     what: sortLabels(projectLabels.filter((label) => label.column_type === 'what')),
-    todo: sortLabels(projectLabels.filter((label) => label.column_type === 'todo' && !label.is_divider)),
-  }), [projectLabels]);
+    todo: activePlanningType === PLANNING_TYPES.production.key
+      ? projectLabels
+        .filter((label) => label.column_type === 'todo'
+          && !label.is_divider
+          && (label.project_id || PRODUCTION_TODO_LABELS.includes(label.value)))
+        .sort((a, b) => {
+          const aIndex = PRODUCTION_TODO_LABELS.indexOf(a.value);
+          const bIndex = PRODUCTION_TODO_LABELS.indexOf(b.value);
+          return (aIndex < 0 ? 9999 : aIndex) - (bIndex < 0 ? 9999 : bIndex);
+        })
+      : sortLabels(projectLabels.filter((label) => label.column_type === 'todo' && !label.is_divider)),
+  }), [activePlanningType, projectLabels]);
   const reviewLabels = useMemo(() => ({
     wenneker: labelsByType.who.find((label) => label.value.toLowerCase() === 'wenneker')?.id,
     client: labelsByType.who.find((label) => label.value.toLowerCase() === 'client')?.id,
@@ -967,11 +990,10 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
 
   const addItemAtVisibleStart = (projectId, categoryId) => {
     const scroller = scrollRef.current;
-    const tableRight = tableVisible
-      ? scroller?.querySelector('.timeline-table-panel')?.getBoundingClientRect().right
-      : scroller?.getBoundingClientRect().left;
+    const scrollerRect = scroller?.getBoundingClientRect();
+    const tableRight = (scrollerRect?.left ?? 0) + (tableVisible ? leftWidth : 0);
     const firstVisibleDay = [...(scroller?.querySelectorAll('[data-timeline-date]') ?? [])]
-      .find((element) => element.getBoundingClientRect().right > (tableRight ?? 0) + 0.5);
+      .find((element) => element.getBoundingClientRect().left >= tableRight - 0.5);
     const fallbackDayIndex = Math.min(
       timelineDays.length - 1,
       Math.max(0, Math.floor((scroller?.scrollLeft ?? 0) / dayWidth)),
@@ -1377,7 +1399,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
   const toggleTableVisibility = () => {
     const nextVisible = !tableVisible;
     setTableVisible(nextVisible);
-    if (!nextVisible && activePlanningType === PLANNING_TYPES.post.key) setShowAssetLabels(true);
+    if (!nextVisible) setShowAssetLabels(true);
   };
   const togglePublishedPlanning = async () => {
     if (publishing) return;
@@ -1443,7 +1465,15 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
           <div className="relative" style={{ minWidth: leftWidth + timelineWidth }}>
             <div className="sticky top-0 z-40 grid" style={{ gridTemplateColumns: timelineGridTemplate(tableVisible, leftWidth, timelineWidth) }}>
               {tableVisible && (
-                <div className="timeline-table-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900" style={{ width: leftWidth, minHeight: HEADER_HEIGHT, gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible) }}>
+                <div
+                  className="timeline-table-panel timeline-table-header-panel sticky left-0 z-50 grid items-end border-b border-r border-black/10 bg-zinc-50 text-xs font-semibold uppercase text-ink-500 dark:border-white/10 dark:bg-ink-900"
+                  style={{
+                    width: leftWidth,
+                    minHeight: HEADER_HEIGHT,
+                    gridTemplateColumns: tableTemplate(columns, columnVisibility, optionsVisible),
+                    '--timeline-asset-edge': `${columns.duplicate + columns.actions + columns.handle + (columnVisibility.who ? columns.who : 0) + columns.asset}px`,
+                  }}
+                >
                   <div className="absolute left-2 right-2 top-2 flex flex-wrap items-center gap-1 normal-case">
                     <button type="button" onClick={() => addCategory(project.id, planningVersion, activePlanningType)} className="timeline-header-chip"><Plus size={13} /> Category</button>
                     <ToolbarMenu id="who" openMenu={openTableMenu} setOpenMenu={setOpenTableMenu} icon={Eye} label="Who">

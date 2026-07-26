@@ -4093,8 +4093,33 @@ body.public-share-body {
 }
 
 .timeline-line [data-cell-column="asset"] {
-  border-right: 1px solid rgba(139, 92, 246, 0.42);
   border-radius: 0;
+}
+
+[data-resize-column="asset"]::after {
+  opacity: 0;
+}
+
+.timeline-table-header-panel::after,
+.timeline-row-table-panel::after {
+  background: #8b5cf6;
+  content: "";
+  left: var(--timeline-asset-edge);
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 1px;
+}
+
+.timeline-table-header-panel::after {
+  bottom: 8px;
+  top: auto;
+  height: calc(100% - 16px);
+}
+
+.timeline-row-table-panel::after {
+  bottom: 0;
+  opacity: 0.48;
 }
 
 .drag-handle {
@@ -5511,12 +5536,13 @@ body.public-share-body {
 .client-planning-admin .client-gantt-today-line { top: 45px; }
 
 .client-planning-admin .today-row {
-  scroll-margin-top: calc(112px + var(--client-filter-stack-height, 54px) + var(--client-column-stack-height, 39px) + var(--client-category-stack-height, 38px));
+  scroll-margin-top: calc(112px + var(--client-filter-stack-height, 54px) + var(--client-sticky-gap, 16px) + var(--client-column-stack-height, 39px) + var(--client-category-stack-height, 38px));
 }
 
 .client-planning-admin .client-table-shell { flex: 1; }
 .client-planning-admin .client-category-list {
   --client-filter-stack-height: 54px;
+  --client-sticky-gap: 16px;
   --client-column-stack-height: 39px;
   --client-category-stack-height: 38px;
 }
@@ -5524,7 +5550,7 @@ body.public-share-body {
 .client-planning-admin .client-global-column-header {
   background: #161922;
   position: sticky;
-  top: calc(112px + var(--client-filter-stack-height));
+  top: calc(112px + var(--client-filter-stack-height) + var(--client-sticky-gap));
   z-index: 60;
 }
 
@@ -5544,7 +5570,7 @@ body.public-share-body {
 .client-planning-admin .client-category-section-title {
   margin-bottom: 0;
   position: sticky;
-  top: calc(112px + var(--client-filter-stack-height) + var(--client-column-stack-height));
+  top: calc(112px + var(--client-filter-stack-height) + var(--client-sticky-gap) + var(--client-column-stack-height));
   z-index: 50;
 }
 

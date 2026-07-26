@@ -916,7 +916,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       };
     }).filter(Boolean);
     const defaultCategoryName = planningDefinition.defaultCategoryName.trim().toLowerCase();
-    const categoryIssues = versionCategories
+    const categoryIssues = activePlanningType === 'production' ? [] : versionCategories
       .filter((category) => {
         const name = String(category.name ?? '').trim();
         return name.toLowerCase() === defaultCategoryName || /^category\s+\d+$/i.test(name);

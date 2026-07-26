@@ -134,7 +134,7 @@ function applyDefaultLabelColor(label) {
   return {
     ...label,
     color: label.is_default || defaultColor ? defaultColor : label.color,
-    planning_type: label.planning_type ?? defaultPlanningType ?? 'both',
+    planning_type: defaultPlanningType ?? label.planning_type ?? 'both',
   };
 }
 
@@ -881,11 +881,18 @@ export function PlannerProvider({ children }) {
             rememberLatestRevision(lineItemRevisionRef.current, itemId, retry.data.revision);
             setData((current) => ({
               ...current,
-              lineItems: current.lineItems.map((item) => item.id === itemId ? { ...item, ...retry.data } : item),
+              lineItems: current.lineItems.map((item) => item.id === itemId
+                ? { ...item, ...retry.data, ...(pendingLineItemWritesRef.current.get(itemId)?.patch ?? {}) }
+                : item),
             }));
             return saveSupabase(label, Promise.resolve(retry), { throwOnError });
           }
-          setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? latest.data : item) }));
+          setData((current) => ({
+            ...current,
+            lineItems: current.lineItems.map((item) => item.id === itemId
+              ? { ...latest.data, ...(pendingLineItemWritesRef.current.get(itemId)?.patch ?? {}) }
+              : item),
+          }));
         }
         const conflict = new Error('This row changed in another browser. The latest server version was restored.');
         setSaveError(conflict.message);
@@ -894,7 +901,12 @@ export function PlannerProvider({ children }) {
       }
       if (result.data) {
         rememberLatestRevision(lineItemRevisionRef.current, itemId, result.data.revision);
-        setData((current) => ({ ...current, lineItems: current.lineItems.map((item) => item.id === itemId ? { ...item, ...result.data } : item) }));
+        setData((current) => ({
+          ...current,
+          lineItems: current.lineItems.map((item) => item.id === itemId
+            ? { ...item, ...result.data, ...(pendingLineItemWritesRef.current.get(itemId)?.patch ?? {}) }
+            : item),
+        }));
       }
       return saveSupabase(label, Promise.resolve(result), { throwOnError });
     });

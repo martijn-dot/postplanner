@@ -74,7 +74,7 @@ export default function TopBar({ project = null, planningType = DEFAULT_PLANNING
               {!isAssetListView && (
                 <>
                   <span className="project-topbar-types">
-                    {Object.values(PLANNING_TYPES).filter((definition) => availablePlanningTypes.includes(definition.key)).map((definition) => (
+                    {[PLANNING_TYPES.production, PLANNING_TYPES.post].filter((definition) => availablePlanningTypes.includes(definition.key)).map((definition) => (
                       <Link
                         key={definition.key}
                         to={`${currentPath}?type=${definition.key}&version=V1`}

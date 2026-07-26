@@ -1,7 +1,10 @@
 const PRODUCTION_LABEL_NAMES = new Set([
   'Prep', 'Pre-light', 'Shoot', 'Strike', 'Travel',
-  'Schedule', 'Book crew', 'Confirm talent', 'Location check', 'Call sheet',
+  'Video Call', 'Online Meeting', 'Scouting', 'Proposal', 'Meeting @ Wenneker',
+  'Session @ Wenneker', 'Session Online', 'WIP', 'Offline', 'Online',
+  'Grading', 'Audio', 'Grading + Audio', 'Approval', 'Share', 'Viewing @ Wenneker',
 ]);
+const SHARED_PLANNING_LABEL_NAMES = new Set(['Approval', 'Share']);
 
 export const DEFAULT_LABELS = [
   { column_type: 'who', value: 'Wenneker', color: '#28b8ff', is_default: true },
@@ -49,16 +52,26 @@ export const DEFAULT_LABELS = [
   { column_type: 'todo', value: 'Upload PAL & EG+', color: '#ff5e84', is_default: true },
   { column_type: 'todo', value: 'Upload DAM', color: '#ff5e84', is_default: true },
   { column_type: 'todo', value: 'Upload SAL', color: '#ff5e84', is_default: true },
-  { column_type: 'todo', value: 'Schedule', color: '#46d39b', is_default: true },
-  { column_type: 'todo', value: 'Book crew', color: '#28b8ff', is_default: true },
-  { column_type: 'todo', value: 'Confirm talent', color: '#b793ff', is_default: true },
-  { column_type: 'todo', value: 'Location check', color: '#f59e0b', is_default: true },
-  { column_type: 'todo', value: 'Call sheet', color: '#ff8f4f', is_default: true },
+  { column_type: 'todo', value: 'Video Call', color: '#54c7ff', is_default: true },
+  { column_type: 'todo', value: 'Online Meeting', color: '#54c7ff', is_default: true },
+  { column_type: 'todo', value: 'Scouting', color: '#10b981', is_default: true },
+  { column_type: 'todo', value: 'Shoot', color: '#ff5e84', is_default: true },
+  { column_type: 'todo', value: 'Proposal', color: '#b793ff', is_default: true },
+  { column_type: 'todo', value: 'Meeting @ Wenneker', color: '#ffd166', is_default: true },
+  { column_type: 'todo', value: 'Session @ Wenneker', color: '#ffd166', is_default: true },
+  { column_type: 'todo', value: 'Session Online', color: '#54c7ff', is_default: true },
+  { column_type: 'todo', value: 'WIP', color: '#ff8f4f', is_default: true },
+  { column_type: 'todo', value: 'Offline', color: '#ffd166', is_default: true },
+  { column_type: 'todo', value: 'Online', color: '#54c7ff', is_default: true },
+  { column_type: 'todo', value: 'Grading', color: '#8b8f9a', is_default: true },
+  { column_type: 'todo', value: 'Audio', color: '#8b8f9a', is_default: true },
+  { column_type: 'todo', value: 'Grading + Audio', color: '#8d79ff', is_default: true },
+  { column_type: 'todo', value: 'Viewing @ Wenneker', color: '#46d39b', is_default: true },
 ].map((label) => ({
   ...label,
   planning_type: label.column_type === 'who'
     ? 'both'
-    : (PRODUCTION_LABEL_NAMES.has(label.value) ? 'production' : 'post'),
+    : (SHARED_PLANNING_LABEL_NAMES.has(label.value) ? 'both' : (PRODUCTION_LABEL_NAMES.has(label.value) ? 'production' : 'post')),
 }));
 
 export const DEFAULT_PROJECT = {
@@ -108,12 +121,23 @@ export const PRODUCTION_WHAT_LABELS = [
 ];
 
 export const PRODUCTION_TODO_LABELS = [
-  'Schedule',
-  'Book crew',
-  'Confirm talent',
-  'Location check',
-  'Call sheet',
+  'Video Call',
+  'Online Meeting',
+  'Scouting',
+  'Shoot',
+  'Proposal',
+  'Meeting @ Wenneker',
+  'Session @ Wenneker',
+  'Session Online',
+  'WIP',
+  'Offline',
+  'Online',
+  'Grading',
+  'Audio',
+  'Grading + Audio',
   'Approval',
+  'Share',
+  'Viewing @ Wenneker',
 ];
 
 export const DEFAULT_PLANNING_ALIASES = {
