@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Bold, Check, ExternalLink, Heading1, Heading2, Image, Italic, Link2,
+  Bold, Check, ExternalLink, Heading1, Heading2, Highlighter, Image, Italic, Link2,
   List, ListOrdered, Pencil, Plus, Quote, Redo2, Trash2, Underline, Undo2, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
 
 const EMPTY_DOCUMENT = '<h1>Project briefing</h1><p>Start writing your brief here. Add context, goals, deliverables and everything the team needs to get started.</p>';
+const EDITOR_FONTS = [
+  ['Inter', 'Inter'],
+  ['Roboto', 'Roboto'],
+  ['Open Sans', 'Open Sans'],
+  ['Lato', 'Lato'],
+  ['Montserrat', 'Montserrat'],
+  ['Merriweather', 'Merriweather'],
+  ['Playfair Display', 'Playfair Display'],
+];
 
 function storageKey(projectId) {
   return `post-planner:brief:${projectId}`;
@@ -40,6 +49,7 @@ export default function BriefPage({ project }) {
   const initial = useRef(loadBrief(project.id));
   const editorRef = useRef(null);
   const imageInputRef = useRef(null);
+  const savedSelectionRef = useRef(null);
   const [title, setTitle] = useState(initial.current.title ?? `${project.name} brief`);
   const [content, setContent] = useState(initial.current.content ?? EMPTY_DOCUMENT);
   const [links, setLinks] = useState(initial.current.links ?? []);
@@ -112,10 +122,26 @@ export default function BriefPage({ project }) {
     return () => window.clearTimeout(timer);
   }, [content, databaseReady, links, project.id, title, useSupabase, user.id]);
 
+  const rememberSelection = () => {
+    const selection = window.getSelection();
+    if (selection?.rangeCount && editorRef.current?.contains(selection.anchorNode)) {
+      savedSelectionRef.current = selection.getRangeAt(0).cloneRange();
+    }
+  };
+
+  const restoreSelection = () => {
+    if (!savedSelectionRef.current) return;
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(savedSelectionRef.current);
+  };
+
   const runCommand = (command, value = null) => {
     editorRef.current?.focus();
+    restoreSelection();
     document.execCommand(command, false, value);
     setContent(editorRef.current?.innerHTML ?? '');
+    rememberSelection();
   };
 
   const insertEditorLink = () => {
@@ -175,11 +201,31 @@ export default function BriefPage({ project }) {
             </div>
             <span className="brief-toolbar-divider" />
             <div className="brief-toolbar-group">
+              <label className="brief-font-select-wrap" title="Font family">
+                <select
+                  className="brief-font-select"
+                  defaultValue="Inter"
+                  aria-label="Font family"
+                  onMouseDown={rememberSelection}
+                  onChange={(event) => runCommand('fontName', event.target.value)}
+                >
+                  {EDITOR_FONTS.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
               <ToolbarButton label="Heading 1" onClick={() => runCommand('formatBlock', 'h1')}><Heading1 size={18} /></ToolbarButton>
               <ToolbarButton label="Heading 2" onClick={() => runCommand('formatBlock', 'h2')}><Heading2 size={18} /></ToolbarButton>
               <ToolbarButton label="Bold" onClick={() => runCommand('bold')}><Bold size={17} /></ToolbarButton>
               <ToolbarButton label="Italic" onClick={() => runCommand('italic')}><Italic size={17} /></ToolbarButton>
               <ToolbarButton label="Underline" onClick={() => runCommand('underline')}><Underline size={17} /></ToolbarButton>
+              <label className="brief-highlight-control" title="Highlight text" onMouseDown={rememberSelection}>
+                <Highlighter size={17} />
+                <input
+                  type="color"
+                  defaultValue="#facc15"
+                  aria-label="Highlight color"
+                  onChange={(event) => runCommand('hiliteColor', event.target.value)}
+                />
+              </label>
             </div>
             <span className="brief-toolbar-divider" />
             <div className="brief-toolbar-group">
@@ -202,6 +248,8 @@ export default function BriefPage({ project }) {
               suppressContentEditableWarning
               dangerouslySetInnerHTML={{ __html: content }}
               onInput={(event) => setContent(event.currentTarget.innerHTML)}
+              onKeyUp={rememberSelection}
+              onMouseUp={rememberSelection}
               aria-label="Brief document"
             />
           </div>
