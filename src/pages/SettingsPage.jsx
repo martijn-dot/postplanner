@@ -2,7 +2,7 @@ import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ArchiveRestore, Check, GripVertical, KeyRound, Pencil, Plus, Search, Trash2, UserX, X, XCircle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import TopBar from '../components/TopBar.jsx';
 import Pill from '../components/Pill.jsx';
@@ -99,6 +99,106 @@ function ClientAbbreviationInput({ client, onUpdate }) {
   );
 }
 
+function ClientNameInput({ client, onUpdate, onError }) {
+  const [draft, setDraft] = useState(client.name ?? '');
+  const cancelRef = useRef(false);
+
+  useEffect(() => {
+    setDraft(client.name ?? '');
+  }, [client.name]);
+
+  const commit = async () => {
+    if (cancelRef.current) {
+      cancelRef.current = false;
+      setDraft(client.name ?? '');
+      return;
+    }
+
+    const nextName = draft.trim();
+    if (!nextName || nextName === client.name) {
+      setDraft(client.name ?? '');
+      return;
+    }
+
+    try {
+      await onUpdate(client.id ?? client.name, nextName);
+      setDraft(nextName);
+    } catch (error) {
+      setDraft(client.name ?? '');
+      onError?.(error instanceof Error ? error.message : 'Could not rename client.');
+    }
+  };
+
+  return (
+    <input
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => void commit()}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Escape') {
+          cancelRef.current = true;
+          setDraft(client.name ?? '');
+          event.currentTarget.blur();
+        }
+      }}
+      className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 font-semibold outline-none transition hover:border-black/10 focus:border-violet-500/70 focus:bg-black/[0.03] dark:hover:border-white/10 dark:focus:bg-white/[0.03]"
+      aria-label={`Edit client name ${client.name}`}
+      title="Click to edit client name"
+    />
+  );
+}
+
+function ProducerNameInput({ producer, onUpdate, onError }) {
+  const [draft, setDraft] = useState(producer.name ?? '');
+  const cancelRef = useRef(false);
+
+  useEffect(() => {
+    setDraft(producer.name ?? '');
+  }, [producer.name]);
+
+  const commit = async () => {
+    if (cancelRef.current) {
+      cancelRef.current = false;
+      setDraft(producer.name ?? '');
+      return;
+    }
+
+    const nextName = draft.trim();
+    if (!nextName || nextName === producer.name) {
+      setDraft(producer.name ?? '');
+      return;
+    }
+
+    try {
+      await onUpdate(producer.id ?? producer.name, nextName);
+      setDraft(nextName);
+    } catch (error) {
+      setDraft(producer.name ?? '');
+      onError?.(error instanceof Error ? error.message : 'Could not rename producer.');
+    }
+  };
+
+  return (
+    <input
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => void commit()}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Escape') {
+          cancelRef.current = true;
+          setDraft(producer.name ?? '');
+          event.currentTarget.blur();
+        }
+      }}
+      className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 font-semibold outline-none transition hover:border-black/10 focus:border-violet-500/70 focus:bg-black/[0.03] dark:hover:border-white/10 dark:focus:bg-white/[0.03]"
+      aria-label={`Edit producer name ${producer.name}`}
+      title="Click to edit producer name"
+    />
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const {
@@ -123,8 +223,10 @@ export default function SettingsPage() {
     updateUserRole,
     addClient,
     updateClient,
+    updateClientName,
     deleteClient,
     addProducer,
+    updateProducer,
     deleteProducer,
     restoreProject,
     deleteProjectForever,
@@ -621,7 +723,14 @@ export default function SettingsPage() {
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {(clients ?? []).map((client) => (
                 <div key={client.id ?? client.name} className="flex items-center justify-between gap-3 rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
-                  <span className="min-w-0 truncate">{client.name}</span>
+                  <ClientNameInput
+                    client={client}
+                    onUpdate={updateClientName}
+                    onError={(message) => {
+                      setSettingsNotice(message);
+                      window.setTimeout(() => setSettingsNotice(''), 3500);
+                    }}
+                  />
                   <ClientAbbreviationInput client={client} onUpdate={updateClient} />
                   <button type="button" onClick={() => deleteClient(client.id ?? client.name)} className="icon-button !h-7 !w-7 shrink-0" aria-label={`Remove ${client.name}`}>
                     <Trash2 size={14} />
@@ -642,7 +751,14 @@ export default function SettingsPage() {
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {(producers ?? []).map((producer) => (
                 <div key={producer.id ?? producer.name} className="flex items-center justify-between gap-3 rounded-md border border-black/10 px-3 py-2 text-sm font-semibold dark:border-white/10">
-                  <span className="min-w-0 truncate">{producer.name}</span>
+                  <ProducerNameInput
+                    producer={producer}
+                    onUpdate={updateProducer}
+                    onError={(message) => {
+                      setSettingsNotice(message);
+                      window.setTimeout(() => setSettingsNotice(''), 3500);
+                    }}
+                  />
                   <button type="button" onClick={() => deleteProducer(producer.id ?? producer.name)} className="icon-button !h-7 !w-7 shrink-0" aria-label={`Remove ${producer.name}`}>
                     <Trash2 size={14} />
                   </button>

@@ -1957,13 +1957,52 @@ export function PlannerProvider({ children }) {
       updateClient: (clientId, patch) => mutate((draft) => {
         const client = draft.clients.find((item) => item.id === clientId || item.name === clientId);
         if (!client) return;
+        const currentName = client.name;
         const nextPatch = { ...patch };
         if (Object.hasOwn(nextPatch, 'abbreviation')) nextPatch.abbreviation = nextPatch.abbreviation.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
         Object.assign(client, nextPatch);
         const dbPatch = { ...nextPatch };
         if (Object.hasOwn(dbPatch, 'abbreviation')) dbPatch.abbreviation = dbPatch.abbreviation || null;
-        if (useSupabase) void saveSupabase('client', supabase.from('clients').update(dbPatch).eq('name', client.name));
+        if (useSupabase) void saveSupabase('client', supabase.from('clients').update(dbPatch).eq('name', currentName));
       }),
+      updateClientName: async (clientId, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) throw new Error('Client name cannot be empty.');
+
+        const client = data.clients.find((item) => item.id === clientId || item.name === clientId);
+        if (!client) throw new Error('Client could not be found.');
+
+        const duplicate = data.clients.find(
+          (item) =>
+            item !== client &&
+            normalizedName(item.name) === normalizedName(trimmed),
+        );
+        if (duplicate) throw new Error('A client with this name already exists.');
+
+        const previousName = client.name;
+        if (previousName === trimmed) return client;
+
+        if (useSupabase) {
+          await saveSupabase(
+            'client rename',
+            supabase.rpc('rename_client', {
+              current_client_name: previousName,
+              next_client_name: trimmed,
+            }),
+            { throwOnError: true },
+          );
+        }
+
+        mutate((draft) => {
+          const target = draft.clients.find((item) => item.id === clientId || item.name === clientId);
+          if (target) target.name = trimmed;
+          draft.projects.forEach((project) => {
+            if (project.client === previousName) project.client = trimmed;
+          });
+        });
+
+        return { ...client, name: trimmed };
+      },
       deleteClient: (clientId) => mutate((draft) => {
         const client = draft.clients.find((item) => item.id === clientId || item.name === clientId);
         if (!client) return;
@@ -1985,6 +2024,45 @@ export function PlannerProvider({ children }) {
         });
         if (useSupabase) void saveSupabase('producer', supabase.from('producers').upsert({ name: trimmed, created_by: user.id }, { onConflict: 'name', ignoreDuplicates: true }));
         return producer;
+      },
+      updateProducer: async (producerId, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) throw new Error('Producer name cannot be empty.');
+
+        const producer = data.producers.find((item) => item.id === producerId || item.name === producerId);
+        if (!producer) throw new Error('Producer could not be found.');
+
+        const duplicate = data.producers.find(
+          (item) =>
+            item !== producer &&
+            normalizedName(item.name) === normalizedName(trimmed),
+        );
+        if (duplicate) throw new Error('A producer with this name already exists.');
+
+        const previousName = producer.name;
+        if (previousName === trimmed) return producer;
+
+        if (useSupabase) {
+          await saveSupabase(
+            'producer rename',
+            supabase.rpc('rename_producer', {
+              current_producer_name: previousName,
+              next_producer_name: trimmed,
+            }),
+            { throwOnError: true },
+          );
+        }
+
+        mutate((draft) => {
+          const target = draft.producers.find((item) => item.id === producerId || item.name === producerId);
+          if (target) target.name = trimmed;
+          draft.projects.forEach((project) => {
+            if (project.post_producer === previousName) project.post_producer = trimmed;
+            if (project.producer === previousName) project.producer = trimmed;
+          });
+        });
+
+        return { ...producer, name: trimmed };
       },
       deleteProducer: (producerId) => mutate((draft) => {
         const producer = draft.producers.find((item) => item.id === producerId || item.name === producerId);
