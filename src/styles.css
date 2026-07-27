@@ -5562,8 +5562,8 @@ body.public-share-body {
 
 .client-planning-admin .client-control-toolbar {
   align-items: center;
-  background: rgba(17, 19, 28, 0.86) !important;
-  border-color: rgba(148, 142, 157, 0.14) !important;
+  background: #1d1f29 !important;
+  border-color: rgba(148, 142, 157, 0.24) !important;
   backdrop-filter: blur(18px) saturate(1.25);
   -webkit-backdrop-filter: blur(18px) saturate(1.25);
   display: grid;
@@ -5680,10 +5680,10 @@ body.public-share-body {
 }
 
 .client-planning-admin .client-filter-pill {
-  background: rgba(30, 41, 59, 0.5);
-  border-color: #334155;
+  background: transparent;
+  border-color: rgba(148, 142, 157, 0.24);
   border-radius: 999px;
-  color: #94a3b8;
+  color: #cac4d3;
   font-size: 11px;
   font-weight: 600;
   min-height: 26px;
@@ -5692,13 +5692,17 @@ body.public-share-body {
 
 .client-planning-admin .client-filter-pill.is-active,
 .client-planning-admin .client-filter-pill:hover {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: #0ea5e9;
-  color: #0ea5e9;
+  background: #cdbdff;
+  border-color: #cdbdff;
+  color: #36197f;
 }
 
 .client-planning-admin .client-today-button {
-  color: #cbd5e1;
+  color: #cac4d3;
+}
+
+.client-planning-admin .client-today-button:hover {
+  color: #36197f;
 }
 
 /* Compact authenticated Gantt: 80.5% of the standard client-chart scale. */
