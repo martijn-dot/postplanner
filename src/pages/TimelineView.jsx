@@ -453,7 +453,7 @@ function SortableLine({
       <div className="relative h-full" style={timelineColumnStyle(tableVisible)} onClick={scheduleOnClick}>
         {block ? (
           <>
-            {timelineBlockLabelText(item, labelsById, showMetaLabels, showWhatSelector) && (
+            {tableVisible && timelineBlockLabelText(item, labelsById, showMetaLabels, showWhatSelector) && (
               <div
                 className="timeline-labels-underlay"
                 style={{
@@ -466,7 +466,7 @@ function SortableLine({
                 {timelineBlockLabelText(item, labelsById, showMetaLabels, showWhatSelector)}
               </div>
             )}
-            <div
+            {tableVisible && <div
                 className="timeline-labels"
                 style={{
                   left: startOffset * dayWidth + duration * dayWidth + 8
@@ -512,7 +512,7 @@ function SortableLine({
                     )}
                   </>
                 )}
-            </div>
+            </div>}
             <div
               className="timeline-bar"
               style={{
@@ -1413,7 +1413,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
         || !String(item.time ?? '').trim()
       )).length;
       if (incompleteCount) {
-        window.alert(`${incompleteCount} planning ${incompleteCount === 1 ? 'row is' : 'rows are'} incomplete. Open Client View to review the missing fields before publishing.`);
+        window.alert(`${incompleteCount} planning ${incompleteCount === 1 ? 'row is' : 'rows are'} incomplete. Open Table View to review the missing fields before publishing.`);
         return;
       }
     }
@@ -1445,7 +1445,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
               {['day', 'week', 'month'].map((item) => <button key={item} type="button" onClick={() => setZoom(item)} className={zoom === item ? 'selected' : ''}>{item}</button>)}
             </div>
             <Link to={`/projects/${project.id}/client?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button">
-              <Eye size={16} /> Client View
+              <Eye size={16} /> Table View
             </Link>
             <button type="button" onClick={togglePublishedPlanning} className={`client-header-action ${activeShare ? 'is-published' : ''}`} disabled={publishing}>
               <Globe2 size={16} /> {publishing ? 'Publishing...' : activeShare ? 'Published' : 'Publish'}

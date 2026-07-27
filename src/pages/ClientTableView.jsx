@@ -864,7 +864,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [showClientBookings, setShowClientBookings] = useState(initialFilterPrefs.current.showClientBookings);
   const [hiddenCategoryKeys, setHiddenCategoryKeys] = useState(initialFilterPrefs.current.hiddenCategoryKeys);
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState(initialFilterPrefs.current.collapsedCategoryKeys);
-  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnPrefs, setColumnPrefs] = useState(() => readClientColumnPrefs());
   const [viewMode, setViewMode] = useState(() => readClientViewMode(project.id));
   const uncategorizedNames = useMemo(() => readLocalObject(UNCATEGORIZED_NAME_STORAGE_KEY, {}), []);
@@ -874,7 +873,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [publishing, setPublishing] = useState(false);
   const [publishValidationIssues, setPublishValidationIssues] = useState([]);
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
-  const columnMenuCloseTimer = useRef(null);
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
   const whoFilterIds = useMemo(() => ({
@@ -1002,15 +1000,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
     }));
   }, [activePlanningType, collapsedCategoryKeys, dateWindow, hiddenCategoryKeys, planningVersion, project.id, showClientBookings, showEmptyDates, showWennekerBookings]);
 
-  const scheduleColumnMenuClose = () => {
-    window.clearTimeout(columnMenuCloseTimer.current);
-    columnMenuCloseTimer.current = window.setTimeout(() => setColumnMenuOpen(false), 180);
-  };
-
-  const keepColumnMenuOpen = () => {
-    window.clearTimeout(columnMenuCloseTimer.current);
-  };
-
   const toggleCollapsedCategory = (key) => {
     setCollapsedCategoryKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
@@ -1026,13 +1015,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
 
   return (
     <main ref={planningViewRef} className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 px-4 pb-4">
-      <div className="client-planning-header flex flex-col justify-between gap-3 rounded-xl border p-4 shadow-lg xl:flex-row xl:items-center">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-lg font-semibold tracking-tight text-white">Client Planning</h1>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-500">Milestones are generated from the final day of each timeline item.</p>
-        </div>
+      <div className="client-planning-header timeline-project-header flex items-center justify-end border-b px-5 py-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="client-view-toggle segmented">
             <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
@@ -1041,24 +1024,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
           <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>
             <Globe2 size={17} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
           </button>
-          <div className="relative" onMouseEnter={keepColumnMenuOpen} onMouseLeave={scheduleColumnMenuClose}>
-            <button type="button" onClick={() => setColumnMenuOpen((next) => !next)} className="client-header-action"><Eye size={17} /> Columns</button>
-            {columnMenuOpen && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-white/10 bg-ink-900 p-2 shadow-glow" onMouseEnter={keepColumnMenuOpen}>
-                {CLIENT_COLUMNS.filter((column) => activePlanningType !== 'production' || column.key !== 'asset').map((column) => (
-                  <button
-                    key={column.key}
-                    type="button"
-                    onClick={() => updateColumnPrefs({ ...columnPrefs, visible: { ...columnPrefs.visible, [column.key]: columnPrefs.visible[column.key] === false } })}
-                    className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-white/5"
-                  >
-                    {columnPrefs.visible[column.key] !== false ? <Eye size={14} className="text-accent-300" /> : <EyeOff size={14} className="text-ink-500" />}
-                    {column.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
           <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="client-download-action" disabled={!exportRows.length}>
             <Download size={17} /> Download Excel
           </button>

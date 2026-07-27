@@ -4173,6 +4173,10 @@ body.public-share-body {
 [data-resize-column="asset"]::after,
 [data-resize-column="who"]::after {
   background: #8b5cf6;
+  bottom: auto;
+  height: 30px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .timeline-line [data-cell-column="asset"] {
@@ -4195,9 +4199,10 @@ body.public-share-body {
 }
 
 .timeline-table-header-panel::after {
-  bottom: 8px;
-  top: auto;
-  height: calc(100% - 16px);
+  bottom: auto;
+  height: 30px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .timeline-row-table-panel::after {
