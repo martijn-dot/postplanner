@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
 import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import CursorTooltip from '../components/CursorTooltip.jsx';
 import LabelSelect from '../components/LabelSelect.jsx';
 import Pill from '../components/Pill.jsx';
@@ -529,6 +530,7 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
                 {orderedColumns.map((column) => (
                   <th
                     key={column.key}
+                    data-client-column={column.key}
                     draggable
                     onDragStart={(event) => {
                       setDraggedColumn(column.key);
@@ -597,10 +599,10 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
                     )}
                     {orderedColumns.map((column) => {
                       const hiddenBooking = row._item && row._item.who?.some((id) => hiddenWhoIds.includes(id));
-                      if (hiddenBooking) return <td key={column.key} className="px-4 py-3"></td>;
-                      if (column.key === 'edit') return <td key={column.key} className="px-3 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingItemId(row._item.id)} className="client-edit-button">Edit</button> : null}</td>;
+                      if (hiddenBooking) return <td key={column.key} data-client-column={column.key} className="px-4 py-3"></td>;
+                      if (column.key === 'edit') return <td key={column.key} data-client-column={column.key} className="px-3 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingItemId(row._item.id)} className="client-edit-button">Edit</button> : null}</td>;
                       if (column.key === 'calendar') return (
-                        <td key={column.key} className="px-3 py-3">
+                        <td key={column.key} data-client-column={column.key} className="px-3 py-3">
                           {row._item ? (
                             <a className="client-calendar-button" href={googleCalendarUrl(row)} target="_blank" rel="noreferrer">
                               Add to calendar
@@ -609,17 +611,17 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
                         </td>
                       );
                       if (column.key === 'category') return (
-                        <td key={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">
+                        <td key={column.key} data-client-column={column.key} className="px-4 py-3 text-sm font-semibold text-ink-400">
                           {row._item ? <span className="client-category-pill" style={categoryShade(categoryKeyForItem(row._item), categories)}>{row.Category}</span> : ''}
                         </td>
                       );
-                      if (column.key === 'time') return <td key={column.key} className="px-3 py-3 font-mono">{row._item ? (row.Time || '-') : ''}</td>;
-                      if (column.key === 'who') return <td key={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
-                      if (column.key === 'asset') return <td key={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
-                      if (column.key === 'what') return <td key={column.key} className="px-4 py-3">{row._item ? (isProduction ? <span className="font-semibold">{row.What || '-'}</span> : <Pill label={labelsById[row._item.what]} />) : null}</td>;
-                      if (column.key === 'todo') return <td key={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
+                      if (column.key === 'time') return <td key={column.key} data-client-column={column.key} className="px-3 py-3 font-mono">{row._item ? (row.Time || '-') : ''}</td>;
+                      if (column.key === 'who') return <td key={column.key} data-client-column={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
+                      if (column.key === 'asset') return <td key={column.key} data-client-column={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
+                      if (column.key === 'what') return <td key={column.key} data-client-column={column.key} className="px-4 py-3">{row._item ? (isProduction ? <span className="font-semibold">{row.What || '-'}</span> : <Pill label={labelsById[row._item.what]} />) : null}</td>;
+                      if (column.key === 'todo') return <td key={column.key} data-client-column={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
                       if (column.key === 'notes') return (
-                        <td key={column.key} className="client-notes-cell min-w-0 px-4 py-3" style={{ width: widthForColumn(column), maxWidth: widthForColumn(column) }}>
+                        <td key={column.key} data-client-column={column.key} className="client-notes-cell min-w-0 px-4 py-3" style={{ width: widthForColumn(column), maxWidth: widthForColumn(column) }}>
                           {row._item?.notes ? <OverflowNote note={row._item.notes} onOpen={() => setEditingItemId(row._item.id)} /> : null}
                         </td>
                       );
@@ -1015,68 +1017,72 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
 
   return (
     <main ref={planningViewRef} className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 px-4 pb-4">
-      <div className="client-planning-header timeline-project-header flex items-center justify-end border-b px-5 py-3">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="client-view-toggle segmented">
-            <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
-            <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gantt Chart</button>
-          </div>
-          <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>
-            <Globe2 size={17} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
-          </button>
+      {(viewMode === 'table' || viewMode === 'gantt') && (
+        <div className="client-filter-row client-control-toolbar rounded-xl border p-3 text-sm">
+          <div className="client-toolbar-download">
           <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="client-download-action" disabled={!exportRows.length}>
             <Download size={17} /> Download Excel
           </button>
-        </div>
-      </div>
-
-      {(viewMode === 'table' || viewMode === 'gantt') && (
-        <div className="client-filter-row flex flex-wrap items-center gap-6 rounded-xl border p-3 text-sm">
-          <div className="client-filter-group flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
-            <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
-              {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
-            </button>
-            <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
-              {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
-            </button>
-            {viewMode === 'table' && (
-              <>
-                <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
-                  {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
-                </button>
+          </div>
+          <div className="client-toolbar-filters">
+            <div className="client-filter-group flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Filter</span>
+              <button type="button" onClick={() => setShowWennekerBookings((next) => !next)} className={`client-filter-pill ${showWennekerBookings ? 'is-active' : ''}`}>
+                {showWennekerBookings ? <Eye size={14} /> : <EyeOff size={14} />} Wenneker
+              </button>
+              <button type="button" onClick={() => setShowClientBookings((next) => !next)} className={`client-filter-pill ${showClientBookings ? 'is-active' : ''}`}>
+                {showClientBookings ? <Eye size={14} /> : <EyeOff size={14} />} Client
+              </button>
+              {viewMode === 'table' && (
+                <>
+                  <button type="button" onClick={() => setShowEmptyDates((next) => !next)} className={`client-filter-pill ${showEmptyDates ? 'is-active' : ''}`}>
+                    {showEmptyDates ? <Eye size={14} /> : <EyeOff size={14} />} Empty dates
+                  </button>
+                  <button type="button" onClick={scrollToToday} className="client-filter-pill client-today-button">
+                    <CalendarDays size={14} /> Today
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="client-filter-group flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Planning</span>
+              <button type="button" onClick={() => setDateWindow('future')} className={`client-filter-pill ${dateWindow === 'future' ? 'is-active' : ''}`}>
+                From current
+              </button>
+              <button type="button" onClick={() => setDateWindow('full')} className={`client-filter-pill ${dateWindow === 'full' ? 'is-active' : ''}`}>
+                Full planning
+              </button>
+              {viewMode === 'gantt' && (
                 <button type="button" onClick={scrollToToday} className="client-filter-pill client-today-button">
                   <CalendarDays size={14} /> Today
                 </button>
-              </>
-            )}
-          </div>
-          <div className="client-filter-group flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Planning</span>
-            <button type="button" onClick={() => setDateWindow('future')} className={`client-filter-pill ${dateWindow === 'future' ? 'is-active' : ''}`}>
-              From current
-            </button>
-            <button type="button" onClick={() => setDateWindow('full')} className={`client-filter-pill ${dateWindow === 'full' ? 'is-active' : ''}`}>
-              Full planning
-            </button>
-            {viewMode === 'gantt' && (
-              <button type="button" onClick={scrollToToday} className="client-filter-pill client-today-button">
-                <CalendarDays size={14} /> Today
-              </button>
-            )}
-          </div>
-          {versionCategories.length > 1 && (
-            <div className="client-filter-categories flex flex-wrap items-center gap-2">
-              <div className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Categories</div>
-              <div className="flex flex-wrap gap-2">
-                {categoryFilterGroups.map((group) => (
-                  <button key={group.key} type="button" onClick={() => toggleHiddenCategory(group.key)} className={`client-filter-pill ${!hiddenCategoryKeys.includes(group.key) ? 'is-active' : ''}`}>
-                    {!hiddenCategoryKeys.includes(group.key) ? <Eye size={14} /> : <EyeOff size={14} />} {group.name}
-                  </button>
-                ))}
-              </div>
+              )}
             </div>
-          )}
+            {versionCategories.length > 1 && (
+              <div className="client-filter-categories flex flex-wrap items-center gap-2">
+                <div className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Categories</div>
+                <div className="flex flex-wrap gap-2">
+                  {categoryFilterGroups.map((group) => (
+                    <button key={group.key} type="button" onClick={() => toggleHiddenCategory(group.key)} className={`client-filter-pill ${!hiddenCategoryKeys.includes(group.key) ? 'is-active' : ''}`}>
+                      {!hiddenCategoryKeys.includes(group.key) ? <Eye size={14} /> : <EyeOff size={14} />} {group.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="client-toolbar-actions">
+            <div className="client-view-toggle segmented">
+              <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
+              <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gantt Chart</button>
+            </div>
+            <Link to={`/projects/${project.id}?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button client-toolbar-return">
+              <Eye size={16} /> Gantt View
+            </Link>
+            <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>
+              <Globe2 size={17} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
+            </button>
+          </div>
         </div>
       )}
 

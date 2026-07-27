@@ -4613,6 +4613,21 @@ body.public-share-body {
   box-shadow: 0 0 14px rgba(75, 141, 255, 0.55);
 }
 
+.client-planning-admin th[data-client-column="who"] .client-column-resize-handle::after,
+.client-planning-admin th[data-client-column="asset"] .client-column-resize-handle::after {
+  background: #8b5cf6;
+  bottom: auto;
+  box-shadow: none;
+  height: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+}
+
+.client-planning-admin td[data-client-column="asset"] {
+  border-right: 1px solid rgba(139, 92, 246, 0.48);
+}
+
 .client-gantt-scroll {
   max-height: calc(100vh - 17rem);
 }
