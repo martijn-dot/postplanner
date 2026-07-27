@@ -4774,7 +4774,7 @@ body.public-share-body {
   border-color: #25304a !important;
 }
 
-.dark main > div:first-child {
+.dark main:not(.client-planning-admin) > div:first-child {
   background: #151c2f !important;
   border-color: #26324f !important;
 }
@@ -5672,10 +5672,11 @@ body.public-share-body {
 
 .client-planning-admin .client-filter-categories { min-width: 0; }
 
-.client-planning-admin .client-filter-row > div > span,
+.client-planning-admin .client-filter-group > span,
 .client-planning-admin .client-filter-categories > div:first-child {
   color: #64748b;
   font-size: 10px;
+  font-weight: 700;
   letter-spacing: 0.1em;
 }
 
@@ -8034,7 +8035,22 @@ body.public-share-body {
 }
 
 .timeline-line .timeline-option-cluster > .focus-button:not(.row-link-button) {
-  transform: translateX(27px);
+  transform: none;
+}
+
+.timeline-line .timeline-option-cluster {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  padding: 0;
+  transform: none;
+}
+
+.timeline-line .timeline-option-cluster .focus-button,
+.timeline-line .timeline-option-cluster .row-link-button {
+  grid-column: auto;
+  justify-self: auto;
+  margin: 0 !important;
 }
 
 .timeline-line .row-link-button svg {
