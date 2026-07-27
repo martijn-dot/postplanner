@@ -1080,7 +1080,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               <Eye size={16} /> Gantt View
             </Link>
             <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>
-              <Globe2 size={17} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
+              <Globe2 size={16} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
             </button>
           </div>
         </div>

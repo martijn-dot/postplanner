@@ -4613,21 +4613,6 @@ body.public-share-body {
   box-shadow: 0 0 14px rgba(75, 141, 255, 0.55);
 }
 
-.client-planning-admin th[data-client-column="who"] .client-column-resize-handle::after,
-.client-planning-admin th[data-client-column="asset"] .client-column-resize-handle::after {
-  background: #8b5cf6;
-  bottom: auto;
-  box-shadow: none;
-  height: 30px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1px;
-}
-
-.client-planning-admin td[data-client-column="asset"] {
-  border-right: 1px solid rgba(139, 92, 246, 0.48);
-}
-
 .client-gantt-scroll {
   max-height: calc(100vh - 17rem);
 }
@@ -5577,6 +5562,10 @@ body.public-share-body {
 
 .client-planning-admin .client-control-toolbar {
   align-items: center;
+  background: rgba(17, 19, 28, 0.86) !important;
+  border-color: rgba(148, 142, 157, 0.14) !important;
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
   display: grid;
   gap: 20px;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -5625,6 +5614,8 @@ body.public-share-body {
   background: #1d1f29;
   border: 1px solid rgba(148, 142, 157, 0.24);
   border-radius: 10px !important;
+  box-sizing: border-box;
+  height: 40px;
   min-height: 40px;
   padding: 4px;
 }
@@ -5653,10 +5644,12 @@ body.public-share-body {
 .client-planning-admin .planning-view-switch,
 .timeline-planner .planning-view-switch,
 .planning-header-actions .client-header-action {
+  box-sizing: border-box;
   border-radius: 10px;
   font-family: var(--font-heading);
   font-size: 0.78rem;
   font-weight: 700;
+  height: 40px;
   min-height: 40px;
   padding: 8px 14px;
 }
@@ -5805,6 +5798,18 @@ body.public-share-body {
   letter-spacing: 0.1em;
   padding-bottom: 8px !important;
   padding-top: 8px !important;
+}
+
+.client-planning-admin .client-planning-table thead th + th::before {
+  background: #8b5cf6;
+  content: "";
+  height: 30px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
 }
 
 .client-planning-admin .client-planning-table tbody tr { border-color: #252a37; }
