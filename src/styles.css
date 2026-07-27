@@ -5433,24 +5433,25 @@ body.public-share-body {
 }
 
 .client-planning-admin .client-view-toggle {
-  background: #0f172a;
-  border-color: #252a37;
-  border-radius: 6px;
+  background: #1d1f29;
+  border-color: rgba(148, 142, 157, 0.22);
+  border-radius: 10px;
   padding: 4px;
 }
 
 .client-planning-admin .client-view-toggle button {
-  border-radius: 4px;
-  color: #64748b;
+  border-radius: 7px;
+  color: #cac4d3;
+  font-family: var(--font-data);
   font-size: 12px;
   font-weight: 600;
   padding: 4px 12px;
 }
 
 .client-planning-admin .client-view-toggle .selected {
-  background: #1e293b;
+  background: #cdbdff;
   box-shadow: none;
-  color: #fff;
+  color: #36197f;
 }
 
 .client-header-action,
@@ -5572,6 +5573,42 @@ body.public-share-body {
   position: sticky;
   top: 112px;
   z-index: 70;
+}
+
+.client-planning-admin .client-control-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  width: 100%;
+}
+
+.client-planning-admin .client-toolbar-download,
+.client-planning-admin .client-toolbar-actions,
+.client-planning-admin .client-toolbar-filters {
+  align-items: center;
+  display: flex;
+}
+
+.client-planning-admin .client-toolbar-filters {
+  gap: 20px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.client-planning-admin .client-toolbar-actions {
+  gap: 8px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.client-planning-admin .client-toolbar-return {
+  background: #1d1f29;
+  border-color: rgba(148, 142, 157, 0.24);
+  border-radius: 10px;
+  color: #e1e1ef;
+  min-height: 30px;
+  padding: 6px 12px;
 }
 
 .client-planning-admin .client-filter-row::after {
