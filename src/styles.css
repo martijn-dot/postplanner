@@ -5580,7 +5580,9 @@ body.public-share-body {
   display: grid;
   gap: 20px;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  width: 100%;
+  margin-left: calc(50% - 50dvw);
+  margin-right: calc(50% - 50dvw);
+  width: 100dvw;
 }
 
 .client-planning-admin .client-toolbar-download,
