@@ -5562,7 +5562,7 @@ body.public-share-body {
 
 .client-planning-admin .client-control-toolbar {
   align-items: center;
-  background: #1d1f29 !important;
+  background: #0b1020 !important;
   border-color: rgba(148, 142, 157, 0.24) !important;
   backdrop-filter: blur(18px) saturate(1.25);
   -webkit-backdrop-filter: blur(18px) saturate(1.25);
@@ -5796,12 +5796,17 @@ body.public-share-body {
   background: #0f172a;
   border-bottom: 1px solid #252a37;
   box-shadow: none;
-  color: #64748b;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  color: #948e9d;
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
   padding-bottom: 8px !important;
   padding-top: 8px !important;
+}
+
+.client-planning-admin .client-planning-table thead .client-column-icon {
+  color: #948e9d;
 }
 
 .client-planning-admin .client-planning-table thead th + th::before {
