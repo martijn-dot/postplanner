@@ -1071,12 +1071,12 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               </div>
             )}
           </div>
-          <div className="client-toolbar-actions">
-            <div className="client-view-toggle segmented">
+          <div className="client-toolbar-actions planning-header-actions">
+            <div className="client-view-toggle segmented planning-mode-selector">
               <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
               <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gantt Chart</button>
             </div>
-            <Link to={`/projects/${project.id}?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button client-toolbar-return">
+            <Link to={`/projects/${project.id}?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button client-toolbar-return planning-view-switch">
               <Eye size={16} /> Gantt View
             </Link>
             <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>

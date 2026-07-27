@@ -5582,6 +5582,8 @@ body.public-share-body {
   grid-template-columns: auto minmax(0, 1fr) auto;
   margin-left: calc(50% - 50dvw);
   margin-right: calc(50% - 50dvw);
+  padding-left: 20px;
+  padding-right: 20px;
   width: 100dvw;
 }
 
@@ -5609,8 +5611,54 @@ body.public-share-body {
   border-color: rgba(148, 142, 157, 0.24);
   border-radius: 10px;
   color: #e1e1ef;
-  min-height: 30px;
-  padding: 6px 12px;
+}
+
+.planning-header-actions {
+  align-items: center;
+  margin-left: auto;
+}
+
+.planning-mode-selector,
+.client-planning-admin .planning-mode-selector,
+.timeline-planner .planning-mode-selector {
+  align-items: center;
+  background: #1d1f29;
+  border: 1px solid rgba(148, 142, 157, 0.24);
+  border-radius: 10px !important;
+  min-height: 40px;
+  padding: 4px;
+}
+
+.planning-mode-selector button,
+.client-planning-admin .planning-mode-selector button,
+.timeline-planner .planning-mode-selector button {
+  border-radius: 7px !important;
+  color: #cac4d3;
+  font-family: var(--font-heading);
+  font-size: 0.78rem !important;
+  font-weight: 700;
+  min-height: 30px !important;
+  padding: 5px 14px !important;
+}
+
+.planning-mode-selector .selected,
+.client-planning-admin .planning-mode-selector .selected,
+.timeline-planner .planning-mode-selector .selected {
+  background: #cdbdff;
+  color: #36197f;
+  box-shadow: none;
+}
+
+.planning-view-switch,
+.client-planning-admin .planning-view-switch,
+.timeline-planner .planning-view-switch,
+.planning-header-actions .client-header-action {
+  border-radius: 10px;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 8px 14px;
 }
 
 .client-planning-admin .client-filter-row::after {

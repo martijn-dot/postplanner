@@ -1435,16 +1435,16 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
     <main className="timeline-planner h-[calc(100vh-10.5rem)] overflow-hidden">
       <div className="flex h-full flex-col">
         <div className="timeline-project-header flex items-center justify-between border-b border-black/10 bg-white px-5 py-3 dark:border-white/10 dark:bg-ink-950">
-          <div className="flex w-full flex-wrap items-center justify-end gap-2">
+          <div className="planning-header-actions flex w-full flex-wrap items-center justify-end gap-2">
             <button type="button" onClick={toggleTableVisibility} className="secondary-button">
               {tableVisible ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               {tableVisible ? 'Hide table' : 'Show table'}
             </button>
             <button type="button" onClick={() => setInfoVisible((next) => !next)} className="secondary-button"><FileText size={16} /> {infoVisible ? 'Hide info' : 'Show info'}</button>
-            <div className="segmented">
+            <div className="segmented planning-mode-selector">
               {['day', 'week', 'month'].map((item) => <button key={item} type="button" onClick={() => setZoom(item)} className={zoom === item ? 'selected' : ''}>{item}</button>)}
             </div>
-            <Link to={`/projects/${project.id}/client?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button">
+            <Link to={`/projects/${project.id}/client?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button planning-view-switch">
               <Eye size={16} /> Table View
             </Link>
             <button type="button" onClick={togglePublishedPlanning} className={`client-header-action ${activeShare ? 'is-published' : ''}`} disabled={publishing}>
