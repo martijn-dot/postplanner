@@ -5779,6 +5779,17 @@ body.public-share-body {
   z-index: 60;
 }
 
+.client-planning-admin .client-global-column-header::after {
+  background: #0f111a;
+  content: "";
+  height: 8px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+}
+
 .client-planning-admin .client-global-column-header .client-table-shell {
   box-shadow: none;
 }
@@ -5850,7 +5861,7 @@ body.public-share-body {
 .client-planning-admin .client-planning-table tbody tr { border-color: #252a37; }
 .client-planning-admin .client-planning-table .week-divider > td,
 .dark .client-planning-admin .client-planning-table .week-divider > td {
-  border-top: 20px solid #0f111a !important;
+  border-top: 80px solid #0f111a !important;
 }
 .client-planning-admin .client-planning-table tbody tr:hover > td { background: rgba(30, 41, 59, 0.2); }
 .client-planning-admin .client-planning-table td { padding-bottom: 10px !important; padding-top: 10px !important; }
