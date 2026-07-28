@@ -4445,6 +4445,28 @@ body.public-share-body {
   opacity: 0.5;
 }
 
+.client-category-section.is-drop-before::before,
+.client-category-section.is-drop-after::after {
+  background: #8b5cf6;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.35), 0 0 12px rgba(139, 92, 246, 0.7);
+  content: "";
+  height: 3px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  z-index: 80;
+}
+
+.client-category-section.is-drop-before::before {
+  top: -2px;
+}
+
+.client-category-section.is-drop-after::after {
+  bottom: -2px;
+}
+
 .client-category-toggle-icon {
   align-items: center;
   align-self: stretch;
@@ -6008,6 +6030,7 @@ body.public-share-body {
 }
 
 .client-planning-admin.production-table-compact .client-planning-table td .field {
+  border-color: transparent;
   border-radius: 4px;
   font-size: 10px;
   height: 25px !important;
@@ -6016,6 +6039,7 @@ body.public-share-body {
 }
 
 .client-planning-admin.production-table-compact .client-planning-table td div.relative > button {
+  border-color: transparent;
   border-radius: 4px;
   font-size: 10px;
   min-height: 25px;

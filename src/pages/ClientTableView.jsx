@@ -937,6 +937,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [sameCategoryRanges, setSameCategoryRanges] = useState(true);
   const [categoryDateRanges, setCategoryDateRanges] = useState({});
   const [draggedCategoryId, setDraggedCategoryId] = useState(null);
+  const [categoryDropTarget, setCategoryDropTarget] = useState(null);
   const expandedProductionRangeIds = useRef(new Set());
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
@@ -1278,31 +1279,28 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               return (
               <section
                 key={group.key}
-                className={`client-category-section ${draggedCategoryId === group.key ? 'is-dragging' : ''}`}
+                className={`client-category-section ${draggedCategoryId === group.key ? 'is-dragging' : ''} ${categoryDropTarget?.id === group.key ? `is-drop-${categoryDropTarget.placement}` : ''}`}
                 onDragOver={(event) => {
-                  if (category && draggedCategoryId && draggedCategoryId !== group.key) event.preventDefault();
+                  if (category && draggedCategoryId && draggedCategoryId !== group.key) {
+                    event.preventDefault();
+                    const rect = event.currentTarget.querySelector('.client-category-section-title')?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
+                    setCategoryDropTarget({ id: group.key, placement: event.clientY < rect.top + rect.height / 2 ? 'before' : 'after' });
+                  }
+                }}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setCategoryDropTarget(null);
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
                   if (category && draggedCategoryId && draggedCategoryId !== group.key) {
-                    reorderCategories(project.id, draggedCategoryId, group.key, planningVersion, activePlanningType);
+                    reorderCategories(project.id, draggedCategoryId, group.key, planningVersion, activePlanningType, categoryDropTarget?.placement ?? 'before');
                   }
                   setDraggedCategoryId(null);
+                  setCategoryDropTarget(null);
                 }}
               >
                 <div className="client-category-section-title">
                   {category && (
-                    <>
-                      <button
-                        type="button"
-                        className="client-category-delete-button"
-                        onClick={() => window.confirm(`Delete category “${category.name}” and all of its rows?`) && deleteCategory(category.id)}
-                        disabled={versionCategories.length <= 1}
-                        aria-label={`Delete ${category.name}`}
-                        title={versionCategories.length <= 1 ? 'The only category cannot be deleted' : `Delete ${category.name}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
                       <button
                         type="button"
                         className="client-category-drag-handle"
@@ -1312,13 +1310,15 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                           event.dataTransfer.effectAllowed = 'move';
                           event.dataTransfer.setData('text/plain', category.id);
                         }}
-                        onDragEnd={() => setDraggedCategoryId(null)}
+                        onDragEnd={() => {
+                          setDraggedCategoryId(null);
+                          setCategoryDropTarget(null);
+                        }}
                         aria-label={`Drag ${category.name} to reorder`}
                         title="Drag to reorder"
                       >
                         <GripVertical size={15} />
                       </button>
-                    </>
                   )}
                   <button type="button" onClick={() => toggleCollapsedCategory(group.key)} className="client-category-toggle-button">
                     <span className="client-category-toggle-icon">
@@ -1326,6 +1326,18 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     </span>
                     <span className="client-category-toggle-name">{group.name}</span>
                   </button>
+                  {category && (
+                    <button
+                      type="button"
+                      className="client-category-delete-button"
+                      onClick={() => window.confirm(`Delete category “${category.name}” and all of its rows?`) && deleteCategory(category.id)}
+                      disabled={versionCategories.length <= 1}
+                      aria-label={`Delete ${category.name}`}
+                      title={versionCategories.length <= 1 ? 'The only category cannot be deleted' : `Delete ${category.name}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
                 {!collapsedCategoryKeys.includes(group.key) && (
                   <ClientPlanningTable

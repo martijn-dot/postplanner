@@ -1522,14 +1522,17 @@ export function PlannerProvider({ children }) {
           if (Object.keys(dbPatch).length) void saveSupabase('category changes', supabase.from('categories').update(dbPatch).eq('id', categoryId));
         }
       }),
-      reorderCategories: (projectId, activeId, overId, version = DEFAULT_PLANNING_VERSION, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
+      reorderCategories: (projectId, activeId, overId, version = DEFAULT_PLANNING_VERSION, type = DEFAULT_PLANNING_TYPE, placement = null) => mutate((draft) => {
         const safeType = planningType(type);
         const rows = draft.categories.filter((item) => item.project_id === projectId && planningType(item.planning_type) === safeType && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === version).sort((a, b) => a.sort_order - b.sort_order);
         const oldIndex = rows.findIndex((item) => item.id === activeId);
         const newIndex = rows.findIndex((item) => item.id === overId);
         if (oldIndex < 0 || newIndex < 0 || activeId === overId) return;
         const [moved] = rows.splice(oldIndex, 1);
-        rows.splice(newIndex, 0, moved);
+        const targetIndex = placement
+          ? rows.findIndex((item) => item.id === overId) + (placement === 'after' ? 1 : 0)
+          : newIndex;
+        rows.splice(targetIndex, 0, moved);
         rows.forEach((item, index) => {
           const real = draft.categories.find((category) => category.id === item.id);
           real.sort_order = index;
