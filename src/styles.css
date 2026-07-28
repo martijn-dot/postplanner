@@ -5696,10 +5696,16 @@ body.public-share-body {
   border-color: rgba(148, 142, 157, 0.24);
   border-radius: 999px;
   color: #cac4d3;
-  font-size: 11px;
+  font-size: 8.8px;
   font-weight: 600;
-  min-height: 26px;
-  padding-inline: 10px;
+  gap: 0.28rem;
+  min-height: 21px;
+  padding-inline: 8px;
+}
+
+.client-planning-admin .client-filter-pill svg {
+  height: 11px;
+  width: 11px;
 }
 
 .client-planning-admin .client-filter-pill.is-active,
@@ -8062,10 +8068,15 @@ body.public-share-body {
 }
 
 .timeline-line .timeline-option-cluster {
+  bottom: 0;
   display: flex;
   gap: 5px;
   justify-content: center;
+  left: var(--timeline-asset-edge);
   padding: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
   transform: none;
 }
 
