@@ -32,6 +32,42 @@ function withTimeout(promise, timeoutMs, fallback) {
   ]);
 }
 
+async function resolveAuthCallback() {
+  const url = new URL(window.location.href);
+  const tokenHash = url.searchParams.get('token_hash');
+  const callbackType = url.searchParams.get('type');
+
+  if (tokenHash && callbackType) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: callbackType,
+    });
+
+    url.searchParams.delete('token_hash');
+    url.searchParams.delete('type');
+    if (error) {
+      url.searchParams.set('error', 'auth_callback_error');
+      url.searchParams.set('error_description', error.message);
+    }
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    return error ? { data: { session: null }, error } : { data: { session: data.session }, error: null };
+  }
+
+  const authorizationCode = url.searchParams.get('code');
+  if (authorizationCode) {
+    const result = await supabase.auth.exchangeCodeForSession(authorizationCode);
+    url.searchParams.delete('code');
+    if (result.error) {
+      url.searchParams.set('error', 'auth_callback_error');
+      url.searchParams.set('error_description', result.error.message);
+    }
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    return result;
+  }
+
+  return supabase.auth.getSession();
+}
+
 export function AuthProvider({ children }) {
   const localAdminMode = isLocalhost() && !hasSupabaseConfig;
   const [session, setSession] = useState(null);
@@ -42,7 +78,7 @@ export function AuthProvider({ children }) {
     if (!hasSupabaseConfig) return;
     let alive = true;
 
-    withTimeout(supabase.auth.getSession(), AUTH_STARTUP_TIMEOUT_MS, { data: { session: null } }).then(({ data }) => {
+    withTimeout(resolveAuthCallback(), AUTH_STARTUP_TIMEOUT_MS, { data: { session: null } }).then(({ data }) => {
       if (!alive) return;
       setSession(data.session);
       setLoading(false);

@@ -256,8 +256,11 @@ nav .tab-active {
 
 .project-page-tabs .tab {
   align-items: center;
+  border-radius: 11px !important;
   display: inline-flex;
-  gap: 8px;
+  font-size: 0.7rem;
+  gap: 6px;
+  padding: 5px 10px;
 }
 
 .project-page-tabs {
@@ -270,13 +273,18 @@ nav .tab-active {
   align-items: center;
   background: rgba(143, 154, 182, 0.1);
   border: 1px solid rgba(143, 154, 182, 0.18);
-  border-radius: 8px;
+  border-radius: 6px;
   color: #8f9ab6;
   display: inline-flex;
-  height: 25px;
+  height: 20px;
   justify-content: center;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
-  width: 25px;
+  width: 20px;
+}
+
+.project-tab-icon svg {
+  height: 13px;
+  width: 13px;
 }
 
 .project-page-tabs .tab:hover .project-tab-icon,
@@ -5556,21 +5564,24 @@ body.public-share-body {
 .client-planning-admin .client-filter-row {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   position: sticky;
-  top: 112px;
+  top: 104px;
   z-index: 70;
 }
 
 .client-planning-admin .client-control-toolbar {
   align-items: center;
-  background: #1d1f29 !important;
-  border-color: rgba(148, 142, 157, 0.24) !important;
+  background: rgba(17, 19, 28, 0.86) !important;
+  border-color: rgba(148, 142, 157, 0.14) !important;
+  border-width: 0 0 1px !important;
   backdrop-filter: blur(18px) saturate(1.25);
   -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  box-shadow: none;
   display: grid;
   gap: 20px;
   grid-template-columns: auto minmax(0, 1fr) auto;
   margin-left: calc(50% - 50dvw);
   margin-right: calc(50% - 50dvw);
+  min-height: 64px;
   padding-left: 20px;
   padding-right: 20px;
   width: 100dvw;
@@ -5740,21 +5751,25 @@ body.public-share-body {
 .client-planning-admin .client-gantt-today-line { top: 45px; }
 
 .client-planning-admin .today-row {
-  scroll-margin-top: calc(112px + var(--client-filter-stack-height, 54px) + var(--client-sticky-gap, 16px) + var(--client-column-stack-height, 39px) + var(--client-category-stack-height, 38px));
+  scroll-margin-top: calc(104px + var(--client-filter-stack-height, 54px) + var(--client-sticky-gap, 16px) + var(--client-column-stack-height, 39px) + var(--client-category-stack-height, 38px));
 }
 
 .client-planning-admin .client-table-shell { flex: 1; }
 .client-planning-admin .client-category-list {
-  --client-filter-stack-height: 54px;
+  --client-filter-stack-height: 64px;
   --client-sticky-gap: 16px;
   --client-column-stack-height: 39px;
   --client-category-stack-height: 38px;
+  overflow: visible;
 }
 
 .client-planning-admin .client-global-column-header {
+  align-self: stretch;
   background: #161922;
-  position: sticky;
-  top: calc(112px + var(--client-filter-stack-height) + var(--client-sticky-gap));
+  isolation: isolate;
+  overflow: visible;
+  position: sticky !important;
+  top: calc(104px + var(--client-filter-stack-height) + var(--client-sticky-gap)) !important;
   z-index: 60;
 }
 
@@ -5764,7 +5779,11 @@ body.public-share-body {
 
 .client-planning-admin .client-global-column-header .client-table-scroll {
   max-height: none;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.client-planning-admin .client-global-column-header .client-planning-table thead th {
+  position: relative;
 }
 
 .client-planning-admin .client-category-section {
@@ -5774,7 +5793,7 @@ body.public-share-body {
 .client-planning-admin .client-category-section-title {
   margin-bottom: 0;
   position: sticky;
-  top: calc(112px + var(--client-filter-stack-height) + var(--client-sticky-gap) + var(--client-column-stack-height));
+  top: calc(104px + var(--client-filter-stack-height) + var(--client-sticky-gap) + var(--client-column-stack-height));
   z-index: 50;
 }
 

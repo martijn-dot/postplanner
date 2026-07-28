@@ -116,7 +116,7 @@ export default function ProjectPage() {
   return (
     <div className="min-h-screen bg-zinc-50 text-ink-950 dark:bg-ink-950 dark:text-ink-100">
       <TopBar project={project} planningType={requestedType} planningVersion={activeVersion} planningVersions={versions} availablePlanningTypes={availablePlanningTypes} currentPath={location.pathname} />
-      <nav className="project-page-tabs flex h-12 items-center gap-1 border-b border-black/10 bg-white px-5 dark:border-white/10 dark:bg-ink-900">
+      <nav className="project-page-tabs flex h-10 items-center gap-1 border-b border-black/10 bg-white px-4 dark:border-white/10 dark:bg-ink-900">
         <NavLink to={`/projects/${projectId}/brief?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive ? 'tab-active' : ''}`}>
           <span className="project-tab-icon"><NotebookPen size={16} strokeWidth={2.1} /></span>
           <span>Brief</span>
