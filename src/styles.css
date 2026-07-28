@@ -4387,20 +4387,45 @@ body.public-share-body {
 
 .client-category-section-title {
   align-items: center;
-  background: #151c2f;
-  border: 1px solid #2c3755;
+  background: #11131c;
+  border: 1px solid rgba(148, 142, 157, 0.14);
   border-radius: 14px;
-  color: #f3f0ff;
+  color: #e1e1ef;
   display: flex;
-  font-size: 0.82rem;
-  font-weight: 800;
-  gap: 0.45rem;
-  letter-spacing: 0.02em;
+  gap: 8px;
+  letter-spacing: 0;
   margin-bottom: 0.5rem;
-  min-height: 38px;
-  padding: 0 0.9rem;
-  text-transform: uppercase;
+  min-height: 42px;
+  padding: 3px 8px;
   width: 100%;
+}
+
+.client-category-toggle-icon {
+  align-items: center;
+  align-self: stretch;
+  background: #101627;
+  border: 1px solid #2c3755;
+  border-radius: 10px;
+  color: #948e9d;
+  display: inline-flex;
+  justify-content: center;
+  width: 36px;
+}
+
+.client-category-toggle-name {
+  align-items: center;
+  align-self: stretch;
+  background: rgba(29, 24, 46, 0.82);
+  border-radius: 6px;
+  color: #e1e1ef;
+  display: flex;
+  flex: 1;
+  font-size: 1.25rem;
+  font-weight: 850;
+  min-width: 0;
+  padding: 0 12px;
+  text-align: left;
+  text-transform: uppercase;
 }
 
 .client-category-pill {
@@ -5765,13 +5790,13 @@ body.public-share-body {
   --client-filter-stack-height: 64px;
   --client-sticky-gap: 16px;
   --client-column-stack-height: 39px;
-  --client-category-stack-height: 38px;
+  --client-category-stack-height: 42px;
   overflow: visible;
 }
 
 .client-planning-admin .client-global-column-header {
   align-self: stretch;
-  background: #161922;
+  background: transparent;
   isolation: isolate;
   overflow: visible;
   position: sticky !important;
@@ -5782,7 +5807,7 @@ body.public-share-body {
 .client-planning-admin .client-global-column-header::after {
   background: #0f111a;
   content: "";
-  height: 8px;
+  height: 4px;
   left: 0;
   pointer-events: none;
   position: absolute;
@@ -5791,6 +5816,7 @@ body.public-share-body {
 }
 
 .client-planning-admin .client-global-column-header .client-table-shell {
+  background: transparent !important;
   box-shadow: none;
 }
 
@@ -5800,7 +5826,14 @@ body.public-share-body {
 }
 
 .client-planning-admin .client-global-column-header .client-planning-table thead th {
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+  backdrop-filter: blur(20px) saturate(1.35);
+  background: rgba(15, 23, 42, 0.68) !important;
   position: relative;
+}
+
+.client-planning-admin .client-global-column-header .client-planning-table {
+  background: transparent !important;
 }
 
 .client-planning-admin .client-category-section {

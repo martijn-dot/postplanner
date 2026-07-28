@@ -932,7 +932,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       };
     }).filter(Boolean);
     const defaultCategoryName = planningDefinition.defaultCategoryName.trim().toLowerCase();
-    const categoryIssues = activePlanningType === 'production' ? [] : versionCategories
+    const categoryIssues = activePlanningType === 'production' || versionCategories.length <= 1 ? [] : versionCategories
       .filter((category) => {
         const name = String(category.name ?? '').trim();
         return name.toLowerCase() === defaultCategoryName || /^category\s+\d+$/i.test(name);
@@ -1113,8 +1113,10 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             {categoryGroups.map((group) => (
               <section key={group.key} className="client-category-section">
                 <button type="button" onClick={() => toggleCollapsedCategory(group.key)} className="client-category-section-title">
-                  {collapsedCategoryKeys.includes(group.key) ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                  {group.name}
+                  <span className="client-category-toggle-icon">
+                    {collapsedCategoryKeys.includes(group.key) ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                  </span>
+                  <span className="client-category-toggle-name">{group.name}</span>
                 </button>
                 {!collapsedCategoryKeys.includes(group.key) && (
                   <ClientPlanningTable
