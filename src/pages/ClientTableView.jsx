@@ -934,6 +934,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
   const [createPlanningOpen, setCreatePlanningOpen] = useState(false);
   const [planningDraft, setPlanningDraft] = useState({ categoryId: '', asset: '', startDate: '', endDate: '' });
+  const [sameCategoryRanges, setSameCategoryRanges] = useState(true);
+  const [categoryDateRanges, setCategoryDateRanges] = useState({});
   const expandedProductionRangeIds = useRef(new Set());
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
@@ -1121,21 +1123,28 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
 
   const createTablePlanning = (event) => {
     event.preventDefault();
-    if (!planningDraft.categoryId || !planningDraft.startDate || !planningDraft.endDate) return;
-    const selectedDates = eachDayOfInterval({ start: parseISO(planningDraft.startDate), end: parseISO(planningDraft.endDate) }).map((day) => format(day, 'yyyy-MM-dd'));
-    const selectedDateSet = new Set(selectedDates);
-    const existingDateSet = new Set(versionLineItems.map((item) => item.end_date).filter(Boolean));
-    if (versionLineItems.length) {
-      versionLineItems.forEach((item) => {
+    const ranges = versionCategories.map((category) => ({
+      category,
+      range: sameCategoryRanges
+        ? { startDate: planningDraft.startDate, endDate: planningDraft.endDate }
+        : categoryDateRanges[category.id],
+    }));
+    if (!ranges.length || ranges.some(({ range }) => !range?.startDate || !range?.endDate)) return;
+    ranges.forEach(({ category, range }) => {
+      const selectedDates = eachDayOfInterval({ start: parseISO(range.startDate), end: parseISO(range.endDate) }).map((day) => format(day, 'yyyy-MM-dd'));
+      const selectedDateSet = new Set(selectedDates);
+      const categoryItems = versionLineItems.filter((item) => item.category_id === category.id);
+      const existingDateSet = new Set(categoryItems.map((item) => item.end_date).filter(Boolean));
+      categoryItems.forEach((item) => {
         if (!selectedDateSet.has(item.end_date)) deleteLineItem(item.id);
       });
-    }
-    selectedDates.filter((date) => !existingDateSet.has(date)).forEach((date) => {
-      addLineItem(project.id, planningDraft.categoryId, date, {
-        asset: planningDraft.asset.trim(),
-        start_date: date,
-        end_date: date,
-      }, planningVersion, activePlanningType);
+      selectedDates.filter((date) => !existingDateSet.has(date)).forEach((date) => {
+        addLineItem(project.id, category.id, date, {
+          asset: '',
+          start_date: date,
+          end_date: date,
+        }, planningVersion, activePlanningType);
+      });
     });
     setCreatePlanningOpen(false);
     setPlanningDraft({ categoryId: planningDraft.categoryId, asset: '', startDate: '', endDate: '' });
@@ -1210,12 +1219,25 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                 <button type="button" onClick={() => addCategory(project.id, planningVersion, activePlanningType)} className="secondary-button"><Plus size={15} /> Category</button>
                 <button type="button" onClick={() => {
                   const existingDates = versionLineItems.flatMap((item) => [item.start_date, item.end_date]).filter(Boolean).sort();
+                  const defaultRange = { startDate: existingDates[0] ?? '', endDate: existingDates.at(-1) ?? '' };
+                  const nextCategoryRanges = Object.fromEntries(versionCategories.map((category) => {
+                    const categoryDates = versionLineItems
+                      .filter((item) => item.category_id === category.id)
+                      .flatMap((item) => [item.start_date, item.end_date])
+                      .filter(Boolean)
+                      .sort();
+                    return [category.id, {
+                      startDate: categoryDates[0] ?? defaultRange.startDate,
+                      endDate: categoryDates.at(-1) ?? defaultRange.endDate,
+                    }];
+                  }));
                   setPlanningDraft((current) => ({
                     ...current,
                     categoryId: current.categoryId || versionCategories[0]?.id || '',
-                    startDate: existingDates[0] ?? '',
-                    endDate: existingDates.at(-1) ?? '',
+                    ...defaultRange,
                   }));
+                  setCategoryDateRanges(nextCategoryRanges);
+                  setSameCategoryRanges(true);
                   setCreatePlanningOpen(true);
                 }} className="secondary-button">{versionLineItems.length ? <Pencil size={15} /> : <Plus size={15} />} {versionLineItems.length ? 'Update dates' : 'Date range'}</button>
               </>
@@ -1288,16 +1310,41 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
 
       {createPlanningOpen && (
         <div className="fixed inset-0 z-[760] grid place-items-center bg-black/70 p-5" onMouseDown={() => setCreatePlanningOpen(false)}>
-          <form className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 shadow-glow" onSubmit={createTablePlanning} onMouseDown={(event) => event.stopPropagation()}>
+          <form className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/10 bg-ink-900 p-5 shadow-glow" onSubmit={createTablePlanning} onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-white">{versionLineItems.length ? 'Update dates' : 'Select date range'}</h2>
               <button type="button" className="icon-button" onClick={() => setCreatePlanningOpen(false)}><X size={17} /></button>
             </div>
-            <div className="mt-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block space-y-1"><span className="text-xs font-semibold uppercase text-ink-500">Begin date</span><input type="date" className="field" value={planningDraft.startDate} onChange={(event) => setPlanningDraft((current) => ({ ...current, startDate: event.target.value }))} required /></label>
-                <label className="block space-y-1"><span className="text-xs font-semibold uppercase text-ink-500">End date</span><input type="date" min={planningDraft.startDate || undefined} className="field" value={planningDraft.endDate} onChange={(event) => setPlanningDraft((current) => ({ ...current, endDate: event.target.value }))} required /></label>
-              </div>
+            {versionCategories.length > 1 && (
+              <label className="mt-4 flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm font-semibold text-ink-200">
+                <input type="checkbox" checked={sameCategoryRanges} onChange={(event) => setSameCategoryRanges(event.target.checked)} />
+                Both ranges the same
+              </label>
+            )}
+            <div className="mt-4 space-y-4">
+              {sameCategoryRanges || versionCategories.length === 1 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block space-y-1"><span className="text-xs font-semibold uppercase text-ink-500">Begin date</span><input type="date" className="field" value={planningDraft.startDate} onChange={(event) => setPlanningDraft((current) => ({ ...current, startDate: event.target.value }))} required /></label>
+                  <label className="block space-y-1"><span className="text-xs font-semibold uppercase text-ink-500">End date</span><input type="date" min={planningDraft.startDate || undefined} className="field" value={planningDraft.endDate} onChange={(event) => setPlanningDraft((current) => ({ ...current, endDate: event.target.value }))} required /></label>
+                </div>
+              ) : versionCategories.map((category) => {
+                const range = categoryDateRanges[category.id] ?? { startDate: planningDraft.startDate, endDate: planningDraft.endDate };
+                return (
+                  <section key={category.id} className="rounded-lg border border-white/10 bg-white/[0.025] p-3">
+                    <h3 className="mb-3 text-sm font-semibold text-white">{category.name}</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold uppercase text-ink-500">Begin date</span>
+                        <input type="date" className="field" value={range.startDate} onChange={(event) => setCategoryDateRanges((current) => ({ ...current, [category.id]: { ...range, startDate: event.target.value } }))} required />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold uppercase text-ink-500">End date</span>
+                        <input type="date" min={range.startDate || undefined} className="field" value={range.endDate} onChange={(event) => setCategoryDateRanges((current) => ({ ...current, [category.id]: { ...range, endDate: event.target.value } }))} required />
+                      </label>
+                    </div>
+                  </section>
+                );
+              })}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" className="secondary-button" onClick={() => setCreatePlanningOpen(false)}>Cancel</button>
