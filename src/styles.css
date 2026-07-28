@@ -5936,6 +5936,77 @@ body.public-share-body {
 .client-planning-admin .client-category-pill { background: rgba(14,165,233,.1) !important; border-color: #0ea5e9 !important; border-radius: 999px; color: #0ea5e9 !important; font-size: 10px; padding: 4px 8px; }
 .client-planning-admin .client-row-color-select { gap: 6px; }
 
+.client-planning-admin.production-table-compact .client-planning-table {
+  font-size: 8.5px;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table thead th,
+.dark .client-planning-admin.production-table-compact .client-planning-table thead th {
+  font-size: 8.5px;
+  padding-bottom: 6px !important;
+  padding-top: 6px !important;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table thead .client-column-icon {
+  height: 10px;
+  width: 10px;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table td {
+  padding-bottom: 7px !important;
+  padding-top: 7px !important;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table td[data-client-column] {
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table td .field {
+  border-radius: 4px;
+  font-size: 10px;
+  height: 25px !important;
+  min-height: 25px;
+  padding: 3px 6px !important;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table td div.relative > button {
+  border-radius: 4px;
+  font-size: 10px;
+  min-height: 25px;
+  padding: 3px 6px;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table td .inline-flex {
+  border-radius: 3px;
+  font-size: 9px;
+  line-height: 1.15;
+  padding: 2px 6px;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table .combined-date-chip {
+  min-height: 29px;
+  padding: 3px 8px;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table .combined-date-chip .date-day-name,
+.client-planning-admin.production-table-compact .client-planning-table .date-today-tag {
+  font-size: 8.5px;
+}
+
+.client-planning-admin.production-table-compact .client-planning-table .combined-date-chip strong {
+  font-size: 8px;
+}
+
+.client-planning-admin.production-table-compact .client-week-heading-row > td {
+  font-size: 8px;
+  height: 45px;
+}
+
+.client-planning-admin.production-table-compact .client-week-heading-row > td > b {
+  font-size: 10px;
+}
+
 @media (max-width: 900px) {
   .client-planning-admin .client-filter-group { border-right: 0; padding-right: 0; }
 }

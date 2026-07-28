@@ -911,7 +911,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
 }
 
 export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, addCategory, addLineItem, addLabel } = usePlanner();
+  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, addCategory, addLineItem, deleteLineItem, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const tableOnlyProduction = activePlanningType === PLANNING_TYPES.production.key && project.production_planning_view === 'table';
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
@@ -1122,8 +1122,15 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const createTablePlanning = (event) => {
     event.preventDefault();
     if (!planningDraft.categoryId || !planningDraft.startDate || !planningDraft.endDate) return;
-    eachDayOfInterval({ start: parseISO(planningDraft.startDate), end: parseISO(planningDraft.endDate) }).forEach((day) => {
-      const date = format(day, 'yyyy-MM-dd');
+    const selectedDates = eachDayOfInterval({ start: parseISO(planningDraft.startDate), end: parseISO(planningDraft.endDate) }).map((day) => format(day, 'yyyy-MM-dd'));
+    const selectedDateSet = new Set(selectedDates);
+    const existingDateSet = new Set(versionLineItems.map((item) => item.end_date).filter(Boolean));
+    if (versionLineItems.length) {
+      versionLineItems.forEach((item) => {
+        if (!selectedDateSet.has(item.end_date)) deleteLineItem(item.id);
+      });
+    }
+    selectedDates.filter((date) => !existingDateSet.has(date)).forEach((date) => {
       addLineItem(project.id, planningDraft.categoryId, date, {
         asset: planningDraft.asset.trim(),
         start_date: date,
@@ -1135,7 +1142,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   };
 
   return (
-    <main ref={planningViewRef} className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 px-4 pb-4">
+    <main ref={planningViewRef} className={`client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 px-4 pb-4 ${tableOnlyProduction ? 'production-table-compact' : ''}`}>
       {(viewMode === 'table' || viewMode === 'gantt') && (
         <div className="client-filter-row client-control-toolbar rounded-xl border p-3 text-sm">
           <div className="client-toolbar-download">
@@ -1202,9 +1209,15 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               <>
                 <button type="button" onClick={() => addCategory(project.id, planningVersion, activePlanningType)} className="secondary-button"><Plus size={15} /> Category</button>
                 <button type="button" onClick={() => {
-                  setPlanningDraft((current) => ({ ...current, categoryId: current.categoryId || versionCategories[0]?.id || '' }));
+                  const existingDates = versionLineItems.flatMap((item) => [item.start_date, item.end_date]).filter(Boolean).sort();
+                  setPlanningDraft((current) => ({
+                    ...current,
+                    categoryId: current.categoryId || versionCategories[0]?.id || '',
+                    startDate: existingDates[0] ?? '',
+                    endDate: existingDates.at(-1) ?? '',
+                  }));
                   setCreatePlanningOpen(true);
-                }} className="secondary-button"><Plus size={15} /> Date range</button>
+                }} className="secondary-button">{versionLineItems.length ? <Pencil size={15} /> : <Plus size={15} />} {versionLineItems.length ? 'Update dates' : 'Date range'}</button>
               </>
             )}
             <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>
@@ -1277,7 +1290,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
         <div className="fixed inset-0 z-[760] grid place-items-center bg-black/70 p-5" onMouseDown={() => setCreatePlanningOpen(false)}>
           <form className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 shadow-glow" onSubmit={createTablePlanning} onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold text-white">Create planning</h2>
+              <h2 className="text-lg font-semibold text-white">{versionLineItems.length ? 'Update dates' : 'Select date range'}</h2>
               <button type="button" className="icon-button" onClick={() => setCreatePlanningOpen(false)}><X size={17} /></button>
             </div>
             <div className="mt-4 space-y-3">
@@ -1288,7 +1301,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" className="secondary-button" onClick={() => setCreatePlanningOpen(false)}>Cancel</button>
-              <button type="submit" className="primary-button">Create planning</button>
+              <button type="submit" className="primary-button">{versionLineItems.length ? 'Update dates' : 'Add dates'}</button>
             </div>
           </form>
         </div>

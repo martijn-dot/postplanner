@@ -44,7 +44,11 @@ export default function ProjectPage() {
   const [projectDataLoading, setProjectDataLoading] = useState(true);
   const project = projects.find((item) => item.id === projectId);
   const requestedType = safePlanningType(searchParams.get('type'));
+  const hasActualPostPlanning = lineItems.some((item) => item.project_id === projectId && safePlanningType(item.planning_type) === PLANNING_TYPES.post.key)
+    || categories.some((category) => category.project_id === projectId && safePlanningType(category.planning_type) === PLANNING_TYPES.post.key);
+  const productionTableOnlyProject = project?.production_planning_view === 'table' && !hasActualPostPlanning;
   const availablePlanningTypes = Object.values(PLANNING_TYPES)
+    .filter((definition) => definition.key !== PLANNING_TYPES.post.key || !productionTableOnlyProject)
     .filter((definition) => versionsForProject(project, lineItems, categories, definition.key).length > 0)
     .map((definition) => definition.key);
   const versions = versionsForProject(project, lineItems, categories, requestedType);
