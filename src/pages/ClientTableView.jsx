@@ -363,7 +363,7 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
   const showCategoryColumn = visibleCategoryCount > 1 && !forceHideCategoryColumn;
   const orderedColumns = prefs.order
     .map((key) => CLIENT_COLUMNS.find((column) => column.key === key))
-    .filter((column) => column && prefs.visible[column.key] !== false && (!isProduction || column.key !== 'asset') && (column.key !== 'category' || showCategoryColumn) && (column.key !== 'edit' || onUpdateLineItem));
+    .filter((column) => column && prefs.visible[column.key] !== false && (!isProduction || column.key !== 'asset') && (column.key !== 'category' || showCategoryColumn) && (column.key !== 'edit' || (onUpdateLineItem && !isProduction)));
   const updatePrefs = (nextPrefs) => {
     onColumnPrefsChange?.(nextPrefs);
   };
@@ -628,14 +628,73 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
                           {row._item ? <span className="client-category-pill" style={categoryShade(categoryKeyForItem(row._item), categories)}>{row.Category}</span> : ''}
                         </td>
                       );
-                      if (column.key === 'time') return <td key={column.key} data-client-column={column.key} className="px-3 py-3 font-mono">{row._item ? (row.Time || '-') : ''}</td>;
-                      if (column.key === 'who') return <td key={column.key} data-client-column={column.key} className="px-4 py-3">{row._item ? <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div> : null}</td>;
+                      if (column.key === 'time') return (
+                        <td key={column.key} data-client-column={column.key} className="px-2 py-2 font-mono">
+                          {row._item ? (isProduction && onUpdateLineItem ? (
+                            <input
+                              value={row._item.time ?? ''}
+                              onChange={(event) => onUpdateLineItem(row._item.id, { time: event.target.value.toUpperCase() === 'EOD' ? 'EOD' : normalizeTimeInput(event.target.value) })}
+                              onBlur={() => onFlushLineItem?.(row._item.id)}
+                              className="field !h-9 !px-2 !py-1 font-mono text-sm"
+                              placeholder="HH:MM"
+                              inputMode="numeric"
+                            />
+                          ) : (row.Time || '-')) : ''}
+                        </td>
+                      );
+                      if (column.key === 'who') return (
+                        <td key={column.key} data-client-column={column.key} className="px-2 py-2">
+                          {row._item ? (isProduction && onUpdateLineItem ? (
+                            <LabelSelect
+                              labels={labelsByType.who}
+                              value={row._item.who ?? []}
+                              multiple
+                              multipleModeToggle
+                              placeholder="Who"
+                              onChange={(who) => onUpdateLineItem(row._item.id, { who })}
+                              onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color, { planningType })}
+                            />
+                          ) : <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>) : null}
+                        </td>
+                      );
                       if (column.key === 'asset') return <td key={column.key} data-client-column={column.key} className="overflow-hidden px-4 py-3">{row._item ? <span className="block min-w-0"><span className="block truncate font-semibold">{row.Asset || '-'}</span><span className="mt-0.5 block truncate text-[0.68rem] font-semibold uppercase tracking-wide text-ink-500">{row.Category}</span></span> : null}</td>;
-                      if (column.key === 'what') return <td key={column.key} data-client-column={column.key} className="px-4 py-3">{row._item ? (isProduction ? <span className="font-semibold">{row.What || '-'}</span> : <Pill label={labelsById[row._item.what]} />) : null}</td>;
-                      if (column.key === 'todo') return <td key={column.key} data-client-column={column.key} className="px-4 py-3">{row._item ? <Pill label={labelsById[row._item.todo]} subtle /> : null}</td>;
+                      if (column.key === 'what') return (
+                        <td key={column.key} data-client-column={column.key} className="px-2 py-2">
+                          {row._item ? (isProduction && onUpdateLineItem ? (
+                            <input
+                              value={row._item.asset ?? ''}
+                              onChange={(event) => onUpdateLineItem(row._item.id, { asset: event.target.value })}
+                              onBlur={() => onFlushLineItem?.(row._item.id)}
+                              className="field !h-9 !px-2 !py-1 text-sm font-semibold"
+                              placeholder="What"
+                            />
+                          ) : (isProduction ? <span className="font-semibold">{row.What || '-'}</span> : <Pill label={labelsById[row._item.what]} />)) : null}
+                        </td>
+                      );
+                      if (column.key === 'todo') return (
+                        <td key={column.key} data-client-column={column.key} className="px-2 py-2">
+                          {row._item ? (isProduction && onUpdateLineItem ? (
+                            <LabelSelect
+                              labels={labelsByType.todo}
+                              value={row._item.todo}
+                              placeholder="Todo"
+                              onChange={(todo) => onUpdateLineItem(row._item.id, { todo })}
+                              onAddLabel={(value, color) => onAddLabel?.(project.id, 'todo', value, color, { planningType })}
+                            />
+                          ) : <Pill label={labelsById[row._item.todo]} subtle />) : null}
+                        </td>
+                      );
                       if (column.key === 'notes') return (
-                        <td key={column.key} data-client-column={column.key} className="client-notes-cell min-w-0 px-4 py-3" style={{ width: widthForColumn(column), maxWidth: widthForColumn(column) }}>
-                          {row._item?.notes ? <OverflowNote note={row._item.notes} onOpen={() => setEditingItemId(row._item.id)} /> : null}
+                        <td key={column.key} data-client-column={column.key} className="client-notes-cell min-w-0 px-2 py-2" style={{ width: widthForColumn(column), maxWidth: widthForColumn(column) }}>
+                          {row._item ? (isProduction && onUpdateLineItem ? (
+                            <input
+                              value={row._item.notes ?? ''}
+                              onChange={(event) => onUpdateLineItem(row._item.id, { notes: event.target.value })}
+                              onBlur={() => onFlushLineItem?.(row._item.id)}
+                              className="field !h-9 !px-2 !py-1 text-sm"
+                              placeholder="Notes"
+                            />
+                          ) : (row._item.notes ? <OverflowNote note={row._item.notes} onOpen={() => setEditingItemId(row._item.id)} /> : null)) : null}
                         </td>
                       );
                       return null;
@@ -983,10 +1042,12 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   };
 
   const publish = async () => {
-    const issues = validateRowsForPublishing();
-    if (issues.length) {
-      setPublishValidationIssues(issues);
-      return;
+    if (!tableOnlyProduction) {
+      const issues = validateRowsForPublishing();
+      if (issues.length) {
+        setPublishValidationIssues(issues);
+        return;
+      }
     }
     setPublishing(true);
     try {
