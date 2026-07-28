@@ -277,6 +277,15 @@ function googleCalendarUrl(row) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+function clientWeekRange(dateKey) {
+  const date = parseISO(dateKey);
+  const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
+  return weekStart.getMonth() === weekEnd.getMonth()
+    ? `${format(weekStart, 'd')}–${format(weekEnd, 'd MMM')}`
+    : `${format(weekStart, 'd MMM')}–${format(weekEnd, 'd MMM')}`;
+}
+
 export function clientPlanningExportRows(project, lineItems, labels, categories, showEmptyDates, uncategorizedName = 'Uncategorized', dateWindow = 'future', planningType = DEFAULT_PLANNING_TYPE) {
   const labelsById = Object.fromEntries(labels.map((label) => [label.id, label]));
   return annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType), dateWindow)).map((row) => ({
@@ -573,6 +582,15 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
             {!headerOnly && <tbody>
               {rows.map((row, index) => (
                 <Fragment key={`${row._item?.id ?? row._dateKey}-${index}`}>
+                  {showWeekColumn && row._showWeek && (
+                    <tr className="client-week-heading-row">
+                      <td colSpan={2 + orderedColumns.length}>
+                        <span>Week {row.Week}</span>
+                        <b>/</b>
+                        <span>{clientWeekRange(row._dateKey)}</span>
+                      </td>
+                    </tr>
+                  )}
                   {!showWeekColumn && row._showWeekDivider && (
                     <tr className="client-week-separator-row">
                       <td colSpan={1 + orderedColumns.length}>
@@ -581,7 +599,7 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
                     </tr>
                   )}
                   <tr
-                    className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._isToday ? 'today-row' : ''} ${row._item?.row_color ? `client-row-color-${row._item.row_color}` : ''} ${row._showWeekDivider && showWeekColumn ? 'week-divider' : 'border-t border-black/5 dark:border-white/5'}`}
+                    className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._isToday ? 'today-row' : ''} ${row._item?.row_color ? `client-row-color-${row._item.row_color}` : ''} border-t border-black/5 dark:border-white/5`}
                   >
                     {showWeekColumn && row._showWeek && (
                       <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono text-[1.5em]">
