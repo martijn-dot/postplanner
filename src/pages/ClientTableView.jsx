@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Tag, Users, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Plus, Tag, Users, X } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CursorTooltip from '../components/CursorTooltip.jsx';
@@ -873,8 +873,9 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
 }
 
 export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, updateCategory, addLabel } = usePlanner();
+  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, updateCategory, addCategory, addLineItem, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
+  const tableOnlyProduction = activePlanningType === PLANNING_TYPES.production.key && project.production_planning_view === 'table';
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
   const activeShare = shareLinks.find((share) => share.project_id === project.id && share.page_type === 'client_planning' && safePlanningType(share.planning_type) === activePlanningType && (share.planning_version ?? 'V1') === planningVersion && !share.revoked_at);
   const initialFilterPrefs = useRef(readClientFilterPrefs(project.id, activePlanningType, planningVersion));
@@ -893,6 +894,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [publishing, setPublishing] = useState(false);
   const [publishValidationIssues, setPublishValidationIssues] = useState([]);
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
+  const [createPlanningOpen, setCreatePlanningOpen] = useState(false);
+  const [planningDraft, setPlanningDraft] = useState({ categoryId: '', asset: '', startDate: '', endDate: '' });
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
   const whoFilterIds = useMemo(() => ({
@@ -928,7 +931,19 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       return aOrder - bOrder || a.name.localeCompare(b.name);
     });
   }, [categoriesById, uncategorizedName]);
-  const categoryGroups = useMemo(() => categoryGroupsFor(filteredLineItems), [categoryGroupsFor, filteredLineItems]);
+  const categoryGroups = useMemo(() => {
+    const groups = categoryGroupsFor(filteredLineItems);
+    versionCategories.forEach((category) => {
+      if (!hiddenCategoryKeys.includes(category.id) && !groups.some((group) => group.key === category.id)) {
+        groups.push({ key: category.id, name: category.name, items: [] });
+      }
+    });
+    return groups.sort((a, b) => {
+      const aOrder = a.key === 'uncategorized' ? 99999 : categoriesById[a.key]?.sort_order ?? 9999;
+      const bOrder = b.key === 'uncategorized' ? 99999 : categoriesById[b.key]?.sort_order ?? 9999;
+      return aOrder - bOrder || a.name.localeCompare(b.name);
+    });
+  }, [categoriesById, categoryGroupsFor, filteredLineItems, hiddenCategoryKeys, versionCategories]);
   const categoryFilterGroups = useMemo(() => categoryGroupsFor(bookingFilteredLineItems), [bookingFilteredLineItems, categoryGroupsFor]);
 
   const validateRowsForPublishing = () => {
@@ -1010,6 +1025,15 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   }, [project.id]);
 
   useEffect(() => {
+    if (tableOnlyProduction && viewMode !== 'table') setViewMode('table');
+  }, [tableOnlyProduction, viewMode]);
+
+  useEffect(() => {
+    if (!tableOnlyProduction || columnPrefs.visible.edit !== false) return;
+    updateColumnPrefs({ ...columnPrefs, visible: { ...columnPrefs.visible, edit: true } });
+  }, [columnPrefs, tableOnlyProduction]);
+
+  useEffect(() => {
     localStorage.setItem(clientFilterStorageKey(project.id, activePlanningType, planningVersion), JSON.stringify({
       showEmptyDates,
       dateWindow,
@@ -1033,11 +1057,32 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
     todayTarget?.scrollIntoView({ behavior: 'smooth', block: viewMode === 'gantt' ? 'nearest' : 'start', inline: viewMode === 'gantt' ? 'center' : 'nearest' });
   };
 
+  const createTablePlanning = (event) => {
+    event.preventDefault();
+    if (!planningDraft.categoryId || !planningDraft.startDate || !planningDraft.endDate) return;
+    addLineItem(project.id, planningDraft.categoryId, planningDraft.startDate, {
+      asset: planningDraft.asset.trim(),
+      start_date: planningDraft.startDate,
+      end_date: planningDraft.endDate,
+    }, planningVersion, activePlanningType);
+    setCreatePlanningOpen(false);
+    setPlanningDraft({ categoryId: planningDraft.categoryId, asset: '', startDate: '', endDate: '' });
+  };
+
   return (
     <main ref={planningViewRef} className="client-planning-admin mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1400px] flex-col gap-4 px-4 pb-4">
       {(viewMode === 'table' || viewMode === 'gantt') && (
         <div className="client-filter-row client-control-toolbar rounded-xl border p-3 text-sm">
           <div className="client-toolbar-download">
+          {tableOnlyProduction && (
+            <>
+              <button type="button" onClick={() => addCategory(project.id, planningVersion, activePlanningType)} className="secondary-button"><Plus size={15} /> Category</button>
+              <button type="button" onClick={() => {
+                setPlanningDraft((current) => ({ ...current, categoryId: current.categoryId || versionCategories[0]?.id || '' }));
+                setCreatePlanningOpen(true);
+              }} className="secondary-button"><Plus size={15} /> Planning</button>
+            </>
+          )}
           <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="client-download-action" disabled={!exportRows.length}>
             <Download size={17} /> Download Excel
           </button>
@@ -1090,13 +1135,13 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             )}
           </div>
           <div className="client-toolbar-actions planning-header-actions">
-            <div className="client-view-toggle segmented planning-mode-selector">
+            {!tableOnlyProduction && <div className="client-view-toggle segmented planning-mode-selector">
               <button type="button" onClick={() => changeViewMode('table')} className={viewMode === 'table' ? 'selected' : ''}>Table View</button>
               <button type="button" onClick={() => changeViewMode('gantt')} className={viewMode === 'gantt' ? 'selected' : ''}>Gantt Chart</button>
-            </div>
-            <Link to={`/projects/${project.id}?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button client-toolbar-return planning-view-switch">
+            </div>}
+            {!tableOnlyProduction && <Link to={`/projects/${project.id}?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button client-toolbar-return planning-view-switch">
               <Eye size={16} /> Gantt View
-            </Link>
+            </Link>}
             <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>
               <Globe2 size={16} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
             </button>
@@ -1163,6 +1208,38 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
           </div>
       ) : (
         <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode="sections" collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} compact planningType={activePlanningType} />
+      )}
+
+      {createPlanningOpen && (
+        <div className="fixed inset-0 z-[760] grid place-items-center bg-black/70 p-5" onMouseDown={() => setCreatePlanningOpen(false)}>
+          <form className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 shadow-glow" onSubmit={createTablePlanning} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold text-white">Create planning</h2>
+              <button type="button" className="icon-button" onClick={() => setCreatePlanningOpen(false)}><X size={17} /></button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold uppercase text-ink-500">Category</span>
+                <select className="field" value={planningDraft.categoryId} onChange={(event) => setPlanningDraft((current) => ({ ...current, categoryId: event.target.value }))} required>
+                  <option value="">Select category</option>
+                  {versionCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold uppercase text-ink-500">Planning name</span>
+                <input className="field" value={planningDraft.asset} onChange={(event) => setPlanningDraft((current) => ({ ...current, asset: event.target.value }))} placeholder="Planning name" />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block space-y-1"><span className="text-xs font-semibold uppercase text-ink-500">Begin date</span><input type="date" className="field" value={planningDraft.startDate} onChange={(event) => setPlanningDraft((current) => ({ ...current, startDate: event.target.value }))} required /></label>
+                <label className="block space-y-1"><span className="text-xs font-semibold uppercase text-ink-500">End date</span><input type="date" min={planningDraft.startDate || undefined} className="field" value={planningDraft.endDate} onChange={(event) => setPlanningDraft((current) => ({ ...current, endDate: event.target.value }))} required /></label>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="secondary-button" onClick={() => setCreatePlanningOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-button">Create planning</button>
+            </div>
+          </form>
+        </div>
       )}
 
       {publishValidationIssues.length > 0 && (

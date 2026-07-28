@@ -1173,7 +1173,7 @@ export function PlannerProvider({ children }) {
       loadMoreProjects,
       hasMoreProjects,
       flushLineItemUpdate,
-      createProject: async ({ projectNumber, name, client, postProducer, producer, planningType: initialPlanningType = DEFAULT_PLANNING_TYPE }) => {
+      createProject: async ({ projectNumber, name, client, postProducer, producer, planningType: initialPlanningType = DEFAULT_PLANNING_TYPE, productionPlanningView = 'gantt' }) => {
         const now = new Date().toISOString();
         const safePlanningType = planningType(initialPlanningType);
         const planningDefinition = PLANNING_TYPES[safePlanningType] ?? PLANNING_TYPES.post;
@@ -1194,6 +1194,7 @@ export function PlannerProvider({ children }) {
           created_at: now,
           planning_versions: [DEFAULT_PLANNING_VERSION],
           preferred_planning_version: DEFAULT_PLANNING_VERSION,
+          production_planning_view: safePlanningType === PLANNING_TYPES.production.key ? productionPlanningView : 'gantt',
         };
         const category = { id: id(), project_id: project.id, planning_type: safePlanningType, planning_version: DEFAULT_PLANNING_VERSION, name: planningDefinition.defaultCategoryName, sort_order: 0, collapsed: false };
         mutate((draft) => {
@@ -1328,11 +1329,15 @@ export function PlannerProvider({ children }) {
         markDirty(list.project_id);
         if (useSupabase) void saveSupabase('asset list delete', supabase.from('asset_lists').delete().eq('id', listId));
       }),
-      ensurePlanningModule: (projectId, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
+      ensurePlanningModule: (projectId, type = DEFAULT_PLANNING_TYPE, productionPlanningView = 'gantt') => mutate((draft) => {
         const safeType = planningType(type);
         const existingVersions = planningVersionsFor(projectId, safeType, draft.categories, draft.lineItems);
         if (existingVersions.length) return existingVersions[0];
         const project = draft.projects.find((item) => item.id === projectId);
+        if (project && safeType === PLANNING_TYPES.production.key) {
+          project.production_planning_view = productionPlanningView;
+          if (useSupabase) void saveSupabase('production planning view', supabase.from('projects').update({ production_planning_view: productionPlanningView }).eq('id', projectId));
+        }
         const definition = PLANNING_TYPES[safeType] ?? PLANNING_TYPES.post;
         const category = {
           id: id(),

@@ -130,6 +130,7 @@ export default function Dashboard() {
   const [postProducer, setPostProducer] = useState(currentUserName);
   const [producer, setProducer] = useState('');
   const [initialPlanningType, setInitialPlanningType] = useState(DEFAULT_PLANNING_TYPE);
+  const [productionPlanningView, setProductionPlanningView] = useState('gantt');
   const [formError, setFormError] = useState('');
   const clients = [...new Set([...(savedClients ?? []).map((item) => item.name)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const postProducers = [...new Set((profiles ?? []).map((profile) => profile.display_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -155,6 +156,7 @@ export default function Dashboard() {
     setPostProducer(currentUserName);
     setProducer('');
     setInitialPlanningType(DEFAULT_PLANNING_TYPE);
+    setProductionPlanningView('gantt');
   };
   const openNewProject = () => {
     setEditingProject(null);
@@ -164,6 +166,7 @@ export default function Dashboard() {
     setPostProducer(currentUserName);
     setProducer('');
     setInitialPlanningType(DEFAULT_PLANNING_TYPE);
+    setProductionPlanningView('gantt');
     setFormError('');
     setOpen(true);
   };
@@ -214,7 +217,7 @@ export default function Dashboard() {
         updateProject(duplicateProject.id, selectedDefinition.key === PLANNING_TYPES.production.key
           ? { producer: selectedProducer || null }
           : { post_producer: selectedPostProducer || null });
-        ensurePlanningModule(duplicateProject.id, selectedDefinition.key);
+        ensurePlanningModule(duplicateProject.id, selectedDefinition.key, productionPlanningView);
         if (selectedPostProducer) addProducer(selectedPostProducer);
         if (selectedProducer) addProducer(selectedProducer);
         resetForm();
@@ -231,6 +234,7 @@ export default function Dashboard() {
         postProducer: selectedPostProducer,
         producer: selectedProducer,
         planningType: initialPlanningType,
+        productionPlanningView,
       });
       if (client) addClient(client);
       if (selectedPostProducer) addProducer(selectedPostProducer);
@@ -363,7 +367,8 @@ export default function Dashboard() {
                 event?.preventDefault();
                 event?.stopPropagation();
                 if (!exists) ensurePlanningModule(project.id, definition.key);
-                window.location.href = `/projects/${project.id}?type=${definition.key}&version=${version}`;
+                const tableOnlyProduction = definition.key === PLANNING_TYPES.production.key && project.production_planning_view === 'table';
+                window.location.href = `/projects/${project.id}${tableOnlyProduction ? '/client' : ''}?type=${definition.key}&version=${version}`;
               };
               const openProjectSettingsAction = (event) => {
                 event.preventDefault();
@@ -685,6 +690,26 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+              {!editingProject && initialPlanningType === PLANNING_TYPES.production.key && (
+                <div>
+                  <div className="mb-2 text-xs font-semibold uppercase text-ink-500">Create production planning in</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: 'gantt', label: 'Gantt view' },
+                      { key: 'table', label: 'Table view' },
+                    ].map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setProductionPlanningView(option.key)}
+                        className={`project-create-type is-production ${productionPlanningView === option.key ? 'is-selected' : ''}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <label className="block space-y-1">
                 <span className="text-xs font-semibold uppercase text-ink-500">Project Code</span>
                 <input
@@ -730,13 +755,14 @@ export default function Dashboard() {
                               Delete
                             </button>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => ensurePlanningModule(editingProject.id, definition.key)}
-                              className="secondary-button !px-2 !py-1 text-xs"
-                            >
-                              Add
-                            </button>
+                            definition.key === PLANNING_TYPES.production.key ? (
+                              <span className="flex gap-1">
+                                <button type="button" onClick={() => ensurePlanningModule(editingProject.id, definition.key, 'gantt')} className="secondary-button !px-2 !py-1 text-xs">Add Gantt</button>
+                                <button type="button" onClick={() => ensurePlanningModule(editingProject.id, definition.key, 'table')} className="secondary-button !px-2 !py-1 text-xs">Add Table</button>
+                              </span>
+                            ) : (
+                              <button type="button" onClick={() => ensurePlanningModule(editingProject.id, definition.key)} className="secondary-button !px-2 !py-1 text-xs">Add</button>
+                            )
                           )}
                         </div>
                       );

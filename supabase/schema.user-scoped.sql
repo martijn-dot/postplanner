@@ -29,7 +29,8 @@ create table if not exists public.projects (
   archived_by uuid references public.profiles(id),
   archived_at timestamptz,
   planning_versions text[] not null default array['V1'],
-  preferred_planning_version text not null default 'V1'
+  preferred_planning_version text not null default 'V1',
+  production_planning_view text not null default 'gantt' check (production_planning_view in ('gantt', 'table'))
 );
 
 alter table public.projects add column if not exists project_number text;
@@ -43,6 +44,7 @@ alter table public.projects add column if not exists archived_by uuid references
 alter table public.projects add column if not exists archived_at timestamptz;
 alter table public.projects add column if not exists planning_versions text[] not null default array['V1'];
 alter table public.projects add column if not exists preferred_planning_version text not null default 'V1';
+alter table public.projects add column if not exists production_planning_view text not null default 'gantt';
 
 do $$
 declare

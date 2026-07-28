@@ -5619,6 +5619,10 @@ body.public-share-body {
   display: flex;
 }
 
+.client-planning-admin .client-toolbar-download {
+  gap: 8px;
+}
+
 .client-planning-admin .client-toolbar-filters {
   gap: 20px;
   justify-content: center;

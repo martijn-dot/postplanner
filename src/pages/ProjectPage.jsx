@@ -51,6 +51,8 @@ export default function ProjectPage() {
   const requestedVersion = searchParams.get('version');
   const fallbackVersion = requestedType === DEFAULT_PLANNING_TYPE ? project?.preferred_planning_version : null;
   const activeVersion = versions.includes(requestedVersion) ? requestedVersion : (versions.includes(fallbackVersion) ? fallbackVersion : versions[0] ?? 'V1');
+  const tableOnlyProduction = requestedType === PLANNING_TYPES.production.key && project?.production_planning_view === 'table';
+  const planningPath = `/projects/${projectId}${tableOnlyProduction ? '/client' : ''}?type=${requestedType}&version=${activeVersion}`;
   const activeClientPortal = shareLinks.find((share) => share.project_id === projectId
     && share.page_type === 'client_planning'
     && !share.revoked_at);
@@ -121,7 +123,7 @@ export default function ProjectPage() {
           <span className="project-tab-icon"><NotebookPen size={16} strokeWidth={2.1} /></span>
           <span>Brief</span>
         </NavLink>
-        <NavLink end to={`/projects/${projectId}?type=${requestedType}&version=${activeVersion}`} className={({ isActive }) => `tab ${isActive || location.pathname.endsWith('/client') ? 'tab-active' : ''}`}>
+        <NavLink end to={planningPath} className={({ isActive }) => `tab ${isActive || location.pathname.endsWith('/client') ? 'tab-active' : ''}`}>
           <span className="project-tab-icon"><CalendarRange size={16} strokeWidth={2.1} /></span>
           <span>Planning</span>
         </NavLink>
@@ -137,7 +139,7 @@ export default function ProjectPage() {
         )}
       </nav>
       <Routes>
-        <Route index element={<TimelineView project={project} planningType={requestedType} planningVersion={activeVersion} />} />
+        <Route index element={tableOnlyProduction ? <Navigate to={`client?type=${requestedType}&version=${activeVersion}`} replace /> : <TimelineView project={project} planningType={requestedType} planningVersion={activeVersion} />} />
         <Route path="brief" element={<BriefPage project={project} />} />
         <Route path="client" element={<ClientTableView key={`${project.id}:${requestedType}:${activeVersion}`} project={project} planningType={requestedType} planningVersion={activeVersion} />} />
         <Route path="assets" element={<AssetListPage project={project} />} />
