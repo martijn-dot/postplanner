@@ -4182,7 +4182,7 @@ body.public-share-body {
 [data-resize-column="who"]::after {
   background: #8b5cf6;
   bottom: auto;
-  height: 30px;
+  height: 15px;
   top: 50%;
   transform: translateY(-50%);
 }
@@ -4207,10 +4207,10 @@ body.public-share-body {
 }
 
 .timeline-table-header-panel::after {
-  bottom: auto;
-  height: 30px;
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: 12px;
+  height: 15px;
+  top: auto;
+  transform: none;
 }
 
 .timeline-row-table-panel::after {
