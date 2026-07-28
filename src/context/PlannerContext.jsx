@@ -1192,7 +1192,7 @@ export function PlannerProvider({ children }) {
           name,
           client,
           created_at: now,
-          planning_versions: [DEFAULT_PLANNING_VERSION],
+          planning_versions: safePlanningType === DEFAULT_PLANNING_TYPE ? [DEFAULT_PLANNING_VERSION] : [],
           preferred_planning_version: DEFAULT_PLANNING_VERSION,
           production_planning_view: safePlanningType === PLANNING_TYPES.production.key ? productionPlanningView : 'gantt',
         };

@@ -343,17 +343,12 @@ function OverflowNote({ note, onOpen }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, widthLineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onUpdateCategory, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
+export function ClientPlanningTable({ project, lineItems, widthLineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
   const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
-  const [editingCategoryName, setEditingCategoryName] = useState('');
   const editingItem = editingItemId ? lineItems.find((item) => item.id === editingItemId) : null;
-  const editingCategory = editingItem?.category_id ? categories.find((category) => category.id === editingItem.category_id) : null;
-  useEffect(() => {
-    setEditingCategoryName(editingCategory?.name ?? uncategorizedName);
-  }, [editingCategory?.id, editingCategory?.name, editingItemId, uncategorizedName]);
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const labelsByType = useMemo(() => ({
     who: labels.filter((label) => label.column_type === 'who'),
@@ -663,41 +658,25 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
             <div className="mb-3 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-ink-100">Edit planning row</h2>
-                <p className="mt-1 text-sm text-ink-500">{editingItem.asset || 'Client planning row'}</p>
+                <p className="mt-1 text-sm text-ink-500">{editingItem.end_date ? format(parseISO(editingItem.end_date), 'EEEE, d MMMM yyyy') : 'Client planning row'}</p>
               </div>
               <button type="button" onClick={() => setEditingItemId(null)} className="icon-button">x</button>
             </div>
             <div className="space-y-3">
               <label className="block space-y-1">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Category</span>
-                <input
-                  value={editingCategoryName}
-                  onChange={(event) => setEditingCategoryName(event.target.value)}
-                  onBlur={() => {
-                    const nextName = editingCategoryName.trim();
-                    if (editingCategory && onUpdateCategory && nextName && nextName !== editingCategory.name) onUpdateCategory(editingCategory.id, { name: nextName });
-                    if (!nextName) setEditingCategoryName(editingCategory?.name ?? uncategorizedName);
-                  }}
-                  disabled={!editingCategory || !onUpdateCategory}
-                  className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400 disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Category name"
-                />
-                <span className="block text-[0.68rem] text-ink-500">Changing this name updates every row in this category.</span>
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Who</span>
+                <LabelSelect labels={labelsByType.who} value={editingItem.who ?? []} multiple multipleModeToggle placeholder="Who" onChange={(who) => onUpdateLineItem(editingItem.id, { who })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color)} />
               </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Asset name</span>
+              {isProduction && <label className="block space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">What</span>
                 <input
                   value={editingItem.asset ?? ''}
                   onChange={(event) => onUpdateLineItem(editingItem.id, { asset: event.target.value })}
                   onBlur={() => onFlushLineItem?.(editingItem.id)}
                   className="w-full rounded-md border border-white/10 bg-ink-950 px-3 py-2 text-sm text-ink-100 outline-none focus:border-accent-400"
-                  placeholder="Asset name"
+                  placeholder="What"
                 />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Who</span>
-                <LabelSelect labels={labelsByType.who} value={editingItem.who ?? []} multiple multipleModeToggle placeholder="Who" onChange={(who) => onUpdateLineItem(editingItem.id, { who })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color)} />
-              </label>
+              </label>}
               {!isProduction && <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">What</span>
                 <LabelSelect labels={labelsByType.what} value={editingItem.what} placeholder="What" onChange={(what) => onUpdateLineItem(editingItem.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} />
@@ -873,7 +852,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
 }
 
 export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, updateCategory, addCategory, addLineItem, addLabel } = usePlanner();
+  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, addCategory, addLineItem, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const tableOnlyProduction = activePlanningType === PLANNING_TYPES.production.key && project.production_planning_view === 'table';
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
@@ -896,6 +875,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
   const [createPlanningOpen, setCreatePlanningOpen] = useState(false);
   const [planningDraft, setPlanningDraft] = useState({ categoryId: '', asset: '', startDate: '', endDate: '' });
+  const expandedProductionRangeIds = useRef(new Set());
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
   const whoFilterIds = useMemo(() => ({
@@ -904,6 +884,27 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   }), [labels]);
   const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion), [activePlanningType, lineItems, planningVersion, project.id]);
   const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion), [activePlanningType, categories, planningVersion, project.id]);
+  useEffect(() => {
+    if (!tableOnlyProduction) return;
+    versionLineItems.forEach((item) => {
+      if (!item.start_date || !item.end_date || item.start_date >= item.end_date || expandedProductionRangeIds.current.has(item.id)) return;
+      expandedProductionRangeIds.current.add(item.id);
+      const dates = eachDayOfInterval({ start: parseISO(item.start_date), end: parseISO(item.end_date) }).map((day) => format(day, 'yyyy-MM-dd'));
+      const sharedValues = {
+        who: [...(item.who ?? [])],
+        asset: item.asset ?? '',
+        what: item.what ?? '',
+        todo: item.todo ?? '',
+        time: item.time ?? '',
+        notes: item.notes ?? '',
+        row_color: item.row_color ?? '',
+      };
+      updateLineItem(item.id, { start_date: dates[0], end_date: dates[0] });
+      dates.slice(1).forEach((date) => {
+        addLineItem(project.id, item.category_id, date, { ...sharedValues, start_date: date, end_date: date }, planningVersion, activePlanningType);
+      });
+    });
+  }, [activePlanningType, addLineItem, planningVersion, project.id, tableOnlyProduction, updateLineItem, versionLineItems]);
   const categoriesById = useMemo(() => Object.fromEntries(versionCategories.map((category) => [category.id, category])), [versionCategories]);
   const bookingFilteredLineItems = useMemo(() => versionLineItems.filter((item) => {
     if (!showWennekerBookings && whoFilterIds.wenneker && item.who?.includes(whoFilterIds.wenneker)) return false;
@@ -1060,11 +1061,14 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const createTablePlanning = (event) => {
     event.preventDefault();
     if (!planningDraft.categoryId || !planningDraft.startDate || !planningDraft.endDate) return;
-    addLineItem(project.id, planningDraft.categoryId, planningDraft.startDate, {
-      asset: planningDraft.asset.trim(),
-      start_date: planningDraft.startDate,
-      end_date: planningDraft.endDate,
-    }, planningVersion, activePlanningType);
+    eachDayOfInterval({ start: parseISO(planningDraft.startDate), end: parseISO(planningDraft.endDate) }).forEach((day) => {
+      const date = format(day, 'yyyy-MM-dd');
+      addLineItem(project.id, planningDraft.categoryId, date, {
+        asset: planningDraft.asset.trim(),
+        start_date: date,
+        end_date: date,
+      }, planningVersion, activePlanningType);
+    });
     setCreatePlanningOpen(false);
     setPlanningDraft({ categoryId: planningDraft.categoryId, asset: '', startDate: '', endDate: '' });
   };
@@ -1074,18 +1078,9 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
       {(viewMode === 'table' || viewMode === 'gantt') && (
         <div className="client-filter-row client-control-toolbar rounded-xl border p-3 text-sm">
           <div className="client-toolbar-download">
-          {tableOnlyProduction && (
-            <>
-              <button type="button" onClick={() => addCategory(project.id, planningVersion, activePlanningType)} className="secondary-button"><Plus size={15} /> Category</button>
-              <button type="button" onClick={() => {
-                setPlanningDraft((current) => ({ ...current, categoryId: current.categoryId || versionCategories[0]?.id || '' }));
-                setCreatePlanningOpen(true);
-              }} className="secondary-button"><Plus size={15} /> Planning</button>
-            </>
-          )}
-          <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="client-download-action" disabled={!exportRows.length}>
-            <Download size={17} /> Download Excel
-          </button>
+            <button type="button" onClick={() => downloadPlanningExcel(project, exportRows)} className="client-download-action" disabled={!exportRows.length}>
+              <Download size={17} /> Download Excel
+            </button>
           </div>
           <div className="client-toolbar-filters">
             <div className="client-filter-group flex flex-wrap items-center gap-2">
@@ -1142,6 +1137,15 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
             {!tableOnlyProduction && <Link to={`/projects/${project.id}?type=${activePlanningType}&version=${planningVersion}`} className="secondary-button client-toolbar-return planning-view-switch">
               <Eye size={16} /> Gantt View
             </Link>}
+            {tableOnlyProduction && (
+              <>
+                <button type="button" onClick={() => addCategory(project.id, planningVersion, activePlanningType)} className="secondary-button"><Plus size={15} /> Category</button>
+                <button type="button" onClick={() => {
+                  setPlanningDraft((current) => ({ ...current, categoryId: current.categoryId || versionCategories[0]?.id || '' }));
+                  setCreatePlanningOpen(true);
+                }} className="secondary-button"><Plus size={15} /> Date range</button>
+              </>
+            )}
             <button type="button" onClick={() => publishedUrl ? setShowUnpublishConfirm(true) : publish()} className={`client-header-action ${publishedUrl ? 'is-published' : ''}`} disabled={publishing}>
               <Globe2 size={16} /> {publishing ? 'Publishing...' : publishedUrl ? 'Published' : 'Publish'}
             </button>
@@ -1162,7 +1166,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                 dateWindow={dateWindow}
                 onUpdateLineItem={updateLineItem}
                 onFlushLineItem={flushLineItemUpdate}
-                onUpdateCategory={updateCategory}
                 onAddLabel={addLabel}
                 uncategorizedName={uncategorizedName}
                 columnPrefs={columnPrefs}
@@ -1192,7 +1195,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     dateWindow={dateWindow}
                     onUpdateLineItem={updateLineItem}
                     onFlushLineItem={flushLineItemUpdate}
-                    onUpdateCategory={updateCategory}
                     onAddLabel={addLabel}
                     uncategorizedName={uncategorizedName}
                     columnPrefs={columnPrefs}
@@ -1218,17 +1220,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               <button type="button" className="icon-button" onClick={() => setCreatePlanningOpen(false)}><X size={17} /></button>
             </div>
             <div className="mt-4 space-y-3">
-              <label className="block space-y-1">
-                <span className="text-xs font-semibold uppercase text-ink-500">Category</span>
-                <select className="field" value={planningDraft.categoryId} onChange={(event) => setPlanningDraft((current) => ({ ...current, categoryId: event.target.value }))} required>
-                  <option value="">Select category</option>
-                  {versionCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-                </select>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs font-semibold uppercase text-ink-500">Planning name</span>
-                <input className="field" value={planningDraft.asset} onChange={(event) => setPlanningDraft((current) => ({ ...current, asset: event.target.value }))} placeholder="Planning name" />
-              </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block space-y-1"><span className="text-xs font-semibold uppercase text-ink-500">Begin date</span><input type="date" className="field" value={planningDraft.startDate} onChange={(event) => setPlanningDraft((current) => ({ ...current, startDate: event.target.value }))} required /></label>
                 <label className="block space-y-1"><span className="text-xs font-semibold uppercase text-ink-500">End date</span><input type="date" min={planningDraft.startDate || undefined} className="field" value={planningDraft.endDate} onChange={(event) => setPlanningDraft((current) => ({ ...current, endDate: event.target.value }))} required /></label>
