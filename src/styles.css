@@ -4400,6 +4400,51 @@ body.public-share-body {
   width: 100%;
 }
 
+.client-category-toggle-button {
+  align-items: stretch;
+  align-self: stretch;
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.client-category-delete-button,
+.client-category-drag-handle {
+  align-items: center;
+  align-self: stretch;
+  background: #101627;
+  border: 1px solid #2c3755;
+  border-radius: 10px;
+  color: #948e9d;
+  display: inline-flex;
+  flex: 0 0 32px;
+  justify-content: center;
+}
+
+.client-category-delete-button:not(:disabled):hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.65);
+  color: #fca5a5;
+}
+
+.client-category-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.client-category-drag-handle {
+  cursor: grab;
+}
+
+.client-category-drag-handle:active {
+  cursor: grabbing;
+}
+
+.client-category-section.is-dragging {
+  opacity: 0.5;
+}
+
 .client-category-toggle-icon {
   align-items: center;
   align-self: stretch;
@@ -5991,11 +6036,11 @@ body.public-share-body {
 
 .client-planning-admin.production-table-compact .client-planning-table .combined-date-chip .date-day-name,
 .client-planning-admin.production-table-compact .client-planning-table .date-today-tag {
-  font-size: 8.5px;
+  font-size: 11px;
 }
 
 .client-planning-admin.production-table-compact .client-planning-table .combined-date-chip strong {
-  font-size: 8px;
+  font-size: 10.5px;
 }
 
 .client-planning-admin.production-table-compact .client-week-heading-row > td {

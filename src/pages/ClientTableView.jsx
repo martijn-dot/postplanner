@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, getISODay, getISOWeek, isMonday, isWeekend, max, min, parseISO, startOfWeek } from 'date-fns';
-import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, ListChecks, Package, Pencil, Plus, Tag, Users, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CalendarPlus, ChevronDown, ChevronRight, Clock, Download, Eye, EyeOff, FileText, Globe2, GripVertical, ListChecks, Package, Pencil, Plus, Tag, Trash2, Users, X } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CursorTooltip from '../components/CursorTooltip.jsx';
@@ -911,7 +911,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
 }
 
 export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, addCategory, addLineItem, deleteLineItem, addLabel } = usePlanner();
+  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, addCategory, deleteCategory, reorderCategories, addLineItem, deleteLineItem, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const tableOnlyProduction = activePlanningType === PLANNING_TYPES.production.key && project.production_planning_view === 'table';
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
@@ -936,6 +936,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [planningDraft, setPlanningDraft] = useState({ categoryId: '', asset: '', startDate: '', endDate: '' });
   const [sameCategoryRanges, setSameCategoryRanges] = useState(true);
   const [categoryDateRanges, setCategoryDateRanges] = useState({});
+  const [draggedCategoryId, setDraggedCategoryId] = useState(null);
   const expandedProductionRangeIds = useRef(new Set());
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
@@ -1272,14 +1273,60 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                 headerOnly
               />
             </div>
-            {categoryGroups.map((group) => (
-              <section key={group.key} className="client-category-section">
-                <button type="button" onClick={() => toggleCollapsedCategory(group.key)} className="client-category-section-title">
-                  <span className="client-category-toggle-icon">
-                    {collapsedCategoryKeys.includes(group.key) ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                  </span>
-                  <span className="client-category-toggle-name">{group.name}</span>
-                </button>
+            {categoryGroups.map((group) => {
+              const category = versionCategories.find((item) => item.id === group.key);
+              return (
+              <section
+                key={group.key}
+                className={`client-category-section ${draggedCategoryId === group.key ? 'is-dragging' : ''}`}
+                onDragOver={(event) => {
+                  if (category && draggedCategoryId && draggedCategoryId !== group.key) event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (category && draggedCategoryId && draggedCategoryId !== group.key) {
+                    reorderCategories(project.id, draggedCategoryId, group.key, planningVersion, activePlanningType);
+                  }
+                  setDraggedCategoryId(null);
+                }}
+              >
+                <div className="client-category-section-title">
+                  {category && (
+                    <>
+                      <button
+                        type="button"
+                        className="client-category-delete-button"
+                        onClick={() => window.confirm(`Delete category “${category.name}” and all of its rows?`) && deleteCategory(category.id)}
+                        disabled={versionCategories.length <= 1}
+                        aria-label={`Delete ${category.name}`}
+                        title={versionCategories.length <= 1 ? 'The only category cannot be deleted' : `Delete ${category.name}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="client-category-drag-handle"
+                        draggable
+                        onDragStart={(event) => {
+                          setDraggedCategoryId(category.id);
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', category.id);
+                        }}
+                        onDragEnd={() => setDraggedCategoryId(null)}
+                        aria-label={`Drag ${category.name} to reorder`}
+                        title="Drag to reorder"
+                      >
+                        <GripVertical size={15} />
+                      </button>
+                    </>
+                  )}
+                  <button type="button" onClick={() => toggleCollapsedCategory(group.key)} className="client-category-toggle-button">
+                    <span className="client-category-toggle-icon">
+                      {collapsedCategoryKeys.includes(group.key) ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                    </span>
+                    <span className="client-category-toggle-name">{group.name}</span>
+                  </button>
+                </div>
                 {!collapsedCategoryKeys.includes(group.key) && (
                   <ClientPlanningTable
                     project={project}
@@ -1302,7 +1349,8 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                   />
                 )}
               </section>
-            ))}
+              );
+            })}
           </div>
       ) : (
         <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode="sections" collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} compact planningType={activePlanningType} />
