@@ -200,7 +200,17 @@ function labelColor(value = '') {
   return colors[index];
 }
 
-function LabelDropdown({ id, value, options, onChange, onMoveDown, onArrowNavigate, openDropdownId, setOpenDropdownId }) {
+function assetLabelStyle(value, labelType, labels = []) {
+  const label = labels.find(
+    (item) => item.column_type === labelType && item.value?.trim().toLowerCase() === value.trim().toLowerCase(),
+  );
+  return {
+    backgroundColor: label?.color ?? labelColor(value),
+    color: label?.text_color === 'white' ? '#ffffff' : '#10101a',
+  };
+}
+
+function LabelDropdown({ id, value, options, labelType, labels, onChange, onMoveDown, onArrowNavigate, openDropdownId, setOpenDropdownId }) {
   const open = openDropdownId === id;
   return (
     <div className="asset-label-select">
@@ -220,7 +230,7 @@ function LabelDropdown({ id, value, options, onChange, onMoveDown, onArrowNaviga
           }
         }}
       >
-        {value ? <span className="asset-label-chip" style={{ backgroundColor: labelColor(value) }}>{value}</span> : <span className="asset-label-chip is-none">None</span>}
+        {value ? <span className="asset-label-chip" style={assetLabelStyle(value, labelType, labels)}>{value}</span> : <span className="asset-label-chip is-none">None</span>}
         <ChevronDown size={14} />
       </button>
       {open && (
@@ -228,7 +238,7 @@ function LabelDropdown({ id, value, options, onChange, onMoveDown, onArrowNaviga
           <button type="button" className="asset-label-option" onClick={() => { onChange(''); setOpenDropdownId(''); }}><span className="asset-label-chip is-none">None</span></button>
           {options.map((option) => (
             <button key={option} type="button" className="asset-label-option" onClick={() => { onChange(option); setOpenDropdownId(''); }}>
-              <span className="asset-label-chip" style={{ backgroundColor: labelColor(option) }}>{option}</span>
+              <span className="asset-label-chip" style={assetLabelStyle(option, labelType, labels)}>{option}</span>
             </button>
           ))}
         </div>
@@ -1937,7 +1947,7 @@ export default function AssetListPage({ project }) {
                                   allowClear
                                   placeholder={<span className="asset-label-chip is-none">None</span>}
                                   onChange={(labelId) => updateCell(row.id, column.id, assetTypeLabels.find((label) => label.id === labelId)?.value ?? '')}
-                                  onAddLabel={(labelValue, color) => addLabel(project.id, 'asset_type', labelValue, color)}
+                                  onAddLabel={(labelValue, color, textColor) => addLabel(project.id, 'asset_type', labelValue, color, { textColor })}
                                   onDeleteLabel={deleteLabel}
                                 />
                               </div>
@@ -1949,7 +1959,7 @@ export default function AssetListPage({ project }) {
                                   allowClear
                                   placeholder={<span className="asset-label-chip is-none">None</span>}
                                   onChange={(labelId) => updateCell(row.id, column.id, (isStaticAssetTypeColumn ? staticAssetTypeLabels : staticSizeLabels).find((label) => label.id === labelId)?.value ?? '')}
-                                  onAddLabel={(labelValue, color) => addLabel(project.id, isStaticAssetTypeColumn ? 'asset_static_type' : 'asset_static_size', labelValue, color)}
+                                  onAddLabel={(labelValue, color, textColor) => addLabel(project.id, isStaticAssetTypeColumn ? 'asset_static_type' : 'asset_static_size', labelValue, color, { textColor })}
                                   onDeleteLabel={deleteLabel}
                                 />
                               </div>
@@ -1958,6 +1968,8 @@ export default function AssetListPage({ project }) {
                                 id={`${row.id}:${column.id}`}
                                 value={row.values?.[column.id] ?? ''}
                                 options={(column.label_type ? globalOptions[column.label_type] : column.options) ?? []}
+                                labelType={column.label_type}
+                                labels={labels}
                                 onChange={(value) => updateCell(row.id, column.id, value)}
                                 onMoveDown={() => focusCellBelow(absoluteRowIndex, columnIndex)}
                                 onArrowNavigate={(event) => moveCellFocus(event, absoluteRowIndex, columnIndex)}

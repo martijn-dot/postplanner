@@ -18,6 +18,25 @@ const ASSET_LABEL_TYPES = [
   ['asset_static_size', 'Static Size'],
 ];
 
+function TextColorChoice({ value = 'black', onChange }) {
+  return (
+    <div className="flex shrink-0 rounded-md border border-black/10 p-0.5 dark:border-white/10" aria-label="Text color">
+      {['black', 'white'].map((choice) => (
+        <button
+          key={choice}
+          type="button"
+          onClick={() => onChange(choice)}
+          className={`h-7 rounded px-2 text-[10px] font-bold ${value === choice ? 'ring-1 ring-accent-300' : 'opacity-55'}`}
+          style={{ backgroundColor: choice === 'white' ? '#ffffff' : '#10101a', color: choice === 'white' ? '#10101a' : '#ffffff' }}
+          title={`${choice === 'white' ? 'White' : 'Black'} label text`}
+        >
+          A
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SortableLabelRow({ label, onUpdate, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: label.id });
   return (
@@ -42,6 +61,7 @@ function SortableLabelRow({ label, onUpdate, onDelete }) {
         <option value="both">Both</option>
       </select>
       {!label.is_divider && <input type="color" value={label.color} onChange={(event) => onUpdate(label.id, { color: event.target.value })} className="h-8 w-9 rounded border border-white/10 bg-transparent" />}
+      {!label.is_divider && <TextColorChoice value={label.text_color} onChange={(textColor) => onUpdate(label.id, { text_color: textColor })} />}
       <button type="button" onClick={() => window.confirm("Delete this global label? This won't affect project-level labels.") && onDelete(label.id)} className="icon-button" aria-label="Delete label">
         <Trash2 size={15} />
       </button>
@@ -293,8 +313,8 @@ export default function SettingsPage() {
       window.setTimeout(() => setSettingsNotice(''), 2500);
       return;
     }
-    addGlobalLabel(columnType, value, draft.color || '#6d5dfc', { isDivider: draft.isDivider ?? false, planningType: labelPlanningType });
-    setDrafts((current) => ({ ...current, [columnType]: { value: '', color: '#6d5dfc' } }));
+    addGlobalLabel(columnType, value, draft.color || '#6d5dfc', { isDivider: draft.isDivider ?? false, planningType: labelPlanningType, textColor: draft.textColor ?? 'black' });
+    setDrafts((current) => ({ ...current, [columnType]: { value: '', color: '#6d5dfc', textColor: 'black' } }));
   };
 
   const submitInvite = async (event) => {
@@ -470,6 +490,10 @@ export default function SettingsPage() {
                       onChange={(event) => setDrafts((current) => ({ ...current, [type]: { value: '', ...current[type], color: event.target.value } }))}
                       className="h-10 w-12 rounded-md border border-white/10 bg-transparent"
                     />
+                    <TextColorChoice
+                      value={drafts[type]?.textColor}
+                      onChange={(textColor) => setDrafts((current) => ({ ...current, [type]: { value: '', color: '#6d5dfc', ...current[type], textColor } }))}
+                    />
                     <button type="submit" className="icon-button" aria-label="Add label"><Plus size={17} /></button>
                   </div>
                   {type === 'what' && (
@@ -597,6 +621,10 @@ export default function SettingsPage() {
                       value={drafts[type]?.color ?? '#6d5dfc'}
                       onChange={(event) => setDrafts((current) => ({ ...current, [type]: { value: '', ...current[type], color: event.target.value } }))}
                       className="h-10 w-12 rounded-md border border-white/10 bg-transparent"
+                    />
+                    <TextColorChoice
+                      value={drafts[type]?.textColor}
+                      onChange={(textColor) => setDrafts((current) => ({ ...current, [type]: { value: '', color: '#6d5dfc', ...current[type], textColor } }))}
                     />
                     <button type="submit" className="icon-button" aria-label={`Add ${title} label`}><Plus size={17} /></button>
                   </div>

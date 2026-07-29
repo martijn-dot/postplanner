@@ -38,6 +38,7 @@ export default function LabelSelect({
   const [multiEnabled, setMultiEnabled] = useState(false);
   const [newValue, setNewValue] = useState('');
   const [color, setColor] = useState(COLORS[0]);
+  const [textColor, setTextColor] = useState('black');
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
   const [menuStyle, setMenuStyle] = useState({});
@@ -129,7 +130,7 @@ export default function LabelSelect({
       window.setTimeout(() => setNotice(''), 2200);
       return;
     }
-    const label = await Promise.resolve(onAddLabel(newValue.trim(), color));
+    const label = await Promise.resolve(onAddLabel(newValue.trim(), color, textColor));
     setNewValue('');
     setAdding(false);
     toggle(label.id);
@@ -325,6 +326,22 @@ export default function LabelSelect({
                 className="h-7 w-8 shrink-0 rounded border border-white/10 bg-transparent"
                 aria-label="Custom label color"
               />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-ink-500">Text color</span>
+              <div className="flex rounded-md border border-white/10 p-0.5">
+                {['black', 'white'].map((choice) => (
+                  <button
+                    key={choice}
+                    type="button"
+                    onClick={() => setTextColor(choice)}
+                    className={`rounded px-2 py-1 text-xs font-semibold ${textColor === choice ? 'ring-1 ring-accent-300' : 'opacity-60'}`}
+                    style={{ backgroundColor: choice === 'white' ? '#ffffff' : '#10101a', color: choice === 'white' ? '#10101a' : '#ffffff' }}
+                  >
+                    {choice === 'white' ? 'White' : 'Black'}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (

@@ -98,7 +98,7 @@ function assetLabelStyle(value, column, labels = []) {
   return {
     backgroundColor: color,
     borderColor: color,
-    color: readableTextColor(color),
+    color: label?.text_color === 'white' ? '#ffffff' : label?.text_color === 'black' ? '#101828' : readableTextColor(color),
   };
 }
 
