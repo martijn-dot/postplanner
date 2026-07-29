@@ -83,13 +83,11 @@ function fallbackAssetLabelColor(value = '') {
   return colors[index];
 }
 
-function readableTextColor(color = '') {
+function darkenedLabelColor(color = '') {
   const hex = color.replace('#', '');
-  if (hex.length !== 6) return '#101828';
-  const red = parseInt(hex.slice(0, 2), 16);
-  const green = parseInt(hex.slice(2, 4), 16);
-  const blue = parseInt(hex.slice(4, 6), 16);
-  return red * 0.299 + green * 0.587 + blue * 0.114 > 160 ? '#101828' : '#ffffff';
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return '#101828';
+  const channels = [0, 2, 4].map((offset) => Math.round(parseInt(hex.slice(offset, offset + 2), 16) * 0.34));
+  return `rgb(${channels.join(', ')})`;
 }
 
 function assetLabelStyle(value, column, labels = []) {
@@ -98,7 +96,7 @@ function assetLabelStyle(value, column, labels = []) {
   return {
     backgroundColor: color,
     borderColor: color,
-    color: label?.text_color === 'white' ? '#ffffff' : label?.text_color === 'black' ? '#101828' : readableTextColor(color),
+    color: darkenedLabelColor(color),
   };
 }
 

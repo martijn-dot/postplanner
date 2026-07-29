@@ -396,7 +396,7 @@ function SortableLine({
           <button className="drag-handle" {...attributes} {...listeners} aria-label="Reorder row"><GripVertical size={16} /></button>
           {columnVisibility.who && (
             <div {...cellProps('who')}>
-              <LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color, textColor) => addLabel(projectId, 'who', value, color, { planningType: planningDefinition.key, textColor })} onDeleteLabel={deleteLabel} />
+              <LabelSelect labels={labelsByType.who} value={item.who} multiple multipleModeToggle placeholder="Who" onChange={(who) => { onInteract(item.id); onUpdateLineItem(item.id, { who }); }} onAddLabel={(value, color) => addLabel(projectId, 'who', value, color, { planningType: planningDefinition.key })} onDeleteLabel={deleteLabel} />
               {fillHandle('who')}
             </div>
           )}
@@ -483,7 +483,7 @@ function SortableLine({
                       open={openBlockMenu === 'what'}
                       onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'what' : null)}
                       onChange={(what) => { onInteract(item.id); onUpdateLineItem(item.id, { what }); }}
-                      onAddLabel={(value, color, textColor) => addLabel(projectId, 'what', value, color, { planningType: planningDefinition.key, textColor })}
+                      onAddLabel={(value, color) => addLabel(projectId, 'what', value, color, { planningType: planningDefinition.key })}
                       onDeleteLabel={deleteLabel}
                     />
                   </span>
@@ -496,7 +496,7 @@ function SortableLine({
                     open={openBlockMenu === 'todo'}
                     onOpenChange={(nextOpen) => setOpenBlockMenu(nextOpen ? 'todo' : null)}
                     onChange={(todo) => { onInteract(item.id); onUpdateLineItem(item.id, { todo }); }}
-                    onAddLabel={(value, color, textColor) => addLabel(projectId, 'todo', value, color, { planningType: planningDefinition.key, textColor })}
+                    onAddLabel={(value, color) => addLabel(projectId, 'todo', value, color, { planningType: planningDefinition.key })}
                     onDeleteLabel={deleteLabel}
                   />
                 </span>

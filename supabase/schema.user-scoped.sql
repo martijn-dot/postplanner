@@ -161,7 +161,6 @@ create table if not exists public.labels (
   column_type text not null check (column_type in ('who', 'what', 'todo')),
   value text not null,
   color text not null default '#8bb9ff',
-  text_color text not null default 'black' check (text_color in ('black', 'white')),
   is_default boolean not null default false,
   sort_order int not null default 0,
   is_divider boolean not null default false,
@@ -174,7 +173,6 @@ alter table public.labels add column if not exists scope text not null default '
 alter table public.labels add column if not exists sort_order int not null default 0;
 alter table public.labels add column if not exists is_divider boolean not null default false;
 alter table public.labels add column if not exists planning_type text not null default 'both' check (planning_type in ('post', 'production', 'both'));
-alter table public.labels add column if not exists text_color text not null default 'black' check (text_color in ('black', 'white'));
 
 with ranked_labels as (
   select

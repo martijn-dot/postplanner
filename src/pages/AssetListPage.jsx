@@ -200,13 +200,20 @@ function labelColor(value = '') {
   return colors[index];
 }
 
+function darkenedLabelColor(color = '') {
+  const hex = color.replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return '#10101a';
+  const channels = [0, 2, 4].map((offset) => Math.round(parseInt(hex.slice(offset, offset + 2), 16) * 0.34));
+  return `rgb(${channels.join(', ')})`;
+}
+
 function assetLabelStyle(value, labelType, labels = []) {
   const label = labels.find(
     (item) => item.column_type === labelType && item.value?.trim().toLowerCase() === value.trim().toLowerCase(),
   );
   return {
     backgroundColor: label?.color ?? labelColor(value),
-    color: label?.text_color === 'white' ? '#ffffff' : '#10101a',
+    color: darkenedLabelColor(label?.color ?? labelColor(value)),
   };
 }
 
@@ -1947,7 +1954,7 @@ export default function AssetListPage({ project }) {
                                   allowClear
                                   placeholder={<span className="asset-label-chip is-none">None</span>}
                                   onChange={(labelId) => updateCell(row.id, column.id, assetTypeLabels.find((label) => label.id === labelId)?.value ?? '')}
-                                  onAddLabel={(labelValue, color, textColor) => addLabel(project.id, 'asset_type', labelValue, color, { textColor })}
+                                  onAddLabel={(labelValue, color) => addLabel(project.id, 'asset_type', labelValue, color)}
                                   onDeleteLabel={deleteLabel}
                                 />
                               </div>
@@ -1959,7 +1966,7 @@ export default function AssetListPage({ project }) {
                                   allowClear
                                   placeholder={<span className="asset-label-chip is-none">None</span>}
                                   onChange={(labelId) => updateCell(row.id, column.id, (isStaticAssetTypeColumn ? staticAssetTypeLabels : staticSizeLabels).find((label) => label.id === labelId)?.value ?? '')}
-                                  onAddLabel={(labelValue, color, textColor) => addLabel(project.id, isStaticAssetTypeColumn ? 'asset_static_type' : 'asset_static_size', labelValue, color, { textColor })}
+                                  onAddLabel={(labelValue, color) => addLabel(project.id, isStaticAssetTypeColumn ? 'asset_static_type' : 'asset_static_size', labelValue, color)}
                                   onDeleteLabel={deleteLabel}
                                 />
                               </div>

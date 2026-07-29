@@ -1830,7 +1830,7 @@ export function PlannerProvider({ children }) {
           return existing;
         }
         const sortOrder = data.labels.filter((item) => item.project_id === projectId && item.column_type === columnType).length;
-        const label = { id: id(), project_id: projectId, column_type: columnType, value, color, text_color: options.textColor ?? 'black', is_default: false, scope: 'project', sort_order: sortOrder, is_divider: options.isDivider ?? false, planning_type: options.planningType ?? 'both' };
+        const label = { id: id(), project_id: projectId, column_type: columnType, value, color, is_default: false, scope: 'project', sort_order: sortOrder, is_divider: options.isDivider ?? false, planning_type: options.planningType ?? 'both' };
         mutate((draft) => {
           if (!draft.labels.some((item) => item.project_id === projectId && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed))) {
             draft.labels.push({ ...label, value: trimmed });
@@ -1847,7 +1847,7 @@ export function PlannerProvider({ children }) {
         const existing = data.labels.find((item) => !item.project_id && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed));
         if (existing) return existing;
         const sortOrder = data.labels.filter((item) => !item.project_id && item.column_type === columnType).length;
-        const label = { id: id(), project_id: null, column_type: columnType, value: trimmed, color, text_color: options.textColor ?? 'black', is_default: true, scope: 'global', sort_order: sortOrder, is_divider: options.isDivider ?? false, planning_type: options.planningType ?? 'both' };
+        const label = { id: id(), project_id: null, column_type: columnType, value: trimmed, color, is_default: true, scope: 'global', sort_order: sortOrder, is_divider: options.isDivider ?? false, planning_type: options.planningType ?? 'both' };
         mutate((draft) => {
           if (!draft.labels.some((item) => !item.project_id && item.column_type === columnType && normalizedName(item.value) === normalizedName(trimmed))) {
             draft.labels.push(label);

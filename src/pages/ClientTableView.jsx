@@ -628,7 +628,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                               multipleModeToggle
                               placeholder="Who"
                               onChange={(who) => onUpdateLineItem(row._item.id, { who })}
-                              onAddLabel={(value, color, textColor) => onAddLabel?.(project.id, 'who', value, color, { planningType, textColor })}
+                              onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color, { planningType })}
                             />
                           ) : <div className="flex flex-wrap gap-1">{row._item.who.map((id) => <Pill key={id} label={labelsById[id]} />)}</div>) : null}
                         </td>
@@ -655,7 +655,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                               value={row._item.todo}
                               placeholder="Todo"
                               onChange={(todo) => onUpdateLineItem(row._item.id, { todo })}
-                              onAddLabel={(value, color, textColor) => onAddLabel?.(project.id, 'todo', value, color, { planningType, textColor })}
+                              onAddLabel={(value, color) => onAddLabel?.(project.id, 'todo', value, color, { planningType })}
                             />
                           ) : <Pill label={labelsById[row._item.todo]} subtle />) : null}
                         </td>
@@ -700,7 +700,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
             <div className="space-y-3">
               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Who</span>
-                <LabelSelect labels={labelsByType.who} value={editingItem.who ?? []} multiple multipleModeToggle placeholder="Who" onChange={(who) => onUpdateLineItem(editingItem.id, { who })} onAddLabel={(value, color, textColor) => onAddLabel?.(project.id, 'who', value, color, { textColor })} />
+                <LabelSelect labels={labelsByType.who} value={editingItem.who ?? []} multiple multipleModeToggle placeholder="Who" onChange={(who) => onUpdateLineItem(editingItem.id, { who })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'who', value, color)} />
               </label>
               {isProduction && <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">What</span>
@@ -714,11 +714,11 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
               </label>}
               {!isProduction && <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">What</span>
-                <LabelSelect labels={labelsByType.what} value={editingItem.what} placeholder="What" onChange={(what) => onUpdateLineItem(editingItem.id, { what })} onAddLabel={(value, color, textColor) => onAddLabel?.(project.id, 'what', value, color, { textColor })} />
+                <LabelSelect labels={labelsByType.what} value={editingItem.what} placeholder="What" onChange={(what) => onUpdateLineItem(editingItem.id, { what })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'what', value, color)} />
               </label>}
               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Todo</span>
-                <LabelSelect labels={labelsByType.todo} value={editingItem.todo} placeholder="Todo" onChange={(todo) => onUpdateLineItem(editingItem.id, { todo })} onAddLabel={(value, color, textColor) => onAddLabel?.(project.id, 'todo', value, color, { textColor })} />
+                <LabelSelect labels={labelsByType.todo} value={editingItem.todo} placeholder="Todo" onChange={(todo) => onUpdateLineItem(editingItem.id, { todo })} onAddLabel={(value, color) => onAddLabel?.(project.id, 'todo', value, color)} />
               </label>
               <div className="space-y-1">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-500">Time</span>
