@@ -1,5 +1,6 @@
 const PRODUCTION_LABEL_NAMES = new Set([
   'Prep', 'Pre-light', 'Shoot', 'Strike', 'Travel',
+  'None',
   'Video Call', 'Online Meeting', 'Scouting', 'Proposal', 'Meeting @ Wenneker',
   'Session @ Wenneker', 'Session Online', 'WIP', 'Offline', 'Online',
   'Grading', 'Audio', 'Grading + Audio', 'Approval', 'Share', 'Viewing @ Wenneker',
@@ -42,6 +43,7 @@ export const DEFAULT_LABELS = [
   { column_type: 'what', value: 'Pre-light', color: '#8d79ff', is_default: true },
   { column_type: 'what', value: 'Strike', color: '#ff8f4f', is_default: true },
   { column_type: 'what', value: 'Travel', color: '#10b981', is_default: true },
+  { column_type: 'todo', value: 'None', color: '#8b8f9a', is_default: true },
   { column_type: 'todo', value: 'Share', color: '#46d39b', is_default: true },
   { column_type: 'todo', value: 'Viewing at Wenneker', color: '#46d39b', is_default: true },
   { column_type: 'todo', value: 'Session at Wenneker', color: '#46d39b', is_default: true },

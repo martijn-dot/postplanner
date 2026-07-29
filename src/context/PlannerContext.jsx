@@ -7,7 +7,6 @@ import {
   DEFAULT_PLANNING_WHAT_LABELS,
   DEFAULT_PROJECT,
   PLANNING_TYPES,
-  PRODUCTION_TODO_LABELS,
   PRODUCTION_WHAT_LABELS,
 } from '../lib/defaults.js';
 import { supabase } from '../lib/supabase.js';
@@ -1592,7 +1591,7 @@ export function PlannerProvider({ children }) {
           ? firstLabelId(draft.labels, 'what', PRODUCTION_WHAT_LABELS)
           : draft.labels.find((item) => item.column_type === 'what')?.id ?? '';
         const todo = safeType === PLANNING_TYPES.production.key
-          ? firstLabelId(draft.labels, 'todo', PRODUCTION_TODO_LABELS)
+          ? firstLabelId(draft.labels, 'todo', ['None'])
           : draft.labels.find((item) => item.column_type === 'todo')?.id ?? '';
         const item = {
           id: id(),

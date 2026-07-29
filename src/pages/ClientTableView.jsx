@@ -11,7 +11,7 @@ import { readLocalObject, UNCATEGORIZED_NAME_STORAGE_KEY } from '../lib/localPre
 import { weekNumber } from '../lib/dates.js';
 import { DEFAULT_PLANNING_TYPE, PLANNING_TYPES } from '../lib/defaults.js';
 
-const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v4';
+const CLIENT_COLUMN_STORAGE_KEY = 'roval:client-columns:v5';
 const CLIENT_VIEW_MODE_STORAGE_KEY = 'roval:client-view-mode';
 const CLIENT_FILTER_STORAGE_KEY = 'roval:client-filters:v1';
 const CLIENT_PUBLISHED_URL_STORAGE_KEY = 'roval:client-published-url:v1';
@@ -27,11 +27,11 @@ const CLIENT_COLUMNS = [
   { key: 'edit', label: 'Edit', width: 86 },
   { key: 'calendar', label: 'Calendar', width: 132 },
   { key: 'category', label: 'Category', width: 150 },
-  { key: 'who', label: 'Who', width: 118 },
+  { key: 'who', label: 'Who', width: 146 },
   { key: 'asset', label: 'Asset', width: 200 },
   { key: 'what', label: 'What', width: 180 },
   { key: 'todo', label: 'Todo', width: 190 },
-  { key: 'time', label: 'Time', width: 74 },
+  { key: 'time', label: 'Time', width: 58 },
   { key: 'notes', label: 'Notes', width: 160 },
 ];
 
@@ -59,13 +59,13 @@ function readClientColumnPrefs() {
     const storedOrder = Array.isArray(stored.order) ? stored.order.filter((key) => CLIENT_COLUMNS.some((column) => column.key === key)) : [];
     return {
       order: [...storedOrder, ...defaultOrder.filter((key) => !storedOrder.includes(key))],
-      widths: stored.widths ?? Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.width])),
+      widths: stored.widths ?? { date: 84, ...Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.width])) },
       visible: { ...defaultVisible, ...(stored.visible ?? {}) },
     };
   } catch {
     return {
       order: CLIENT_COLUMNS.map((column) => column.key),
-      widths: Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.width])),
+      widths: { date: 84, ...Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.width])) },
       visible: defaultVisible,
     };
   }
@@ -328,11 +328,6 @@ function categoryShade(key, categories = []) {
   };
 }
 
-function measureTextWidth(text, min, max, charWidth = 8.2) {
-  const value = String(text ?? '');
-  return Math.max(min, Math.min(max, Math.ceil(value.length * charWidth) + 42));
-}
-
 function OverflowNote({ note, onOpen }) {
   return (
     <button type="button" className="client-note-overflow note-preview" onClick={onOpen} aria-label="Open full note">
@@ -343,7 +338,7 @@ function OverflowNote({ note, onOpen }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, widthLineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
   const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
@@ -356,6 +351,7 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
     todo: labels.filter((label) => label.column_type === 'todo'),
   }), [labels]);
   const prefs = columnPrefs ?? readClientColumnPrefs();
+  const dateWidth = prefs.widths.date ?? 84;
   const visibleCategoryCount = useMemo(() => {
     const categoryIds = new Set(lineItems.map((item) => item.category_id).filter(Boolean));
     return Math.max(categories.length, categoryIds.size);
@@ -371,9 +367,10 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
     event.preventDefault();
     event.stopPropagation();
     const startX = event.clientX;
-    const startWidth = prefs.widths[key] ?? CLIENT_COLUMNS.find((column) => column.key === key)?.width ?? 140;
+    const startWidth = prefs.widths[key] ?? CLIENT_COLUMNS.find((column) => column.key === key)?.width ?? (key === 'date' ? 84 : 140);
+    const minimumWidth = key === 'time' ? 52 : 70;
     const move = (moveEvent) => {
-      updatePrefs({ ...prefs, widths: { ...prefs.widths, [key]: Math.max(70, startWidth + moveEvent.clientX - startX) } });
+      updatePrefs({ ...prefs, widths: { ...prefs.widths, [key]: Math.max(minimumWidth, startWidth + moveEvent.clientX - startX) } });
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
@@ -386,32 +383,8 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
     () => annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType), dateWindow)),
     [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, dateWindow, planningType],
   );
-  const widthRows = useMemo(
-    () => widthLineItems
-      ? annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, widthLineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType), dateWindow))
-      : rows,
-    [project, widthLineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType, dateWindow, rows],
-  );
-  const autoWidths = useMemo(() => {
-    const maxText = (key, fallback) => widthRows.reduce((longest, row) => (String(row[key] ?? '').length > String(longest ?? '').length ? row[key] : longest), fallback);
-    const longestAsset = widthRows.reduce((longest, row) => (String(row.Asset ?? '').length > String(longest ?? '').length ? row.Asset : longest), 'Asset');
-    const labelExtra = 54;
-    return {
-      edit: 86,
-      time: measureTextWidth(maxText('Time', 'Time'), 70, 96, 7.2),
-      category: measureTextWidth(maxText('Category', 'Category'), 120, 260, 7.2),
-      who: measureTextWidth(maxText('Who', 'Who'), 92, 260, 7.1) + labelExtra,
-      asset: measureTextWidth(longestAsset, 170, String(longestAsset ?? '').length > 30 ? 260 : 420, 7.1),
-      assetResizable: String(longestAsset ?? '').length > 30,
-      what: measureTextWidth(maxText('What', 'What'), 110, 280, 7.1) + labelExtra,
-      todo: measureTextWidth(maxText('Todo', 'Todo'), 110, 300, 7.1) + labelExtra,
-    };
-  }, [widthRows]);
   const widthForColumn = (column) => {
-    if (column.key === 'asset' && autoWidths.assetResizable) return prefs.widths.asset ?? autoWidths.asset;
-    if (['calendar', 'who', 'what', 'todo'].includes(column.key) && prefs.widths[column.key]) return prefs.widths[column.key];
-    if (column.key === 'notes') return prefs.widths.notes ?? CLIENT_COLUMNS.find((item) => item.key === 'notes').width;
-    return autoWidths[column.key] ?? prefs.widths[column.key] ?? column.width;
+    return prefs.widths[column.key] ?? column.width;
   };
   const moveColumn = (targetKey, side) => {
     if (!draggedColumn || draggedColumn === targetKey) return;
@@ -518,10 +491,10 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
     <>
       <div className="client-table-shell overflow-hidden rounded-xl border shadow-2xl">
         <div className="client-table-scroll max-h-[calc(100vh-15rem)] overflow-auto">
-          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: (showWeekColumn ? 58 : 0) + 116 + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0), tableLayout: 'fixed' }}>
+          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: (showWeekColumn ? 58 : 0) + dateWidth + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0), tableLayout: 'fixed' }}>
             <colgroup>
               {showWeekColumn && <col className="w-[58px]" />}
-              <col className="w-[116px]" />
+              <col style={{ width: dateWidth }} />
               {orderedColumns.map((column) => {
                 const width = widthForColumn(column);
                 return <col key={column.key} style={column.key === 'notes' ? { width, minWidth: width, maxWidth: width } : { width }} />;
@@ -530,7 +503,10 @@ export function ClientPlanningTable({ project, lineItems, widthLineItems, labels
             {showHeader && <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
                 {showWeekColumn && <th className="sticky-week px-2 py-3 text-center font-semibold"></th>}
-                <th className="px-3 py-3 font-semibold">Date</th>
+                <th className="client-column-header relative px-3 py-3 font-semibold">
+                  Date
+                  <button type="button" onPointerDown={(event) => startResize(event, 'date')} className="client-column-resize-handle" aria-label="Resize Date" />
+                </th>
                 {orderedColumns.map((column) => (
                   <th
                     key={column.key}
@@ -1257,7 +1233,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
               <ClientPlanningTable
                 project={project}
                 lineItems={filteredLineItems}
-                widthLineItems={filteredLineItems}
                 labels={labels}
                 categories={versionCategories}
                 showEmptyDates={showEmptyDates}
@@ -1343,7 +1318,6 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                   <ClientPlanningTable
                     project={project}
                     lineItems={group.items}
-                    widthLineItems={filteredLineItems}
                     labels={labels}
                     categories={versionCategories}
                     showEmptyDates={showEmptyDates}
