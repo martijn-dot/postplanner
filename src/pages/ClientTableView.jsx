@@ -338,11 +338,12 @@ function OverflowNote({ note, onOpen }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, onMoveRows, selectedRowIds = [], onSelectedRowIdsChange, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
   const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
+  const [rowDropDate, setRowDropDate] = useState('');
   const editingItem = editingItemId ? lineItems.find((item) => item.id === editingItemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const labelsByType = useMemo(() => ({
@@ -383,9 +384,45 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     () => annotateRows(filterRowsByDateWindow(buildClientPlanningRows(project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, planningType), dateWindow)),
     [project, lineItems, categories, labelsById, showEmptyDates, uncategorizedName, dateWindow, planningType],
   );
+  const hasRowDrag = Boolean(onUpdateLineItem && onMoveRows);
+  const selectedRowIdSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
+  const selectRow = (event, itemId) => {
+    if (!itemId || !onSelectedRowIdsChange) return;
+    if (event.shiftKey) {
+      onSelectedRowIdsChange(selectedRowIdSet.has(itemId)
+        ? selectedRowIds.filter((id) => id !== itemId)
+        : [...selectedRowIds, itemId]);
+    } else {
+      onSelectedRowIdsChange([itemId]);
+    }
+  };
+  const startRowDrag = (event, itemId) => {
+    const movingIds = selectedRowIdSet.has(itemId) ? selectedRowIds : [itemId];
+    if (!selectedRowIdSet.has(itemId)) onSelectedRowIdsChange?.(movingIds);
+    const payload = JSON.stringify({ sourceId: itemId, itemIds: movingIds });
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/x-roval-planning-rows', payload);
+    event.dataTransfer.setData('text/plain', payload);
+  };
+  const dropRows = (event, targetDate) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setRowDropDate('');
+    const raw = event.dataTransfer.getData('application/x-roval-planning-rows') || event.dataTransfer.getData('text/plain');
+    try {
+      const payload = JSON.parse(raw);
+      if (payload?.sourceId && Array.isArray(payload.itemIds)) onMoveRows(payload.sourceId, payload.itemIds, targetDate);
+    } catch {
+      // Ignore unrelated drag data.
+    }
+  };
   const widthForColumn = (column) => {
     return prefs.widths[column.key] ?? column.width;
   };
+  const tableWidth = (showWeekColumn ? 58 : 0)
+    + (hasRowDrag ? 38 : 0)
+    + dateWidth
+    + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0);
   const moveColumn = (targetKey, side) => {
     if (!draggedColumn || draggedColumn === targetKey) return;
     const nextOrder = prefs.order.filter((key) => key !== draggedColumn);
@@ -491,9 +528,10 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     <>
       <div className="client-table-shell overflow-hidden rounded-xl border shadow-2xl">
         <div className="client-table-scroll max-h-[calc(100vh-15rem)] overflow-auto">
-          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: (showWeekColumn ? 58 : 0) + dateWidth + orderedColumns.reduce((sum, column) => sum + widthForColumn(column), 0), tableLayout: 'fixed' }}>
+          <table className="client-planning-table border-collapse text-sm" style={{ width: tableWidth, minWidth: tableWidth, tableLayout: 'fixed' }}>
             <colgroup>
               {showWeekColumn && <col className="w-[58px]" />}
+              {hasRowDrag && <col className="w-[38px]" />}
               <col style={{ width: dateWidth }} />
               {orderedColumns.map((column) => {
                 const width = widthForColumn(column);
@@ -503,6 +541,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
             {showHeader && <thead className="bg-zinc-100 text-left text-xs uppercase text-ink-500 dark:bg-ink-850">
               <tr>
                 {showWeekColumn && <th className="sticky-week px-2 py-3 text-center font-semibold"></th>}
+                {hasRowDrag && <th className="px-1 py-3" aria-label="Select and drag rows"></th>}
                 <th className="client-column-header relative px-3 py-3 font-semibold">
                   Date
                   <button type="button" onPointerDown={(event) => startResize(event, 'date')} className="client-column-resize-handle" aria-label="Resize Date" />
@@ -555,7 +594,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                 <Fragment key={`${row._item?.id ?? row._dateKey}-${index}`}>
                   {showWeekColumn && row._showWeek && (
                     <tr className="client-week-heading-row">
-                      <td colSpan={2 + orderedColumns.length}>
+                      <td colSpan={2 + orderedColumns.length + (hasRowDrag ? 1 : 0)}>
                         <span>Week {row.Week}</span>
                         <b>/</b>
                         <span>{clientWeekRange(row._dateKey)}</span>
@@ -564,17 +603,51 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                   )}
                   {!showWeekColumn && row._showWeekDivider && (
                     <tr className="client-week-separator-row">
-                      <td colSpan={1 + orderedColumns.length}>
+                      <td colSpan={1 + orderedColumns.length + (hasRowDrag ? 1 : 0)}>
                         <span><CalendarDays size={16} /> Week{row.Week}</span>
                       </td>
                     </tr>
                   )}
                   <tr
-                    className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._isToday ? 'today-row' : ''} ${row._item?.row_color ? `client-row-color-${row._item.row_color}` : ''} border-t border-black/5 dark:border-white/5`}
+                    onClick={(event) => {
+                      if (!row._item || event.target.closest('button, input, select, textarea, a')) return;
+                      selectRow(event, row._item.id);
+                    }}
+                    onDragOver={hasRowDrag ? (event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = 'move';
+                      setRowDropDate(row._dateKey);
+                    } : undefined}
+                    onDragLeave={hasRowDrag ? (event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget)) setRowDropDate('');
+                    } : undefined}
+                    onDrop={hasRowDrag ? (event) => dropRows(event, row._dateKey) : undefined}
+                    className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._isToday ? 'today-row' : ''} ${row._item?.row_color ? `client-row-color-${row._item.row_color}` : ''} ${row._item && selectedRowIdSet.has(row._item.id) ? 'client-row-selected' : ''} ${rowDropDate === row._dateKey ? 'client-row-drop-target' : ''} border-t border-black/5 dark:border-white/5`}
                   >
                     {showWeekColumn && row._showWeek && (
                       <td rowSpan={row._weekRowSpan} className="week-cell sticky-week px-1 py-2 align-middle font-mono text-[1.5em]">
                         <span><em>WEEK</em>{row.Week}</span>
+                      </td>
+                    )}
+                    {hasRowDrag && (
+                      <td className="client-row-drag-cell px-1 py-2 text-center">
+                        {row._item && (
+                          <button
+                            type="button"
+                            draggable
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              selectRow(event, row._item.id);
+                            }}
+                            onDragStart={(event) => startRowDrag(event, row._item.id)}
+                            onDragEnd={() => setRowDropDate('')}
+                            className={`client-row-drag-handle ${selectedRowIdSet.has(row._item.id) ? 'is-selected' : ''}`}
+                            aria-label={`Select and drag ${row.Asset || 'planning row'}`}
+                            title="Click to select. Shift-click for multiple rows. Drag to another date."
+                          >
+                            <GripVertical size={15} />
+                          </button>
+                        )}
                       </td>
                     )}
                     {row._showDateGroup && (
@@ -607,14 +680,36 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                       if (column.key === 'time') return (
                         <td key={column.key} data-client-column={column.key} className="px-2 py-2 font-mono">
                           {row._item ? (isProduction && onUpdateLineItem ? (
-                            <input
-                              value={row._item.time ?? ''}
-                              onChange={(event) => onUpdateLineItem(row._item.id, { time: event.target.value.toUpperCase() === 'EOD' ? 'EOD' : normalizeTimeInput(event.target.value) })}
-                              onBlur={() => onFlushLineItem?.(row._item.id)}
-                              className="field !h-9 !px-2 !py-1 font-mono text-sm"
-                              placeholder="HH:MM"
-                              inputMode="numeric"
-                            />
+                            <div className="client-inline-time-control">
+                              <input
+                                value={row._item.time ?? ''}
+                                onChange={(event) => onUpdateLineItem(row._item.id, { time: normalizeTimeInput(event.target.value) })}
+                                onBlur={() => onFlushLineItem?.(row._item.id)}
+                                className="field !h-9 !py-1 pl-2 pr-6 font-mono text-sm"
+                                placeholder="HH:MM"
+                                inputMode="numeric"
+                                readOnly={['ALL DAY', 'EOD', 'TBC'].includes(row._item.time)}
+                              />
+                              <ChevronDown className="client-inline-time-arrow" size={12} aria-hidden="true" />
+                              <select
+                                className="client-inline-time-select"
+                                value={['ALL DAY', 'EOD', 'TBC'].includes(row._item.time) ? row._item.time : 'TIME'}
+                                onChange={(event) => {
+                                  const option = event.target.value;
+                                  const time = option === 'TIME'
+                                    ? (['ALL DAY', 'EOD', 'TBC'].includes(row._item.time) ? '' : row._item.time ?? '')
+                                    : option;
+                                  onUpdateLineItem(row._item.id, { time });
+                                  onFlushLineItem?.(row._item.id);
+                                }}
+                                aria-label="Choose time type"
+                              >
+                                <option value="ALL DAY">ALL DAY</option>
+                                <option value="EOD">EOD</option>
+                                <option value="TBC">TBC</option>
+                                <option value="TIME">TIME</option>
+                              </select>
+                            </div>
                           ) : (row.Time || '-')) : ''}
                         </td>
                       );
@@ -914,6 +1009,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [categoryDateRanges, setCategoryDateRanges] = useState({});
   const [draggedCategoryId, setDraggedCategoryId] = useState(null);
   const [categoryDropTarget, setCategoryDropTarget] = useState(null);
+  const [selectedRowIds, setSelectedRowIds] = useState([]);
   const expandedProductionRangeIds = useRef(new Set());
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
@@ -923,6 +1019,32 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   }), [labels]);
   const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion), [activePlanningType, lineItems, planningVersion, project.id]);
   const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion), [activePlanningType, categories, planningVersion, project.id]);
+  const moveRowsToDate = useCallback((sourceId, itemIds, targetDate) => {
+    const source = versionLineItems.find((item) => item.id === sourceId);
+    const sourceAnchor = source?.end_date || source?.start_date;
+    if (!source || !sourceAnchor || !targetDate) return;
+
+    const dayOffset = differenceInCalendarDays(parseISO(targetDate), parseISO(sourceAnchor));
+    const movingIds = [...new Set(itemIds)].filter((itemId) => versionLineItems.some((item) => item.id === itemId));
+    movingIds.forEach((itemId) => {
+      const item = versionLineItems.find((entry) => entry.id === itemId);
+      if (!item) return;
+      const patch = {};
+      if (item.start_date) patch.start_date = format(addDays(parseISO(item.start_date), dayOffset), 'yyyy-MM-dd');
+      if (item.end_date) patch.end_date = format(addDays(parseISO(item.end_date), dayOffset), 'yyyy-MM-dd');
+      if (!item.start_date && !item.end_date) {
+        patch.start_date = targetDate;
+        patch.end_date = targetDate;
+      }
+      updateLineItem(item.id, patch);
+    });
+    setSelectedRowIds(movingIds);
+  }, [updateLineItem, versionLineItems]);
+
+  useEffect(() => {
+    setSelectedRowIds([]);
+  }, [activePlanningType, planningVersion, project.id]);
+
   useEffect(() => {
     if (!tableOnlyProduction) return;
     versionLineItems.forEach((item) => {
@@ -1240,6 +1362,9 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                 onUpdateLineItem={updateLineItem}
                 onFlushLineItem={flushLineItemUpdate}
                 onAddLabel={addLabel}
+                onMoveRows={moveRowsToDate}
+                selectedRowIds={selectedRowIds}
+                onSelectedRowIdsChange={setSelectedRowIds}
                 uncategorizedName={uncategorizedName}
                 columnPrefs={columnPrefs}
                 onColumnPrefsChange={updateColumnPrefs}
@@ -1325,6 +1450,9 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     onUpdateLineItem={updateLineItem}
                     onFlushLineItem={flushLineItemUpdate}
                     onAddLabel={addLabel}
+                    onMoveRows={moveRowsToDate}
+                    selectedRowIds={selectedRowIds}
+                    onSelectedRowIdsChange={setSelectedRowIds}
                     uncategorizedName={uncategorizedName}
                     columnPrefs={columnPrefs}
                     onColumnPrefsChange={updateColumnPrefs}

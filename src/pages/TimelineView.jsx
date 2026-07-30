@@ -826,8 +826,7 @@ export default function TimelineView({ project, planningType = DEFAULT_PLANNING_
     todo: activePlanningType === PLANNING_TYPES.production.key
       ? projectLabels
         .filter((label) => label.column_type === 'todo'
-          && !label.is_divider
-          && (label.project_id || PRODUCTION_TODO_LABELS.includes(label.value)))
+          && (label.is_divider || label.project_id || PRODUCTION_TODO_LABELS.includes(label.value)))
         .sort((a, b) => {
           const aIndex = PRODUCTION_TODO_LABELS.indexOf(a.value);
           const bIndex = PRODUCTION_TODO_LABELS.indexOf(b.value);

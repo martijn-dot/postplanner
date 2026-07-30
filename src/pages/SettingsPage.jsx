@@ -280,6 +280,9 @@ export default function SettingsPage() {
       .filter(Boolean),
     [appSettings?.defaultPlanning, whatLabels],
   );
+  const visibleLabelTypes = labelPlanningType === 'production'
+    ? LABEL_TYPES.filter((type) => type !== 'what')
+    : LABEL_TYPES;
 
   if (profile?.role !== 'admin') return <Navigate to="/" replace />;
 
@@ -453,7 +456,10 @@ export default function SettingsPage() {
               <button type="button" onClick={() => setLabelPlanningType('production')} className={`tab ${labelPlanningType === 'production' ? 'tab-active' : ''}`}>Production Planning</button>
             </div>
             <div className="grid gap-4 lg:grid-cols-3">
-            {LABEL_TYPES.map((type) => (
+            {visibleLabelTypes.map((type) => {
+              const supportsCategoryDivider = (labelPlanningType === 'post' && type === 'what')
+                || (labelPlanningType === 'production' && type === 'todo');
+              return (
               <section key={type} className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-ink-900">
                 <h2 className="mb-4 text-lg font-semibold capitalize">{type}</h2>
                 <form className="mb-4 space-y-2 rounded-lg border border-black/10 p-2 dark:border-white/10" onSubmit={(event) => { event.preventDefault(); createLabel(type); }}>
@@ -462,7 +468,7 @@ export default function SettingsPage() {
                       value={drafts[type]?.value ?? ''}
                       onChange={(event) => setDrafts((current) => ({ ...current, [type]: { color: '#6d5dfc', ...current[type], value: event.target.value } }))}
                       className="field !py-2"
-                      placeholder={type === 'what' && drafts[type]?.isDivider ? 'Divider name' : `Add ${type} label`}
+                      placeholder={supportsCategoryDivider && drafts[type]?.isDivider ? 'Divider name' : `Add ${type} label`}
                     />
                     <input
                       type="color"
@@ -472,7 +478,7 @@ export default function SettingsPage() {
                     />
                     <button type="submit" className="icon-button" aria-label="Add label"><Plus size={17} /></button>
                   </div>
-                  {type === 'what' && (
+                  {supportsCategoryDivider && (
                     <label className="flex items-center gap-2 px-1 text-xs font-semibold text-ink-500">
                       <input
                         type="checkbox"
@@ -493,7 +499,8 @@ export default function SettingsPage() {
                   </SortableContext>
                 </DndContext>
               </section>
-            ))}
+              );
+            })}
             </div>
           </div>
         )}

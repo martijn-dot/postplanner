@@ -5857,6 +5857,49 @@ body.public-share-body {
 }
 
 .client-planning-admin .client-table-shell { flex: 1; }
+
+.client-row-drag-cell {
+  background: rgba(15, 17, 26, 0.34);
+}
+
+.client-row-drag-handle {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #64748b;
+  cursor: grab;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+  width: 28px;
+}
+
+.client-row-drag-handle:hover,
+.client-row-drag-handle.is-selected {
+  background: rgba(109, 93, 252, 0.18);
+  border-color: rgba(128, 131, 255, 0.48);
+  color: #c7c0ff;
+}
+
+.client-row-drag-handle:active {
+  cursor: grabbing;
+  transform: scale(0.94);
+}
+
+.client-planning-table tr.client-row-selected > td {
+  box-shadow: inset 0 1px rgba(128, 131, 255, 0.32), inset 0 -1px rgba(128, 131, 255, 0.32);
+}
+
+.client-planning-table tr.client-row-selected > td:not(.week-cell) {
+  background-color: rgba(109, 93, 252, 0.1);
+}
+
+.client-planning-table tr.client-row-drop-target > td:not(.week-cell) {
+  background-color: rgba(49, 208, 170, 0.15) !important;
+  box-shadow: inset 0 2px #31d0aa, inset 0 -2px #31d0aa;
+}
+
 .client-planning-admin .client-category-list {
   --client-filter-stack-height: 64px;
   --client-sticky-gap: 16px;
@@ -6051,6 +6094,34 @@ body.public-share-body {
   font-size: 9px;
   line-height: 1.15;
   padding: 2px 6px;
+}
+
+.client-inline-time-control {
+  position: relative;
+  width: 100%;
+}
+
+.client-inline-time-control .field {
+  width: 100%;
+}
+
+.client-inline-time-arrow {
+  color: #948e9d;
+  pointer-events: none;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.client-inline-time-select {
+  bottom: 0;
+  cursor: pointer;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 22px;
 }
 
 .client-planning-admin.production-table-compact .client-planning-table .combined-date-chip {
