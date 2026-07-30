@@ -4404,9 +4404,7 @@ body.public-share-body {
   align-items: stretch;
   align-self: stretch;
   display: flex;
-  flex: 1;
-  gap: 8px;
-  min-width: 0;
+  flex: 0 0 36px;
 }
 
 .client-category-delete-button,
@@ -5696,6 +5694,19 @@ body.public-share-body {
   min-width: 0;
 }
 
+input.client-category-toggle-name {
+  border: 1px solid transparent;
+  outline: none;
+  padding-left: 14px;
+  padding-right: 14px;
+  width: 100%;
+}
+
+input.client-category-toggle-name:focus {
+  border-color: rgba(139, 92, 246, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.2);
+}
+
 .client-planning-admin .client-toolbar-actions {
   gap: 8px;
   justify-content: flex-end;
@@ -5885,6 +5896,27 @@ body.public-share-body {
 .client-row-drag-handle:active {
   cursor: grabbing;
   transform: scale(0.94);
+}
+
+.client-row-activate-button {
+  align-items: center;
+  background: rgba(109, 93, 252, 0.12);
+  border: 1px solid rgba(128, 131, 255, 0.36);
+  border-radius: 6px;
+  color: #c7c0ff;
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+  padding: 0 7px;
+  text-transform: uppercase;
+}
+
+.client-row-activate-button:hover {
+  background: rgba(109, 93, 252, 0.22);
+  border-color: rgba(128, 131, 255, 0.65);
+  color: #fff;
 }
 
 .client-planning-table tr.client-row-selected > td {

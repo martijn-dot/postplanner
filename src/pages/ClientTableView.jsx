@@ -51,6 +51,16 @@ function safePlanningType(value) {
   return PLANNING_TYPES[value]?.key ?? DEFAULT_PLANNING_TYPE;
 }
 
+function productionItemHasValues(item, labelsById) {
+  if (!item) return false;
+  const todoLabel = labelsById[item.todo]?.value?.trim().toLowerCase();
+  return (item.who?.length ?? 0) > 0
+    || Boolean(String(item.asset ?? '').trim())
+    || Boolean(item.todo && todoLabel !== 'none')
+    || Boolean(String(item.time ?? '').trim())
+    || Boolean(String(item.notes ?? '').trim());
+}
+
 function readClientColumnPrefs() {
   const defaultOrder = CLIENT_COLUMNS.map((column) => column.key);
   const defaultVisible = Object.fromEntries(CLIENT_COLUMNS.map((column) => [column.key, column.key !== 'calendar']));
@@ -178,7 +188,10 @@ export function buildClientPlanningRows(project, items, categories, labelsById, 
 
   return days.flatMap((day) => {
     const dateKey = format(day, 'yyyy-MM-dd');
-    const dayMilestones = milestonesByDate.get(dateKey) ?? [];
+    const scheduledMilestones = milestonesByDate.get(dateKey) ?? [];
+    const dayMilestones = isProduction && !showEmptyDates
+      ? scheduledMilestones.filter((item) => productionItemHasValues(item, labelsById))
+      : scheduledMilestones;
     const base = {
       Week: weekNumber(day),
       Day: format(day, 'EEEE'),
@@ -344,6 +357,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
   const [rowDropDate, setRowDropDate] = useState('');
+  const [activatedRowIds, setActivatedRowIds] = useState([]);
   const editingItem = editingItemId ? lineItems.find((item) => item.id === editingItemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const labelsByType = useMemo(() => ({
@@ -630,7 +644,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     )}
                     {hasRowDrag && (
                       <td className="client-row-drag-cell px-1 py-2 text-center">
-                        {row._item && (
+                        {row._item && (productionItemHasValues(row._item, labelsById) || activatedRowIds.includes(row._item.id) ? (
                           <button
                             type="button"
                             draggable
@@ -646,7 +660,19 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                           >
                             <GripVertical size={15} />
                           </button>
-                        )}
+                        ) : (
+                          <button
+                            type="button"
+                            className="client-row-activate-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActivatedRowIds((current) => current.includes(row._item.id) ? current : [...current, row._item.id]);
+                            }}
+                            aria-label={`Edit planning row for ${row.Date}`}
+                          >
+                            Edit
+                          </button>
+                        ))}
                       </td>
                     )}
                     {row._showDateGroup && (
@@ -661,6 +687,11 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     {orderedColumns.map((column) => {
                       const hiddenBooking = row._item && row._item.who?.some((id) => hiddenWhoIds.includes(id));
                       if (hiddenBooking) return <td key={column.key} data-client-column={column.key} className="px-4 py-3"></td>;
+                      const inactiveProductionRow = hasRowDrag
+                        && row._item
+                        && !productionItemHasValues(row._item, labelsById)
+                        && !activatedRowIds.includes(row._item.id);
+                      if (inactiveProductionRow) return <td key={column.key} data-client-column={column.key} className="px-2 py-2"></td>;
                       if (column.key === 'edit') return <td key={column.key} data-client-column={column.key} className="px-3 py-3">{row._item && onUpdateLineItem ? <button type="button" onClick={() => setEditingItemId(row._item.id)} className="client-edit-button">Edit</button> : null}</td>;
                       if (column.key === 'calendar') return (
                         <td key={column.key} data-client-column={column.key} className="px-3 py-3">
@@ -981,7 +1012,7 @@ export function ClientGanttChart({ project, lineItems, labels, categories, uncat
 }
 
 export default function ClientTableView({ project, planningType = DEFAULT_PLANNING_TYPE, planningVersion = 'V1' }) {
-  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, addCategory, deleteCategory, reorderCategories, addLineItem, deleteLineItem, addLabel } = usePlanner();
+  const { lineItems, labels, categories, shareLinks, createShareLink, revokeShareLink, updateLineItem, flushLineItemUpdate, updateCategory, addCategory, deleteCategory, reorderCategories, addLineItem, deleteLineItem, addLabel } = usePlanner();
   const activePlanningType = safePlanningType(planningType);
   const tableOnlyProduction = activePlanningType === PLANNING_TYPES.production.key && project.production_planning_view === 'table';
   const planningDefinition = PLANNING_TYPES[activePlanningType] ?? PLANNING_TYPES.post;
@@ -1009,6 +1040,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [draggedCategoryId, setDraggedCategoryId] = useState(null);
   const [categoryDropTarget, setCategoryDropTarget] = useState(null);
   const [selectedRowIds, setSelectedRowIds] = useState([]);
+  const [pendingRowOverwrite, setPendingRowOverwrite] = useState(null);
   const expandedProductionRangeIds = useRef(new Set());
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
@@ -1018,19 +1050,12 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   }), [labels]);
   const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion), [activePlanningType, lineItems, planningVersion, project.id]);
   const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion), [activePlanningType, categories, planningVersion, project.id]);
-  const moveRowValues = useCallback((sourceId, targetId) => {
+  const applyRowValueMove = useCallback((sourceId, targetId) => {
     const source = versionLineItems.find((item) => item.id === sourceId);
     const target = versionLineItems.find((item) => item.id === targetId);
     if (!source || !target || source.id === target.id) return;
 
     const noneTodoId = labels.find((label) => label.column_type === 'todo' && label.value.trim().toLowerCase() === 'none')?.id ?? '';
-    const targetHasValues = (target.who?.length ?? 0) > 0
-      || Boolean(String(target.asset ?? '').trim())
-      || Boolean(target.todo && target.todo !== noneTodoId)
-      || Boolean(String(target.time ?? '').trim())
-      || Boolean(String(target.notes ?? '').trim());
-    if (targetHasValues && !window.confirm('are you sure to overwrite the action of this day?')) return;
-
     updateLineItem(target.id, {
       who: [...(source.who ?? [])],
       asset: source.asset ?? '',
@@ -1049,6 +1074,23 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
     flushLineItemUpdate(source.id);
     setSelectedRowIds([target.id]);
   }, [flushLineItemUpdate, labels, updateLineItem, versionLineItems]);
+
+  const moveRowValues = useCallback((sourceId, targetId) => {
+    const source = versionLineItems.find((item) => item.id === sourceId);
+    const target = versionLineItems.find((item) => item.id === targetId);
+    if (!source || !target || source.id === target.id) return;
+    const noneTodoId = labels.find((label) => label.column_type === 'todo' && label.value.trim().toLowerCase() === 'none')?.id ?? '';
+    const targetHasValues = (target.who?.length ?? 0) > 0
+      || Boolean(String(target.asset ?? '').trim())
+      || Boolean(target.todo && target.todo !== noneTodoId)
+      || Boolean(String(target.time ?? '').trim())
+      || Boolean(String(target.notes ?? '').trim());
+    if (targetHasValues) {
+      setPendingRowOverwrite({ sourceId, targetId });
+      return;
+    }
+    applyRowValueMove(sourceId, targetId);
+  }, [applyRowValueMove, labels, versionLineItems]);
 
   useEffect(() => {
     setSelectedRowIds([]);
@@ -1429,12 +1471,25 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                         <GripVertical size={15} />
                       </button>
                   )}
-                  <button type="button" onClick={() => toggleCollapsedCategory(group.key)} className="client-category-toggle-button">
+                  <button type="button" onClick={() => toggleCollapsedCategory(group.key)} className="client-category-toggle-button" aria-label={`${collapsedCategoryKeys.includes(group.key) ? 'Expand' : 'Collapse'} ${group.name}`}>
                     <span className="client-category-toggle-icon">
                       {collapsedCategoryKeys.includes(group.key) ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                     </span>
-                    <span className="client-category-toggle-name">{group.name}</span>
                   </button>
+                  {category ? (
+                    <input
+                      className="client-category-toggle-name"
+                      value={category.name}
+                      onChange={(event) => updateCategory(category.id, { name: event.target.value })}
+                      onBlur={(event) => {
+                        if (!event.target.value.trim()) updateCategory(category.id, { name: 'Category' });
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') event.currentTarget.blur();
+                      }}
+                      aria-label={`Category name: ${category.name}`}
+                    />
+                  ) : <span className="client-category-toggle-name">{group.name}</span>}
                   {category && (
                     <button
                       type="button"
@@ -1477,6 +1532,33 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
           </div>
       ) : (
         <ClientGanttChart project={project} lineItems={filteredLineItems} labels={labels} categories={versionCategories} uncategorizedName={uncategorizedName} categoryMode="sections" collapsedCategoryKeys={collapsedCategoryKeys} onToggleCategory={toggleCollapsedCategory} dateWindow={dateWindow} compact planningType={activePlanningType} />
+      )}
+
+      {pendingRowOverwrite && (
+        <div className="fixed inset-0 z-[780] grid place-items-center bg-black/70 p-5" onMouseDown={() => setPendingRowOverwrite(null)}>
+          <section className="w-full max-w-md rounded-xl border border-white/10 bg-ink-900 p-5 shadow-glow" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Overwrite this day?</h2>
+                <p className="mt-2 text-sm text-ink-400">Are you sure you want to overwrite the action of this day?</p>
+              </div>
+              <button type="button" className="icon-button shrink-0" onClick={() => setPendingRowOverwrite(null)} aria-label="Close overwrite confirmation"><X size={17} /></button>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="secondary-button" onClick={() => setPendingRowOverwrite(null)}>Cancel</button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  applyRowValueMove(pendingRowOverwrite.sourceId, pendingRowOverwrite.targetId);
+                  setPendingRowOverwrite(null);
+                }}
+              >
+                Overwrite
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
       {createPlanningOpen && (
