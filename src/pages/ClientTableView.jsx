@@ -397,21 +397,20 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     }
   };
   const startRowDrag = (event, itemId) => {
-    const movingIds = selectedRowIdSet.has(itemId) ? selectedRowIds : [itemId];
-    if (!selectedRowIdSet.has(itemId)) onSelectedRowIdsChange?.(movingIds);
-    const payload = JSON.stringify({ sourceId: itemId, itemIds: movingIds });
+    onSelectedRowIdsChange?.([itemId]);
+    const payload = JSON.stringify({ sourceId: itemId });
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('application/x-roval-planning-rows', payload);
     event.dataTransfer.setData('text/plain', payload);
   };
-  const dropRows = (event, targetDate) => {
+  const dropRows = (event, targetItemId) => {
     event.preventDefault();
     event.stopPropagation();
     setRowDropDate('');
     const raw = event.dataTransfer.getData('application/x-roval-planning-rows') || event.dataTransfer.getData('text/plain');
     try {
       const payload = JSON.parse(raw);
-      if (payload?.sourceId && Array.isArray(payload.itemIds)) onMoveRows(payload.sourceId, payload.itemIds, targetDate);
+      if (payload?.sourceId && targetItemId) onMoveRows(payload.sourceId, targetItemId);
     } catch {
       // Ignore unrelated drag data.
     }
@@ -528,7 +527,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
     <>
       <div className="client-table-shell overflow-hidden rounded-xl border shadow-2xl">
         <div className="client-table-scroll max-h-[calc(100vh-15rem)] overflow-auto">
-          <table className="client-planning-table border-collapse text-sm" style={{ width: tableWidth, minWidth: tableWidth, tableLayout: 'fixed' }}>
+          <table className="client-planning-table w-full border-collapse text-sm" style={{ minWidth: tableWidth, tableLayout: 'fixed' }}>
             <colgroup>
               {showWeekColumn && <col className="w-[58px]" />}
               {hasRowDrag && <col className="w-[38px]" />}
@@ -621,7 +620,7 @@ export function ClientPlanningTable({ project, lineItems, labels, categories, sh
                     onDragLeave={hasRowDrag ? (event) => {
                       if (!event.currentTarget.contains(event.relatedTarget)) setRowDropDate('');
                     } : undefined}
-                    onDrop={hasRowDrag ? (event) => dropRows(event, row._dateKey) : undefined}
+                    onDrop={hasRowDrag ? (event) => dropRows(event, row._item?.id) : undefined}
                     className={`${row._isWeekend ? 'bg-zinc-200/70 dark:bg-white/[0.07]' : ''} ${row._isToday ? 'today-row' : ''} ${row._item?.row_color ? `client-row-color-${row._item.row_color}` : ''} ${row._item && selectedRowIdSet.has(row._item.id) ? 'client-row-selected' : ''} ${rowDropDate === row._dateKey ? 'client-row-drop-target' : ''} border-t border-black/5 dark:border-white/5`}
                   >
                     {showWeekColumn && row._showWeek && (
@@ -1019,27 +1018,37 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   }), [labels]);
   const versionLineItems = useMemo(() => lineItems.filter((item) => item.project_id === project.id && safePlanningType(item.planning_type) === activePlanningType && (item.planning_version ?? 'V1') === planningVersion), [activePlanningType, lineItems, planningVersion, project.id]);
   const versionCategories = useMemo(() => categories.filter((category) => category.project_id === project.id && safePlanningType(category.planning_type) === activePlanningType && (category.planning_version ?? 'V1') === planningVersion), [activePlanningType, categories, planningVersion, project.id]);
-  const moveRowsToDate = useCallback((sourceId, itemIds, targetDate) => {
+  const moveRowValues = useCallback((sourceId, targetId) => {
     const source = versionLineItems.find((item) => item.id === sourceId);
-    const sourceAnchor = source?.end_date || source?.start_date;
-    if (!source || !sourceAnchor || !targetDate) return;
+    const target = versionLineItems.find((item) => item.id === targetId);
+    if (!source || !target || source.id === target.id) return;
 
-    const dayOffset = differenceInCalendarDays(parseISO(targetDate), parseISO(sourceAnchor));
-    const movingIds = [...new Set(itemIds)].filter((itemId) => versionLineItems.some((item) => item.id === itemId));
-    movingIds.forEach((itemId) => {
-      const item = versionLineItems.find((entry) => entry.id === itemId);
-      if (!item) return;
-      const patch = {};
-      if (item.start_date) patch.start_date = format(addDays(parseISO(item.start_date), dayOffset), 'yyyy-MM-dd');
-      if (item.end_date) patch.end_date = format(addDays(parseISO(item.end_date), dayOffset), 'yyyy-MM-dd');
-      if (!item.start_date && !item.end_date) {
-        patch.start_date = targetDate;
-        patch.end_date = targetDate;
-      }
-      updateLineItem(item.id, patch);
+    const noneTodoId = labels.find((label) => label.column_type === 'todo' && label.value.trim().toLowerCase() === 'none')?.id ?? '';
+    const targetHasValues = (target.who?.length ?? 0) > 0
+      || Boolean(String(target.asset ?? '').trim())
+      || Boolean(target.todo && target.todo !== noneTodoId)
+      || Boolean(String(target.time ?? '').trim())
+      || Boolean(String(target.notes ?? '').trim());
+    if (targetHasValues && !window.confirm('are you sure to overwrite the action of this day?')) return;
+
+    updateLineItem(target.id, {
+      who: [...(source.who ?? [])],
+      asset: source.asset ?? '',
+      todo: source.todo || noneTodoId,
+      time: source.time ?? '',
+      notes: source.notes ?? '',
     });
-    setSelectedRowIds(movingIds);
-  }, [updateLineItem, versionLineItems]);
+    updateLineItem(source.id, {
+      who: [],
+      asset: '',
+      todo: noneTodoId,
+      time: '',
+      notes: '',
+    });
+    flushLineItemUpdate(target.id);
+    flushLineItemUpdate(source.id);
+    setSelectedRowIds([target.id]);
+  }, [flushLineItemUpdate, labels, updateLineItem, versionLineItems]);
 
   useEffect(() => {
     setSelectedRowIds([]);
@@ -1362,7 +1371,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                 onUpdateLineItem={updateLineItem}
                 onFlushLineItem={flushLineItemUpdate}
                 onAddLabel={addLabel}
-                onMoveRows={moveRowsToDate}
+                onMoveRows={moveRowValues}
                 selectedRowIds={selectedRowIds}
                 onSelectedRowIdsChange={setSelectedRowIds}
                 uncategorizedName={uncategorizedName}
@@ -1450,7 +1459,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     onUpdateLineItem={updateLineItem}
                     onFlushLineItem={flushLineItemUpdate}
                     onAddLabel={addLabel}
-                    onMoveRows={moveRowsToDate}
+                    onMoveRows={moveRowValues}
                     selectedRowIds={selectedRowIds}
                     onSelectedRowIdsChange={setSelectedRowIds}
                     uncategorizedName={uncategorizedName}
