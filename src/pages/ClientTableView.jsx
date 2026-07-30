@@ -351,13 +351,17 @@ function OverflowNote({ note, onOpen }) {
   );
 }
 
-export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, onMoveRows, selectedRowIds = [], onSelectedRowIdsChange, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
+export function ClientPlanningTable({ project, lineItems, labels, categories, showEmptyDates, onUpdateLineItem, onFlushLineItem, onAddLabel, onMoveRows, selectedRowIds = [], onSelectedRowIdsChange, resetRowActivation, uncategorizedName = 'Uncategorized', columnPrefs, onColumnPrefsChange, forceHideCategoryColumn = false, dateWindow = 'future', hiddenWhoIds = [], showWeekColumn = true, publicCardLayout = false, planningType = DEFAULT_PLANNING_TYPE, showHeader = true, headerOnly = false }) {
   const isProduction = safePlanningType(planningType) === PLANNING_TYPES.production.key;
   const [editingItemId, setEditingItemId] = useState(null);
   const [draggedColumn, setDraggedColumn] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
   const [rowDropDate, setRowDropDate] = useState('');
   const [activatedRowIds, setActivatedRowIds] = useState([]);
+  useEffect(() => {
+    if (!resetRowActivation?.id) return;
+    setActivatedRowIds((current) => current.filter((id) => id !== resetRowActivation.id));
+  }, [resetRowActivation]);
   const editingItem = editingItemId ? lineItems.find((item) => item.id === editingItemId) : null;
   const labelsById = useMemo(() => Object.fromEntries(labels.map((label) => [label.id, label])), [labels]);
   const labelsByType = useMemo(() => ({
@@ -1041,6 +1045,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
   const [categoryDropTarget, setCategoryDropTarget] = useState(null);
   const [selectedRowIds, setSelectedRowIds] = useState([]);
   const [pendingRowOverwrite, setPendingRowOverwrite] = useState(null);
+  const [resetRowActivation, setResetRowActivation] = useState(null);
   const expandedProductionRangeIds = useRef(new Set());
   const planningViewRef = useRef(null);
   const uncategorizedName = uncategorizedNames[project.id] || 'Uncategorized';
@@ -1073,6 +1078,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
     flushLineItemUpdate(target.id);
     flushLineItemUpdate(source.id);
     setSelectedRowIds([target.id]);
+    setResetRowActivation({ id: source.id, token: Date.now() });
   }, [flushLineItemUpdate, labels, updateLineItem, versionLineItems]);
 
   const moveRowValues = useCallback((sourceId, targetId) => {
@@ -1416,6 +1422,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                 onMoveRows={moveRowValues}
                 selectedRowIds={selectedRowIds}
                 onSelectedRowIdsChange={setSelectedRowIds}
+                resetRowActivation={resetRowActivation}
                 uncategorizedName={uncategorizedName}
                 columnPrefs={columnPrefs}
                 onColumnPrefsChange={updateColumnPrefs}
@@ -1517,6 +1524,7 @@ export default function ClientTableView({ project, planningType = DEFAULT_PLANNI
                     onMoveRows={moveRowValues}
                     selectedRowIds={selectedRowIds}
                     onSelectedRowIdsChange={setSelectedRowIds}
+                    resetRowActivation={resetRowActivation}
                     uncategorizedName={uncategorizedName}
                     columnPrefs={columnPrefs}
                     onColumnPrefsChange={updateColumnPrefs}
