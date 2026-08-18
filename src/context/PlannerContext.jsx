@@ -1381,56 +1381,61 @@ export function PlannerProvider({ children }) {
           void saveSupabase('planning module shares revoke', supabase.from('public_share_links').update({ revoked_at: new Date().toISOString() }).eq('project_id', projectId).eq('planning_type', safeType).is('revoked_at', null));
         }
       }),
-      duplicateProjectPlanning: (projectId, sourceVersion = DEFAULT_PLANNING_VERSION, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
-        const project = draft.projects.find((item) => item.id === projectId);
-        if (!project) return null;
-        const safeType = planningType(type);
-        const versions = planningVersionsFor(projectId, safeType, draft.categories, draft.lineItems, safeType === DEFAULT_PLANNING_TYPE ? project : null);
-        const nextVersion = nextPlanningVersion(versions);
-        if (!nextVersion) return null;
-        const safeSourceVersion = versions.includes(sourceVersion) ? sourceVersion : versions[0] ?? DEFAULT_PLANNING_VERSION;
-        const sourceCategories = draft.categories
-          .filter((item) => item.project_id === projectId && planningType(item.planning_type) === safeType && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === safeSourceVersion)
-          .sort((a, b) => a.sort_order - b.sort_order);
-        const sourceRows = draft.lineItems
-          .filter((item) => item.project_id === projectId && planningType(item.planning_type) === safeType && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === safeSourceVersion)
-          .sort((a, b) => a.sort_order - b.sort_order);
-        const categoryIdMap = Object.fromEntries(sourceCategories.map((category) => [category.id, id()]));
-        const newCategories = sourceCategories.map((category) => ({
-          ...category,
-          id: categoryIdMap[category.id],
-          planning_type: safeType,
-          planning_version: nextVersion,
-          collapsed: false,
-        }));
-        const newRows = sourceRows.map((item) => ({
-          ...item,
-          id: id(),
-          planning_type: safeType,
-          planning_version: nextVersion,
-          category_id: item.category_id ? categoryIdMap[item.category_id] ?? null : null,
-        }));
-        if (safeType === DEFAULT_PLANNING_TYPE) project.planning_versions = [...versions, nextVersion];
-        draft.categories.push(...newCategories);
-        draft.lineItems.push(...newRows);
-        markDirty(projectId);
-        if (useSupabase) {
-          if (safeType === DEFAULT_PLANNING_TYPE) void saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: project.planning_versions }).eq('id', projectId));
-          void (async () => {
-            try {
-              if (newCategories.length) {
-                await saveCategoryInsert('planning version categories', newCategories, { throwOnError: true });
-              }
-              if (newRows.length) {
-                await saveLineItemUpsert('planning version line items', newRows, { throwOnError: true });
-              }
-            } catch {
-              // saveSupabase has already shown the exact database error.
-            }
-          })();
+      duplicateProjectPlanning: async (projectId, sourceVersion = DEFAULT_PLANNING_VERSION, type = DEFAULT_PLANNING_TYPE) => {
+        if (useSupabase && !loadedProjectIdsRef.current.has(projectId)) {
+          await loadProjectData(projectId);
         }
-        return nextVersion;
-      }),
+        return mutate((draft) => {
+          const project = draft.projects.find((item) => item.id === projectId);
+          if (!project) return null;
+          const safeType = planningType(type);
+          const versions = planningVersionsFor(projectId, safeType, draft.categories, draft.lineItems, safeType === DEFAULT_PLANNING_TYPE ? project : null);
+          const nextVersion = nextPlanningVersion(versions);
+          if (!nextVersion) return null;
+          const safeSourceVersion = versions.includes(sourceVersion) ? sourceVersion : versions[0] ?? DEFAULT_PLANNING_VERSION;
+          const sourceCategories = draft.categories
+            .filter((item) => item.project_id === projectId && planningType(item.planning_type) === safeType && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === safeSourceVersion)
+            .sort((a, b) => a.sort_order - b.sort_order);
+          const sourceRows = draft.lineItems
+            .filter((item) => item.project_id === projectId && planningType(item.planning_type) === safeType && (item.planning_version ?? DEFAULT_PLANNING_VERSION) === safeSourceVersion)
+            .sort((a, b) => a.sort_order - b.sort_order);
+          const categoryIdMap = Object.fromEntries(sourceCategories.map((category) => [category.id, id()]));
+          const newCategories = sourceCategories.map((category) => ({
+            ...category,
+            id: categoryIdMap[category.id],
+            planning_type: safeType,
+            planning_version: nextVersion,
+            collapsed: false,
+          }));
+          const newRows = sourceRows.map((item) => ({
+            ...item,
+            id: id(),
+            planning_type: safeType,
+            planning_version: nextVersion,
+            category_id: item.category_id ? categoryIdMap[item.category_id] ?? null : null,
+          }));
+          if (safeType === DEFAULT_PLANNING_TYPE) project.planning_versions = [...versions, nextVersion];
+          draft.categories.push(...newCategories);
+          draft.lineItems.push(...newRows);
+          markDirty(projectId);
+          if (useSupabase) {
+            if (safeType === DEFAULT_PLANNING_TYPE) void saveSupabase('project planning versions', supabase.from('projects').update({ planning_versions: project.planning_versions }).eq('id', projectId));
+            void (async () => {
+              try {
+                if (newCategories.length) {
+                  await saveCategoryInsert('planning version categories', newCategories, { throwOnError: true });
+                }
+                if (newRows.length) {
+                  await saveLineItemUpsert('planning version line items', newRows, { throwOnError: true });
+                }
+              } catch {
+                // saveSupabase has already shown the exact database error.
+              }
+            })();
+          }
+          return nextVersion;
+        });
+      },
       deleteProjectPlanningVersion: (projectId, version, type = DEFAULT_PLANNING_TYPE) => mutate((draft) => {
         const project = draft.projects.find((item) => item.id === projectId);
         if (!project) return;
